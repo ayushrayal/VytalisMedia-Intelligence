@@ -1,8 +1,9 @@
 import React from "react";
+import { AlertCircle, RotateCcw } from "lucide-react";
 
 /**
  * Generic ErrorState UI Primitive.
- * Uses #E5484D error token with clean light styling.
+ * Professional SaaS error alert container.
  */
 export const ErrorState = ({
   title = "Failed to load data",
@@ -18,14 +19,28 @@ export const ErrorState = ({
         justifyContent: "center",
         padding: "36px 24px",
         textAlign: "center",
-        backgroundColor: "var(--color-error-light, rgba(229, 72, 77, 0.08))",
-        borderRadius: "var(--radius-card, 16px)",
-        border: "1px solid rgba(229, 72, 77, 0.20)",
-        color: "var(--color-error, #E5484D)",
+        backgroundColor: "rgba(220, 38, 38, 0.04)",
+        borderRadius: "var(--radius-card, 12px)",
+        border: "1px solid rgba(220, 38, 38, 0.16)",
+        color: "var(--color-error, #DC2626)",
       }}
     >
-      <div style={{ fontSize: "2rem", marginBottom: "8px" }}>⚠️</div>
-      <h4 style={{ margin: "0 0 6px 0", fontSize: "1.1rem", color: "var(--color-error, #E5484D)", fontWeight: "650" }}>{title}</h4>
+      <div
+        style={{
+          width: "44px",
+          height: "44px",
+          borderRadius: "10px",
+          backgroundColor: "rgba(220, 38, 38, 0.08)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#DC2626",
+          marginBottom: "12px",
+        }}
+      >
+        <AlertCircle size={22} strokeWidth={2} />
+      </div>
+      <h4 style={{ margin: "0 0 6px 0", fontSize: "1.05rem", color: "#DC2626", fontWeight: "650" }}>{title}</h4>
       <p style={{ margin: "0 0 16px 0", fontSize: "0.875rem", color: "var(--color-text-secondary, #64748B)", maxWidth: "450px" }}>
         {message}
       </p>
@@ -33,16 +48,22 @@ export const ErrorState = ({
         <button
           onClick={onRetry}
           style={{
-            height: "40px",
-            padding: "0 18px",
-            backgroundColor: "var(--color-error, #E5484D)",
+            height: "36px",
+            padding: "0 16px",
+            backgroundColor: "#DC2626",
             color: "#FFFFFF",
             border: "none",
-            borderRadius: "var(--radius-button, 10px)",
+            borderRadius: "var(--radius-button, 8px)",
+            fontSize: "0.825rem",
             fontWeight: "600",
             cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
           }}
         >
+          <RotateCcw size={14} />
           Try Again
         </button>
       )}

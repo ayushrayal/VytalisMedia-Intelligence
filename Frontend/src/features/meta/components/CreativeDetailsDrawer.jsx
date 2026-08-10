@@ -6,6 +6,7 @@ import VideoPerformanceSection from "./VideoPerformanceSection.jsx";
 import CreativePreviewSection from "./CreativePreviewSection.jsx";
 import CampaignAdSetSection from "./CampaignAdSetSection.jsx";
 import CreativeLinksSection from "./CreativeLinksSection.jsx";
+import { X } from "lucide-react";
 
 /**
  * CreativeDetailsDrawer Component.
@@ -98,8 +99,8 @@ export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
           maxWidth: "600px",
           height: "100vh",
           backgroundColor: "#FFFFFF",
-          borderLeft: "1px solid var(--color-border, #E8EAED)",
-          boxShadow: "-10px 0 30px rgba(15, 23, 42, 0.1)",
+          borderLeft: "1px solid var(--color-border, #E5E7EB)",
+          boxShadow: "var(--shadow-dropdown, 0 10px 15px -3px rgba(15, 23, 42, 0.08))",
           display: "flex",
           flexDirection: "column",
           borderRadius: "16px 0 0 16px",
@@ -111,7 +112,7 @@ export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
         <div
           style={{
             padding: "20px 24px",
-            borderBottom: "1px solid var(--color-border, #E8EAED)",
+            borderBottom: "1px solid var(--color-border, #E5E7EB)",
             backgroundColor: "#FFFFFF",
             display: "flex",
             alignItems: "flex-start",
@@ -124,20 +125,20 @@ export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
         >
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginBottom: "6px" }}>
-              <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: "700", color: "var(--color-text-primary, #111827)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {creative.ad_name || creative.creative_name || "Creative Details"}
               </h3>
               <StatusBadge status={rawStatus} />
             </div>
 
             {creative.campaign && (
-              <div style={{ fontSize: "0.85rem", color: "var(--color-text-secondary, #64748B)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: "0.825rem", color: "var(--color-text-secondary, #64748B)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 <strong>Campaign:</strong> {creative.campaign}
               </div>
             )}
 
             {creative.date && (
-              <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", marginTop: "2px" }}>
+              <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", marginTop: "2px" }}>
                 Date: {creative.date}
               </div>
             )}
@@ -151,19 +152,25 @@ export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
               width: "32px",
               height: "32px",
               borderRadius: "8px",
-              border: "1px solid var(--color-border, #E8EAED)",
-              backgroundColor: "var(--color-surface, #F7F9FC)",
+              border: "1px solid var(--color-border, #E5E7EB)",
+              backgroundColor: "#FFFFFF",
               color: "var(--color-text-secondary, #64748B)",
-              fontSize: "1.2rem",
-              fontWeight: "bold",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               transition: "all 0.15s ease",
             }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--color-surface-subtle, #F1F5F9)";
+              e.currentTarget.style.color = "#0F172A";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#FFFFFF";
+              e.currentTarget.style.color = "var(--color-text-secondary, #64748B)";
+            }}
           >
-            ×
+            <X size={18} />
           </button>
         </div>
 

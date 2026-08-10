@@ -6,10 +6,11 @@ import React from "react";
 export const getNormalizedStatus = (rawStatus) => {
   if (!rawStatus) return "UNKNOWN";
   const s = String(rawStatus).trim().toUpperCase().replace(/\s+/g, "_");
-  if (s === "ACTIVE" || s === "ENABLED") return "ACTIVE";
+  if (s === "ACTIVE" || s === "ENABLED" || s === "CONNECTED") return "ACTIVE";
   if (s === "PAUSED" || s === "DISABLED") return "PAUSED";
   if (s === "ADSET_PAUSED" || s === "AD_SET_PAUSED") return "ADSET_PAUSED";
   if (s === "CAMPAIGN_PAUSED") return "CAMPAIGN_PAUSED";
+  if (s.includes("REAUTH") || s.includes("EXPIRED") || s.includes("ERROR")) return "ERROR";
   if (s.includes("PAUSED")) return "PAUSED";
   return s;
 };
@@ -24,51 +25,60 @@ export const getStatusLabel = (normalizedStatus) => {
       return "Ad Set Paused";
     case "CAMPAIGN_PAUSED":
       return "Campaign Paused";
+    case "ERROR":
+      return "Action Required";
     default:
       return normalizedStatus;
   }
 };
 
-export const getStatusStyles = (normalizedStatus) => {
+export const getStatusConfig = (normalizedStatus) => {
   switch (normalizedStatus) {
     case "ACTIVE":
-      return { backgroundColor: "#DCFCE7", color: "#16A34A" };
+      return { bg: "rgba(22, 163, 74, 0.08)", text: "#16A34A", dot: "#16A34A" };
     case "PAUSED":
     case "ADSET_PAUSED":
-      return { backgroundColor: "#FEF3C7", color: "#F59E0B" };
+      return { bg: "rgba(245, 158, 11, 0.08)", text: "#D97706", dot: "#F59E0B" };
     case "CAMPAIGN_PAUSED":
-      return { backgroundColor: "#FEE2E2", color: "#E5484D" };
+    case "ERROR":
+      return { bg: "rgba(220, 38, 38, 0.08)", text: "#DC2626", dot: "#DC2626" };
     default:
-      return { backgroundColor: "#F1F5F9", color: "#64748B" };
+      return { bg: "#F1F5F9", text: "#64748B", dot: "#94A3B8" };
   }
 };
 
 /**
  * Reusable StatusBadge component for Meta entities.
- * Semantic status colors:
- * ACTIVE: #DCFCE7 bg, #16A34A text
- * PAUSED / ADSET_PAUSED: #FEF3C7 bg, #F59E0B text
- * CAMPAIGN_PAUSED: #FEE2E2 bg, #E5484D text
- * Unknown: #F1F5F9 bg, #64748B text
+ * Displays a subtle tinted background badge with a 6px status dot indicator.
  */
 export const StatusBadge = ({ status }) => {
   const normalized = getNormalizedStatus(status);
   const label = getStatusLabel(normalized);
-  const styles = getStatusStyles(normalized);
+  const config = getStatusConfig(normalized);
 
   return (
     <span
       style={{
         display: "inline-flex",
         alignItems: "center",
-        padding: "5px 10px",
+        gap: "6px",
+        padding: "3px 9px",
         borderRadius: "999px",
-        fontSize: "12px",
+        fontSize: "0.75rem",
         fontWeight: "600",
         whiteSpace: "nowrap",
-        ...styles,
+        backgroundColor: config.bg,
+        color: config.text,
       }}
     >
+      <span
+        style={{
+          width: "6px",
+          height: "6px",
+          borderRadius: "50%",
+          backgroundColor: config.dot,
+        }}
+      />
       {label}
     </span>
   );

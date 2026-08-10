@@ -1,40 +1,49 @@
-/* Vytalis Intelligence Design Tokens */
+/* Vytalis Intelligence Premium SaaS Design Tokens */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --color-background: #FFFFFF;
-  --color-surface: #F7F9FC;
-  --color-surface-hover: #F2F8FF;
-  --color-border: #E8EAED;
+  /* Surfaces & Backgrounds */
+  --color-background: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-surface-subtle: #F1F5F9;
+  --color-surface-hover: #F8FAFC;
+  --color-border: #E5E7EB;
+  --color-border-subtle: #F1F5F9;
 
+  /* Brand Accents */
   --color-primary: #0A84FF;
   --color-primary-hover: #0060DF;
-  --color-primary-light: #EAF3FF;
+  --color-primary-light: rgba(10, 132, 255, 0.08);
 
+  /* Status Colors */
   --color-success: #16A34A;
-  --color-success-light: rgba(22, 163, 74, 0.10);
+  --color-success-light: rgba(22, 163, 74, 0.08);
 
-  --color-error: #E5484D;
-  --color-error-light: rgba(229, 72, 77, 0.10);
+  --color-error: #DC2626;
+  --color-error-light: rgba(220, 38, 38, 0.08);
 
   --color-warning: #F59E0B;
-  --color-warning-light: rgba(245, 158, 11, 0.10);
+  --color-warning-light: rgba(245, 158, 11, 0.08);
 
-  --color-text-primary: #111827;
+  /* Text Contrast Hierarchy */
+  --color-text-primary: #0F172A;
   --color-text-secondary: #64748B;
   --color-text-muted: #94A3B8;
 
-  --gradient-hero: linear-gradient(#F2F8FF, #EAF3FF);
+  /* Shadows */
+  --shadow-subtle: 0 1px 3px rgba(15, 23, 42, 0.03), 0 1px 2px rgba(15, 23, 42, 0.02);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+  --shadow-dropdown: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.03);
 
-  --shadow-subtle: 0 2px 8px rgba(15, 23, 42, 0.04);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 6px -1px rgba(0, 0, 0, 0.03);
-
+  /* Border Radii */
   --radius-pill: 999px;
-  --radius-card: 16px;
-  --radius-input: 10px;
-  --radius-button: 10px;
-  --radius-nav: 10px;
+  --radius-card: 12px;
+  --radius-input: 8px;
+  --radius-button: 8px;
+  --radius-nav: 8px;
 
-  --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* Font Family */
+  --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 * {
@@ -54,33 +63,34 @@ body {
 
 /* Typography Hierarchy */
 h1 {
-  font-size: 1.85rem; /* ~30px */
+  font-size: 1.75rem; /* ~28px */
   font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--color-text-primary);
+  line-height: 1.25;
 }
 
 h2 {
-  font-size: 1.5rem; /* ~24px */
+  font-size: 1.35rem; /* ~22px */
   font-weight: 700;
   letter-spacing: -0.3px;
   color: var(--color-text-primary);
 }
 
 h3 {
-  font-size: 1.2rem; /* ~19px */
+  font-size: 1.15rem; /* ~18px */
   font-weight: 650;
   letter-spacing: -0.2px;
   color: var(--color-text-primary);
 }
 
 h4 {
-  font-size: 1.05rem; /* ~17px */
+  font-size: 1rem; /* ~16px */
   font-weight: 650;
   color: var(--color-text-primary);
 }
 
-p, span, td, th {
+p, span, td, th, input, select, button {
   font-family: var(--font-family);
 }
 

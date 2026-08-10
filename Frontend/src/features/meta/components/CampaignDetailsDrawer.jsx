@@ -4,6 +4,7 @@ import StatusBadge from "./StatusBadge.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Button from "../../../components/ui/Button.jsx";
+import { X, Play, ExternalLink, Image as ImageIcon, Layers, BarChart3 } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
@@ -152,8 +153,8 @@ export const CampaignDetailsDrawer = ({
           maxWidth: "780px",
           height: "100vh",
           backgroundColor: "#FFFFFF",
-          borderLeft: "1px solid var(--color-border, #E8EAED)",
-          boxShadow: "-10px 0 30px rgba(15, 23, 42, 0.1)",
+          borderLeft: "1px solid var(--color-border, #E5E7EB)",
+          boxShadow: "var(--shadow-dropdown, 0 10px 15px -3px rgba(15, 23, 42, 0.08))",
           display: "flex",
           flexDirection: "column",
           borderRadius: "16px 0 0 16px",
@@ -165,7 +166,7 @@ export const CampaignDetailsDrawer = ({
         <div
           style={{
             padding: "20px 24px",
-            borderBottom: "1px solid var(--color-border, #E8EAED)",
+            borderBottom: "1px solid var(--color-border, #E5E7EB)",
             backgroundColor: "#FFFFFF",
             display: "flex",
             alignItems: "flex-start",
@@ -188,9 +189,9 @@ export const CampaignDetailsDrawer = ({
                   <h3
                     style={{
                       margin: 0,
-                      fontSize: "1.25rem",
+                      fontSize: "1.2rem",
                       fontWeight: "700",
-                      color: "var(--color-text-primary, #111827)",
+                      color: "var(--color-text-primary, #0F172A)",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -201,7 +202,7 @@ export const CampaignDetailsDrawer = ({
                   <StatusBadge status={campaign.status || "ACTIVE"} />
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap", fontSize: "0.85rem", color: "var(--color-text-secondary, #64748B)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap", fontSize: "0.825rem", color: "var(--color-text-secondary, #64748B)" }}>
                   {campaign.objective && (
                     <span>
                       <strong>Objective:</strong> {campaign.objective}
@@ -223,19 +224,25 @@ export const CampaignDetailsDrawer = ({
               width: "32px",
               height: "32px",
               borderRadius: "8px",
-              border: "1px solid var(--color-border, #E8EAED)",
-              backgroundColor: "var(--color-surface, #F7F9FC)",
+              border: "1px solid var(--color-border, #E5E7EB)",
+              backgroundColor: "#FFFFFF",
               color: "var(--color-text-secondary, #64748B)",
-              fontSize: "1.2rem",
-              fontWeight: "bold",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               transition: "all 0.15s ease",
             }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--color-surface-subtle, #F1F5F9)";
+              e.currentTarget.style.color = "#0F172A";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "#FFFFFF";
+              e.currentTarget.style.color = "var(--color-text-secondary, #64748B)";
+            }}
           >
-            ×
+            <X size={18} />
           </button>
         </div>
 
@@ -243,7 +250,7 @@ export const CampaignDetailsDrawer = ({
         <div
           style={{
             display: "flex",
-            borderBottom: "1px solid var(--color-border, #E8EAED)",
+            borderBottom: "1px solid var(--color-border, #E5E7EB)",
             backgroundColor: "#FFFFFF",
             padding: "0 24px",
             position: "sticky",
@@ -252,28 +259,33 @@ export const CampaignDetailsDrawer = ({
           }}
         >
           {[
-            { id: "adsets", label: `Ad Sets ${adSets.length ? `(${adSets.length})` : ""}` },
-            { id: "creatives", label: `Creatives ${creatives.length ? `(${creatives.length})` : ""}` },
-            { id: "performance", label: "Performance" },
+            { id: "adsets", label: `Ad Sets ${adSets.length ? `(${adSets.length})` : ""}`, icon: Layers },
+            { id: "creatives", label: `Creatives ${creatives.length ? `(${creatives.length})` : ""}`, icon: ImageIcon },
+            { id: "performance", label: "Performance", icon: BarChart3 },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
+            const TabIcon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 style={{
-                  padding: "14px 20px",
+                  padding: "12px 18px",
                   border: "none",
                   borderBottom: isActive ? "2px solid #0A84FF" : "2px solid transparent",
-                  backgroundColor: isActive ? "rgba(10, 132, 255, 0.04)" : "transparent",
+                  backgroundColor: "transparent",
                   color: isActive ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
-                  fontWeight: isActive ? "700" : "500",
-                  fontSize: "0.9rem",
+                  fontWeight: isActive ? "650" : "500",
+                  fontSize: "0.85rem",
                   cursor: "pointer",
                   transition: "all 0.15s ease",
                   outline: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
                 }}
               >
+                <TabIcon size={16} />
                 {tab.label}
               </button>
             );
@@ -305,7 +317,7 @@ export const CampaignDetailsDrawer = ({
               {activeTab === "adsets" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
+                    <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
                       Ad Sets ({adSets.length})
                     </h4>
                   </div>
@@ -315,9 +327,9 @@ export const CampaignDetailsDrawer = ({
                       style={{
                         padding: "40px 20px",
                         textAlign: "center",
-                        backgroundColor: "var(--color-surface, #F7F9FC)",
+                        backgroundColor: "var(--color-surface, #FFFFFF)",
                         borderRadius: "12px",
-                        border: "1px solid var(--color-border, #E8EAED)",
+                        border: "1px dashed var(--color-border, #E5E7EB)",
                         color: "var(--color-text-secondary, #64748B)",
                       }}
                     >
@@ -327,16 +339,16 @@ export const CampaignDetailsDrawer = ({
                     <div
                       style={{
                         backgroundColor: "#FFFFFF",
-                        borderRadius: "14px",
-                        border: "1px solid var(--color-border, #E8EAED)",
+                        borderRadius: "12px",
+                        border: "1px solid var(--color-border, #E5E7EB)",
                         overflow: "hidden",
-                        boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+                        boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
                       }}
                     >
                       <div style={{ overflowX: "auto" }}>
                         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                           <thead>
-                            <tr style={{ borderBottom: "1px solid var(--color-border, #E8EAED)", backgroundColor: "var(--color-surface, #F7F9FC)", color: "var(--color-text-secondary, #64748B)", textAlign: "left" }}>
+                            <tr style={{ borderBottom: "1px solid var(--color-border, #E5E7EB)", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", color: "var(--color-text-secondary, #64748B)", textAlign: "left" }}>
                               <th style={{ padding: "12px 16px" }}>Ad Set Name</th>
                               <th style={{ padding: "12px 16px" }}>Status</th>
                               <th style={{ padding: "12px 16px", textAlign: "right" }}>Spend</th>
@@ -349,8 +361,8 @@ export const CampaignDetailsDrawer = ({
                           </thead>
                           <tbody>
                             {displayedAdSets.map((adset, idx) => (
-                              <tr key={adset.id || idx} style={{ borderBottom: "1px solid var(--color-border, #E8EAED)" }}>
-                                <td style={{ padding: "12px 16px", fontWeight: "600", color: "var(--color-text-primary, #111827)" }}>
+                              <tr key={adset.id || idx} style={{ borderBottom: "1px solid var(--color-border, #E5E7EB)" }}>
+                                <td style={{ padding: "12px 16px", fontWeight: "600", color: "var(--color-text-primary, #0F172A)" }}>
                                   {adset.name}
                                   {adset.id && (
                                     <span style={{ display: "block", fontSize: "0.75rem", fontWeight: "normal", color: "var(--color-text-muted, #94A3B8)" }}>
@@ -386,9 +398,9 @@ export const CampaignDetailsDrawer = ({
                       </div>
 
                       {adSets.length > 10 && !showAllAdSets && (
-                        <div style={{ padding: "12px 16px", textAlign: "center", backgroundColor: "var(--color-surface, #F7F9FC)", borderTop: "1px solid var(--color-border, #E8EAED)" }}>
+                        <div style={{ padding: "12px 16px", textAlign: "center", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderTop: "1px solid var(--color-border, #E5E7EB)" }}>
                           <Button variant="outline" onClick={() => setShowAllAdSets(true)}>
-                            View All Ad Sets ({adSets.length}) →
+                            View All Ad Sets ({adSets.length})
                           </Button>
                         </div>
                       )}
@@ -401,7 +413,7 @@ export const CampaignDetailsDrawer = ({
               {activeTab === "creatives" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
+                    <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
                       Creatives ({creatives.length})
                     </h4>
                   </div>
@@ -411,9 +423,9 @@ export const CampaignDetailsDrawer = ({
                       style={{
                         padding: "40px 20px",
                         textAlign: "center",
-                        backgroundColor: "var(--color-surface, #F7F9FC)",
+                        backgroundColor: "var(--color-surface, #FFFFFF)",
                         borderRadius: "12px",
-                        border: "1px solid var(--color-border, #E8EAED)",
+                        border: "1px dashed var(--color-border, #E5E7EB)",
                         color: "var(--color-text-secondary, #64748B)",
                       }}
                     >
@@ -442,18 +454,18 @@ export const CampaignDetailsDrawer = ({
                             onClick={() => onSelectCreative && onSelectCreative(cr)}
                             style={{
                               backgroundColor: "#FFFFFF",
-                              borderRadius: "14px",
-                              border: "1px solid var(--color-border, #E8EAED)",
+                              borderRadius: "12px",
+                              border: "1px solid var(--color-border, #E5E7EB)",
                               overflow: "hidden",
                               display: "flex",
                               flexDirection: "column",
-                              boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+                              boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
                               cursor: "pointer",
                               transition: "transform 0.15s ease, box-shadow 0.15s ease",
                             }}
                           >
                             {/* Media Preview Box */}
-                            <div style={{ position: "relative", width: "100%", height: "140px", backgroundColor: "#F1F5F9" }}>
+                            <div style={{ position: "relative", width: "100%", height: "140px", backgroundColor: "var(--color-surface-subtle, #F1F5F9)" }}>
                               {mediaUrl ? (
                                 <img
                                   src={mediaUrl}
@@ -472,16 +484,17 @@ export const CampaignDetailsDrawer = ({
                                     alignItems: "center",
                                     justifyContent: "center",
                                     color: "var(--color-text-muted, #94A3B8)",
-                                    fontSize: "0.85rem",
+                                    fontSize: "0.825rem",
                                     fontWeight: "600",
-                                    background: "linear-gradient(135deg, #F7F9FC, #EAF3FF)",
+                                    gap: "6px",
                                   }}
                                 >
-                                  🎨 Media Preview
+                                  <ImageIcon size={18} />
+                                  Creative Asset
                                 </div>
                               )}
 
-                              {/* Video Play Indicator */}
+                              {/* Video Play Overlay */}
                               {isVideo && (
                                 <div
                                   style={{
@@ -490,7 +503,7 @@ export const CampaignDetailsDrawer = ({
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    backgroundColor: "rgba(15, 23, 42, 0.3)",
+                                    backgroundColor: "rgba(15, 23, 42, 0.35)",
                                   }}
                                 >
                                   <div
@@ -498,18 +511,15 @@ export const CampaignDetailsDrawer = ({
                                       width: "36px",
                                       height: "36px",
                                       borderRadius: "50%",
-                                      backgroundColor: "rgba(255, 255, 255, 0.9)",
+                                      backgroundColor: "rgba(255, 255, 255, 0.95)",
                                       display: "flex",
                                       alignItems: "center",
                                       justifyContent: "center",
                                       color: "#0A84FF",
-                                      fontSize: "1rem",
-                                      fontWeight: "bold",
-                                      paddingLeft: "2px",
                                       boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
                                     }}
                                   >
-                                    ▶
+                                    <Play size={16} fill="#0A84FF" />
                                   </div>
                                 </div>
                               )}
@@ -521,9 +531,9 @@ export const CampaignDetailsDrawer = ({
                                 <h5
                                   style={{
                                     margin: 0,
-                                    fontSize: "0.9rem",
-                                    fontWeight: "700",
-                                    color: "var(--color-text-primary, #111827)",
+                                    fontSize: "0.875rem",
+                                    fontWeight: "650",
+                                    color: "var(--color-text-primary, #0F172A)",
                                     lineHeight: "1.3",
                                     overflow: "hidden",
                                     textOverflow: "ellipsis",
@@ -549,26 +559,26 @@ export const CampaignDetailsDrawer = ({
                                   gap: "8px",
                                   marginTop: "4px",
                                   padding: "10px",
-                                  borderRadius: "10px",
-                                  backgroundColor: "var(--color-surface, #F7F9FC)",
-                                  fontSize: "0.8rem",
+                                  borderRadius: "8px",
+                                  backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
+                                  fontSize: "0.78rem",
                                 }}
                               >
                                 <div>
                                   <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.7rem", display: "block" }}>Spend</span>
-                                  <strong style={{ color: "var(--color-text-primary, #111827)" }}>{formatMetric(cr.spend, "currency", currency)}</strong>
+                                  <strong style={{ color: "var(--color-text-primary, #0F172A)" }}>{formatMetric(cr.spend, "currency", currency)}</strong>
                                 </div>
                                 <div>
                                   <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.7rem", display: "block" }}>Clicks</span>
-                                  <strong style={{ color: "var(--color-text-primary, #111827)" }}>{formatMetric(cr.clicks, "number")}</strong>
+                                  <strong style={{ color: "var(--color-text-primary, #0F172A)" }}>{formatMetric(cr.clicks, "number")}</strong>
                                 </div>
                                 <div>
                                   <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.7rem", display: "block" }}>CTR</span>
-                                  <strong style={{ color: "var(--color-text-primary, #111827)" }}>{formatMetric(cr.ctr, "percentage")}</strong>
+                                  <strong style={{ color: "var(--color-text-primary, #0F172A)" }}>{formatMetric(cr.ctr, "percentage")}</strong>
                                 </div>
                                 <div>
                                   <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.7rem", display: "block" }}>CPC</span>
-                                  <strong style={{ color: "var(--color-text-primary, #111827)" }}>{formatMetric(cr.cpc, "currency", currency)}</strong>
+                                  <strong style={{ color: "var(--color-text-primary, #0F172A)" }}>{formatMetric(cr.cpc, "currency", currency)}</strong>
                                 </div>
                               </div>
 
@@ -577,7 +587,7 @@ export const CampaignDetailsDrawer = ({
                                 <div
                                   style={{
                                     display: "flex",
-                                    gap: "8px",
+                                    gap: "10px",
                                     marginTop: "4px",
                                   }}
                                   onClick={(e) => e.stopPropagation()}
@@ -592,9 +602,12 @@ export const CampaignDetailsDrawer = ({
                                         color: "#0A84FF",
                                         textDecoration: "none",
                                         fontWeight: "600",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "2px",
                                       }}
                                     >
-                                      Facebook ↗
+                                      Facebook <ExternalLink size={10} />
                                     </a>
                                   )}
                                   {cr.instagram_permalink_url && (
@@ -607,9 +620,12 @@ export const CampaignDetailsDrawer = ({
                                         color: "#E1306C",
                                         textDecoration: "none",
                                         fontWeight: "600",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "2px",
                                       }}
                                     >
-                                      Instagram ↗
+                                      Instagram <ExternalLink size={10} />
                                     </a>
                                   )}
                                 </div>
@@ -629,126 +645,126 @@ export const CampaignDetailsDrawer = ({
                   {/* Compact Campaign Summary */}
                   <div
                     style={{
-                      padding: "18px",
-                      borderRadius: "14px",
-                      backgroundColor: "var(--color-surface, #F7F9FC)",
-                      border: "1px solid var(--color-border, #E8EAED)",
+                      padding: "16px",
+                      borderRadius: "10px",
+                      backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
+                      border: "1px solid var(--color-border, #E5E7EB)",
                       display: "grid",
                       gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
                       gap: "14px",
                     }}
                   >
                     <div>
-                      <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Campaign Name</span>
-                      <strong style={{ fontSize: "0.9rem", color: "var(--color-text-primary, #111827)" }}>{campaign.name || "—"}</strong>
+                      <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Campaign Name</span>
+                      <strong style={{ fontSize: "0.875rem", color: "var(--color-text-primary, #0F172A)" }}>{campaign.name || "—"}</strong>
                     </div>
                     <div>
-                      <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Objective</span>
-                      <strong style={{ fontSize: "0.9rem", color: "var(--color-text-primary, #111827)" }}>{campaign.objective || "—"}</strong>
+                      <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Objective</span>
+                      <strong style={{ fontSize: "0.875rem", color: "var(--color-text-primary, #0F172A)" }}>{campaign.objective || "—"}</strong>
                     </div>
                     <div>
-                      <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Ad Sets</span>
-                      <strong style={{ fontSize: "0.9rem", color: "var(--color-text-primary, #111827)" }}>{adSets.length}</strong>
+                      <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Ad Sets</span>
+                      <strong style={{ fontSize: "0.875rem", color: "var(--color-text-primary, #0F172A)" }}>{adSets.length}</strong>
                     </div>
                     <div>
-                      <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Creatives</span>
-                      <strong style={{ fontSize: "0.9rem", color: "var(--color-text-primary, #111827)" }}>{creatives.length}</strong>
+                      <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Creatives</span>
+                      <strong style={{ fontSize: "0.875rem", color: "var(--color-text-primary, #0F172A)" }}>{creatives.length}</strong>
                     </div>
                   </div>
 
                   {/* 2-Column KPI Grid */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
                     {/* Spend & Impressions */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "14px", border: "1px solid var(--color-border, #E8EAED)", backgroundColor: "#FFFFFF" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "12px", border: "1px solid var(--color-border, #E5E7EB)", backgroundColor: "#FFFFFF" }}>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Total Spend</span>
-                        <strong style={{ fontSize: "1.15rem", color: "var(--color-text-primary, #111827)", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Total Spend</span>
+                        <strong style={{ fontSize: "1.1rem", color: "var(--color-text-primary, #0F172A)", fontWeight: "700" }}>
                           {formatMetric(performance.spend, "currency", currency)}
                         </strong>
                       </div>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Impressions</span>
-                        <strong style={{ fontSize: "1.15rem", color: "var(--color-text-primary, #111827)", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Impressions</span>
+                        <strong style={{ fontSize: "1.1rem", color: "var(--color-text-primary, #0F172A)", fontWeight: "700" }}>
                           {formatMetric(performance.impressions, "number")}
                         </strong>
                       </div>
                     </div>
 
                     {/* Reach & Clicks */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "14px", border: "1px solid var(--color-border, #E8EAED)", backgroundColor: "#FFFFFF" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "12px", border: "1px solid var(--color-border, #E5E7EB)", backgroundColor: "#FFFFFF" }}>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Reach</span>
-                        <strong style={{ fontSize: "1.15rem", color: "var(--color-text-primary, #111827)", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Reach</span>
+                        <strong style={{ fontSize: "1.1rem", color: "var(--color-text-primary, #0F172A)", fontWeight: "700" }}>
                           {formatMetric(performance.reach, "number")}
                         </strong>
                       </div>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Clicks</span>
-                        <strong style={{ fontSize: "1.15rem", color: "var(--color-text-primary, #111827)", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Clicks</span>
+                        <strong style={{ fontSize: "1.1rem", color: "var(--color-text-primary, #0F172A)", fontWeight: "700" }}>
                           {formatMetric(performance.clicks, "number")}
                         </strong>
                       </div>
                     </div>
 
                     {/* CTR & CPC */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "14px", border: "1px solid var(--color-border, #E8EAED)", backgroundColor: "#FFFFFF" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "12px", border: "1px solid var(--color-border, #E5E7EB)", backgroundColor: "#FFFFFF" }}>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CTR</span>
-                        <strong style={{ fontSize: "1.15rem", color: "#0A84FF", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CTR</span>
+                        <strong style={{ fontSize: "1.1rem", color: "#0A84FF", fontWeight: "700" }}>
                           {formatMetric(performance.ctr, "percentage")}
                         </strong>
                       </div>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CPC</span>
-                        <strong style={{ fontSize: "1.15rem", color: "var(--color-text-primary, #111827)", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CPC</span>
+                        <strong style={{ fontSize: "1.1rem", color: "var(--color-text-primary, #0F172A)", fontWeight: "700" }}>
                           {formatMetric(performance.cpc, "currency", currency)}
                         </strong>
                       </div>
                     </div>
 
                     {/* CPM & Frequency */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "14px", border: "1px solid var(--color-border, #E8EAED)", backgroundColor: "#FFFFFF" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "12px", border: "1px solid var(--color-border, #E5E7EB)", backgroundColor: "#FFFFFF" }}>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CPM</span>
-                        <strong style={{ fontSize: "1.15rem", color: "var(--color-text-primary, #111827)", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CPM</span>
+                        <strong style={{ fontSize: "1.1rem", color: "var(--color-text-primary, #0F172A)", fontWeight: "700" }}>
                           {formatMetric(performance.cpm, "currency", currency)}
                         </strong>
                       </div>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Frequency</span>
-                        <strong style={{ fontSize: "1.15rem", color: "var(--color-text-primary, #111827)", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Frequency</span>
+                        <strong style={{ fontSize: "1.1rem", color: "var(--color-text-primary, #0F172A)", fontWeight: "700" }}>
                           {formatMetric(performance.frequency, "decimal")}
                         </strong>
                       </div>
                     </div>
 
                     {/* Purchases & Purchase Value */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "14px", border: "1px solid var(--color-border, #E8EAED)", backgroundColor: "#FFFFFF" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "12px", border: "1px solid var(--color-border, #E5E7EB)", backgroundColor: "#FFFFFF" }}>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Purchases</span>
-                        <strong style={{ fontSize: "1.15rem", color: "var(--color-text-primary, #111827)", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Purchases</span>
+                        <strong style={{ fontSize: "1.1rem", color: "var(--color-text-primary, #0F172A)", fontWeight: "700" }}>
                           {formatMetric(performance.purchases, "number")}
                         </strong>
                       </div>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Purchase Value</span>
-                        <strong style={{ fontSize: "1.15rem", color: "var(--color-text-primary, #111827)", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Purchase Value</span>
+                        <strong style={{ fontSize: "1.15rem", color: "var(--color-text-primary, #0F172A)", fontWeight: "700" }}>
                           {formatMetric(performance.purchase_conversion_value, "currency", currency)}
                         </strong>
                       </div>
                     </div>
 
                     {/* Cost Per Result & Purchase ROAS */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "14px", border: "1px solid var(--color-border, #E8EAED)", backgroundColor: "#FFFFFF" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", padding: "16px", borderRadius: "12px", border: "1px solid var(--color-border, #E5E7EB)", backgroundColor: "#FFFFFF" }}>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Cost Per Result</span>
-                        <strong style={{ fontSize: "1.15rem", color: "var(--color-text-primary, #111827)", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Cost Per Result</span>
+                        <strong style={{ fontSize: "1.1rem", color: "var(--color-text-primary, #0F172A)", fontWeight: "700" }}>
                           {formatMetric(performance.cost_per_result, "currency", currency)}
                         </strong>
                       </div>
                       <div>
-                        <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Purchase ROAS</span>
-                        <strong style={{ fontSize: "1.15rem", color: "#16A34A", fontWeight: "700" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Purchase ROAS</span>
+                        <strong style={{ fontSize: "1.1rem", color: "#16A34A", fontWeight: "700" }}>
                           {formatMetric(performance.purchase_roas, "roas")}
                         </strong>
                       </div>

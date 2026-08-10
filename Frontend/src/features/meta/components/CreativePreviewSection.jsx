@@ -1,11 +1,11 @@
 import React from "react";
+import { Video, Image as ImageIcon, Play, ExternalLink } from "lucide-react";
 
 /**
  * CreativePreviewSection component for Creative Preview tab.
  * Renders thumbnail_url / image_url as the primary visual preview poster.
  * Overlays a centered play icon for video creatives.
- * Renders clean 'Watch on Facebook →' and 'Watch on Instagram →' links for social permalinks.
- * Completely eliminates broken social iframe errors ("This Facebook post is no longer available").
+ * Renders clean 'Watch on Facebook' and 'Watch on Instagram' permalink actions.
  */
 export const CreativePreviewSection = ({ creative }) => {
   const fbPermalink = creative.facebook_permalink_url;
@@ -31,7 +31,7 @@ export const CreativePreviewSection = ({ creative }) => {
     <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
       {/* Section Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: "700", color: "var(--color-text-primary, #111827)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+        <h4 style={{ margin: 0, fontSize: "0.85rem", fontWeight: "700", color: "var(--color-text-secondary, #64748B)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
           Creative Preview
         </h4>
         <span
@@ -39,13 +39,24 @@ export const CreativePreviewSection = ({ creative }) => {
             fontSize: "0.75rem",
             padding: "3px 10px",
             borderRadius: "999px",
-            backgroundColor: "var(--color-surface, #F7F9FC)",
-            border: "1px solid #E8EAED",
-            color: "#64748B",
+            backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
+            border: "1px solid var(--color-border, #E5E7EB)",
+            color: "var(--color-text-secondary, #64748B)",
             fontWeight: "600",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "5px",
           }}
         >
-          {isVideoCreative ? "📹 Video Creative" : "🖼️ Image Creative"}
+          {isVideoCreative ? (
+            <>
+              <Video size={13} color="#0A84FF" /> Video Creative
+            </>
+          ) : (
+            <>
+              <ImageIcon size={13} color="#64748B" /> Image Creative
+            </>
+          )}
         </span>
       </div>
 
@@ -54,13 +65,13 @@ export const CreativePreviewSection = ({ creative }) => {
         style={{
           width: "100%",
           borderRadius: "12px",
-          border: "1px solid var(--color-border, #E8EAED)",
+          border: "1px solid var(--color-border, #E5E7EB)",
           overflow: "hidden",
-          backgroundColor: "var(--color-surface, #F7F9FC)",
+          backgroundColor: "#FFFFFF",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+          boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
         }}
       >
         {/* Poster Display with Play Icon Overlay for Videos */}
@@ -89,22 +100,20 @@ export const CreativePreviewSection = ({ creative }) => {
                     top: "50%",
                     left: "50%",
                     transform: "translate(-50%, -50%)",
-                    width: "64px",
-                    height: "64px",
+                    width: "60px",
+                    height: "60px",
                     borderRadius: "50%",
-                    backgroundColor: "rgba(10, 132, 255, 0.9)",
+                    backgroundColor: "rgba(10, 132, 255, 0.95)",
                     boxShadow: "0 4px 16px rgba(0, 0, 0, 0.3)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     color: "#FFFFFF",
-                    fontSize: "1.6rem",
-                    paddingLeft: "4px",
                     pointerEvents: "none",
                     backdropFilter: "blur(4px)",
                   }}
                 >
-                  ▶
+                  <Play size={24} fill="#FFFFFF" style={{ marginLeft: "3px" }} />
                 </div>
               )}
             </div>
@@ -113,16 +122,19 @@ export const CreativePreviewSection = ({ creative }) => {
               style={{
                 width: "100%",
                 height: "200px",
-                background: "var(--gradient-hero, linear-gradient(#F2F8FF, #EAF3FF))",
+                backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
                 display: "flex",
+                flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "var(--color-primary-hover, #0060DF)",
+                color: "var(--color-text-secondary, #64748B)",
                 fontWeight: "600",
-                fontSize: "0.95rem",
+                fontSize: "0.875rem",
+                gap: "8px",
               }}
             >
-              🎨 No creative preview available
+              <ImageIcon size={28} strokeWidth={1.5} color="var(--color-text-muted, #94A3B8)" />
+              No creative preview available
             </div>
           )}
         </div>
@@ -134,7 +146,7 @@ export const CreativePreviewSection = ({ creative }) => {
               width: "100%",
               padding: "14px 16px",
               backgroundColor: "#FFFFFF",
-              borderTop: "1px solid var(--color-border, #E8EAED)",
+              borderTop: "1px solid var(--color-border, #E5E7EB)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -150,19 +162,20 @@ export const CreativePreviewSection = ({ creative }) => {
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "8px",
-                  padding: "9px 16px",
+                  gap: "6px",
+                  padding: "8px 16px",
                   borderRadius: "8px",
-                  backgroundColor: "var(--color-primary, #0A84FF)",
+                  backgroundColor: "#0A84FF",
                   color: "#FFFFFF",
-                  fontSize: "0.85rem",
+                  fontSize: "0.825rem",
                   fontWeight: "600",
                   textDecoration: "none",
-                  boxShadow: "0 2px 4px rgba(10, 132, 255, 0.2)",
+                  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
                   transition: "all 0.15s ease",
                 }}
               >
-                Watch on Facebook →
+                Watch on Facebook
+                <ExternalLink size={13} />
               </a>
             )}
 
@@ -174,19 +187,20 @@ export const CreativePreviewSection = ({ creative }) => {
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "8px",
-                  padding: "9px 16px",
+                  gap: "6px",
+                  padding: "8px 16px",
                   borderRadius: "8px",
                   backgroundColor: "#FFFFFF",
-                  color: "var(--color-text-primary, #111827)",
-                  border: "1px solid var(--color-border, #E8EAED)",
-                  fontSize: "0.85rem",
+                  color: "var(--color-text-primary, #0F172A)",
+                  border: "1px solid var(--color-border, #E5E7EB)",
+                  fontSize: "0.825rem",
                   fontWeight: "600",
                   textDecoration: "none",
                   transition: "all 0.15s ease",
                 }}
               >
-                Watch on Instagram →
+                Watch on Instagram
+                <ExternalLink size={13} />
               </a>
             )}
           </div>

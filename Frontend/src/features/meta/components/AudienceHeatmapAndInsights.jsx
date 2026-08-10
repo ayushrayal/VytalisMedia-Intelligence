@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Sparkles, Lightbulb } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
@@ -46,9 +47,8 @@ export const AudienceHeatmapAndInsights = ({
   };
 
   const getIntensityColor = (value) => {
-    if (!value || value <= 0) return "var(--color-surface, #F7F9FC)";
+    if (!value || value <= 0) return "var(--color-surface-subtle, #F1F5F9)";
     const ratio = Math.min(1, Math.max(0.1, value / maxCellValue));
-    // Color scale: soft light blue to vibrant Vytalis primary blue #0A84FF
     if (ratio > 0.75) return "#0A84FF";
     if (ratio > 0.5) return "#3B9EFF";
     if (ratio > 0.25) return "#7CC0FF";
@@ -58,7 +58,7 @@ export const AudienceHeatmapAndInsights = ({
   const getTextColor = (value) => {
     if (!value || value <= 0) return "var(--color-text-muted, #94A3B8)";
     const ratio = Math.min(1, Math.max(0.1, value / maxCellValue));
-    return ratio > 0.5 ? "#FFFFFF" : "#111827";
+    return ratio > 0.5 ? "#FFFFFF" : "#0F172A";
   };
 
   return (
@@ -73,19 +73,19 @@ export const AudienceHeatmapAndInsights = ({
       <div
         style={{
           backgroundColor: "#FFFFFF",
-          borderRadius: "var(--radius-card, 16px)",
-          border: "1px solid var(--color-border, #E8EAED)",
+          borderRadius: "var(--radius-card, 12px)",
+          border: "1px solid var(--color-border, #E5E7EB)",
           padding: "20px 24px",
           display: "flex",
           flexDirection: "column",
           gap: "16px",
           gridColumn: "span 2",
-          boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+          boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
           <div>
-            <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
+            <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
               Demographic Heatmap
             </h4>
             <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
@@ -94,7 +94,7 @@ export const AudienceHeatmapAndInsights = ({
           </div>
 
           {/* Metric Selector Pills */}
-          <div style={{ display: "flex", backgroundColor: "var(--color-surface, #F7F9FC)", borderRadius: "8px", padding: "3px", border: "1px solid var(--color-border, #E8EAED)", gap: "2px" }}>
+          <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)", gap: "2px" }}>
             {[
               { id: "spend", label: "Spend" },
               { id: "reach", label: "Reach" },
@@ -107,15 +107,15 @@ export const AudienceHeatmapAndInsights = ({
                   key={m.id}
                   onClick={() => setMetric(m.id)}
                   style={{
-                    padding: "5px 12px",
+                    padding: "4px 10px",
                     border: "none",
-                    borderRadius: "6px",
+                    borderRadius: "4px",
                     backgroundColor: active ? "#FFFFFF" : "transparent",
                     color: active ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
                     fontWeight: active ? "700" : "500",
-                    fontSize: "0.8rem",
+                    fontSize: "0.75rem",
                     cursor: "pointer",
-                    boxShadow: active ? "0 1px 3px rgba(0, 0, 0, 0.08)" : "none",
+                    boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.05)" : "none",
                     transition: "all 0.15s ease",
                   }}
                 >
@@ -131,22 +131,22 @@ export const AudienceHeatmapAndInsights = ({
           <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "6px", fontSize: "0.85rem" }}>
             <thead>
               <tr>
-                <th style={{ padding: "8px", textTransform: "uppercase", fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", textAlign: "left" }}>
+                <th style={{ padding: "6px 8px", textTransform: "uppercase", fontSize: "0.7rem", color: "var(--color-text-muted, #94A3B8)", textAlign: "left" }}>
                   Age Group
                 </th>
                 {genders.map((g) => (
                   <th
                     key={g}
                     style={{
-                      padding: "8px 12px",
+                      padding: "6px 12px",
                       textTransform: "capitalize",
-                      fontSize: "0.85rem",
+                      fontSize: "0.825rem",
                       fontWeight: "700",
                       color: g === "male" ? "#0A84FF" : "#EC4899",
                       textAlign: "center",
                     }}
                   >
-                    {g === "male" ? "👨 Male" : "👩 Female"}
+                    {g === "male" ? "Male" : "Female"}
                   </th>
                 ))}
               </tr>
@@ -154,7 +154,7 @@ export const AudienceHeatmapAndInsights = ({
             <tbody>
               {ageGroups.map((age) => (
                 <tr key={age}>
-                  <td style={{ padding: "8px 12px", fontWeight: "700", color: "var(--color-text-primary, #111827)", backgroundColor: "var(--color-surface, #F7F9FC)", borderRadius: "8px", width: "100px" }}>
+                  <td style={{ padding: "8px 12px", fontWeight: "650", color: "var(--color-text-primary, #0F172A)", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", width: "100px" }}>
                     {age}
                   </td>
                   {genders.map((gender) => {
@@ -167,11 +167,11 @@ export const AudienceHeatmapAndInsights = ({
                       <td
                         key={gender}
                         style={{
-                          padding: "14px 16px",
+                          padding: "12px 14px",
                           textAlign: "center",
                           backgroundColor: bg,
                           color: textColor,
-                          borderRadius: "8px",
+                          borderRadius: "6px",
                           fontWeight: "700",
                           transition: "transform 0.15s ease",
                           cursor: "pointer",
@@ -194,48 +194,47 @@ export const AudienceHeatmapAndInsights = ({
         {/* Top Segment Card */}
         <div
           style={{
-            backgroundColor: "linear-gradient(135deg, #0A84FF, #0060DF)",
-            background: "var(--gradient-hero, linear-gradient(#F2F8FF, #EAF3FF))",
-            borderRadius: "var(--radius-card, 16px)",
-            border: "1px solid rgba(10, 132, 255, 0.2)",
+            backgroundColor: "#FFFFFF",
+            borderRadius: "var(--radius-card, 12px)",
+            border: "1px solid var(--color-border, #E5E7EB)",
             padding: "20px 24px",
             display: "flex",
             flexDirection: "column",
             gap: "12px",
-            boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+            boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: "0.78rem", fontWeight: "700", color: "#0A84FF", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              ⭐ Top Performing Audience
+            <span style={{ fontSize: "0.78rem", fontWeight: "700", color: "#0A84FF", textTransform: "uppercase", letterSpacing: "0.5px", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              <Sparkles size={15} /> Top Performing Segment
             </span>
-            <span style={{ fontSize: "0.78rem", backgroundColor: "rgba(10, 132, 255, 0.1)", color: "#0A84FF", padding: "3px 8px", borderRadius: "999px", fontWeight: "600" }}>
+            <span style={{ fontSize: "0.75rem", backgroundColor: "rgba(10, 132, 255, 0.08)", color: "#0A84FF", padding: "2px 8px", borderRadius: "999px", fontWeight: "600" }}>
               Highest CTR
             </span>
           </div>
 
           {topSegment ? (
             <>
-              <div style={{ fontSize: "1.4rem", fontWeight: "750", color: "var(--color-text-primary, #111827)", textTransform: "capitalize" }}>
+              <div style={{ fontSize: "1.35rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)", textTransform: "capitalize" }}>
                 {topSegment.age} · {topSegment.gender}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "4px", backgroundColor: "#FFFFFF", padding: "12px", borderRadius: "10px", border: "1px solid var(--color-border, #E8EAED)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "4px", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", padding: "12px", borderRadius: "8px", border: "1px solid var(--color-border, #E5E7EB)" }}>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CTR</span>
-                  <strong style={{ fontSize: "1rem", color: "#0A84FF", fontWeight: "750" }}>{formatPercentage(topSegment.ctr)}</strong>
+                  <strong style={{ fontSize: "1rem", color: "#0A84FF", fontWeight: "700" }}>{formatPercentage(topSegment.ctr)}</strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Spend</span>
-                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #111827)" }}>{formatCurrency(topSegment.spend, currency)}</strong>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #0F172A)" }}>{formatCurrency(topSegment.spend, currency)}</strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Clicks</span>
-                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #111827)" }}>{formatNumber(topSegment.clicks)}</strong>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #0F172A)" }}>{formatNumber(topSegment.clicks)}</strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Reach</span>
-                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #111827)" }}>{formatNumber(topSegment.reach)}</strong>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #0F172A)" }}>{formatNumber(topSegment.reach)}</strong>
                 </div>
               </div>
             </>
@@ -250,19 +249,19 @@ export const AudienceHeatmapAndInsights = ({
         <div
           style={{
             backgroundColor: "#FFFFFF",
-            borderRadius: "var(--radius-card, 16px)",
-            border: "1px solid var(--color-border, #E8EAED)",
+            borderRadius: "var(--radius-card, 12px)",
+            border: "1px solid var(--color-border, #E5E7EB)",
             padding: "20px 24px",
             display: "flex",
             flexDirection: "column",
             gap: "14px",
             flex: 1,
-            boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+            boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "1.1rem" }}>💡</span>
-            <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
+            <Lightbulb size={18} color="#0A84FF" />
+            <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
               Audience Insights
             </h4>
           </div>
@@ -278,11 +277,11 @@ export const AudienceHeatmapAndInsights = ({
                   key={idx}
                   style={{
                     padding: "10px 14px",
-                    borderRadius: "10px",
-                    backgroundColor: "var(--color-surface, #F7F9FC)",
+                    borderRadius: "8px",
+                    backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
                     borderLeft: "3px solid #0A84FF",
-                    fontSize: "0.85rem",
-                    color: "var(--color-text-primary, #111827)",
+                    fontSize: "0.825rem",
+                    color: "var(--color-text-primary, #0F172A)",
                     fontWeight: "500",
                     lineHeight: "1.4",
                   }}

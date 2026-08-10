@@ -1,5 +1,6 @@
 import React from "react";
 import Button from "../../../components/ui/Button.jsx";
+import { Link2, Check, Edit2, Trash2 } from "lucide-react";
 
 /**
  * MetaAccountCard Component.
@@ -25,17 +26,17 @@ export const MetaAccountCard = ({
     <div
       style={{
         backgroundColor: "#FFFFFF",
-        borderRadius: "var(--radius-card, 16px)",
+        borderRadius: "var(--radius-card, 12px)",
         border: isActive
-          ? "2px solid var(--color-primary, #0A84FF)"
-          : "1px solid var(--color-border, #E8EAED)",
-        padding: "22px 24px",
+          ? "2px solid #0A84FF"
+          : "1px solid var(--color-border, #E5E7EB)",
+        padding: "20px 22px",
         display: "flex",
         flexDirection: "column",
         gap: "16px",
         boxShadow: isActive
           ? "0 4px 12px rgba(10, 132, 255, 0.08)"
-          : "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+          : "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
         position: "relative",
         transition: "all 0.15s ease",
       }}
@@ -45,25 +46,24 @@ export const MetaAccountCard = ({
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div
             style={{
-              width: "42px",
-              height: "42px",
+              width: "40px",
+              height: "40px",
               borderRadius: "10px",
-              backgroundColor: "var(--color-primary-light, #EAF3FF)",
-              color: "var(--color-primary-hover, #0060DF)",
+              backgroundColor: "var(--color-primary-light, rgba(10, 132, 255, 0.08))",
+              color: "#0A84FF",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "1.3rem",
               flexShrink: 0,
             }}
           >
-            📱
+            <Link2 size={20} strokeWidth={2} />
           </div>
           <div>
-            <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
+            <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
               {account.accountName}
             </h4>
-            <div style={{ fontSize: "0.825rem", color: "var(--color-text-secondary, #64748B)", marginTop: "2px" }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--color-text-secondary, #64748B)", marginTop: "2px" }}>
               Account ID: <code style={{ color: "#0A84FF", fontWeight: "600" }}>{account.accountId}</code>
             </div>
           </div>
@@ -74,11 +74,11 @@ export const MetaAccountCard = ({
           style={{
             fontSize: "0.75rem",
             fontWeight: "600",
-            padding: "4px 10px",
+            padding: "3px 9px",
             borderRadius: "999px",
-            backgroundColor: isActive ? "#DCFCE7" : "var(--color-surface, #F7F9FC)",
+            backgroundColor: isActive ? "rgba(22, 163, 74, 0.08)" : "var(--color-surface-subtle, #F1F5F9)",
             color: isActive ? "#16A34A" : "var(--color-text-secondary, #64748B)",
-            border: isActive ? "1px solid rgba(22, 163, 74, 0.2)" : "1px solid #E8EAED",
+            border: isActive ? "1px solid rgba(22, 163, 74, 0.2)" : "1px solid #E5E7EB",
             display: "inline-flex",
             alignItems: "center",
             gap: "6px",
@@ -97,17 +97,17 @@ export const MetaAccountCard = ({
       )}
 
       {/* Action Controls */}
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "12px", borderTop: "1px solid var(--color-border, #E8EAED)", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", paddingTop: "12px", borderTop: "1px solid var(--color-border, #E5E7EB)", flexWrap: "wrap" }}>
         {isActive ? (
-          <Button variant="primary" disabled style={{ opacity: 0.9, height: "36px", padding: "0 14px", fontSize: "0.825rem" }}>
-            ✓ Active Account
+          <Button variant="primary" disabled style={{ opacity: 0.9, height: "34px", padding: "0 12px", fontSize: "0.8rem", gap: "4px" }}>
+            <Check size={14} /> Active
           </Button>
         ) : (
           <Button
             variant="outline"
             onClick={() => onSetActive(account.accountId)}
             isLoading={isSwitching}
-            style={{ height: "36px", padding: "0 14px", fontSize: "0.825rem" }}
+            style={{ height: "34px", padding: "0 12px", fontSize: "0.8rem" }}
           >
             Set Active
           </Button>
@@ -116,17 +116,17 @@ export const MetaAccountCard = ({
         <Button
           variant="outline"
           onClick={() => onEdit(account)}
-          style={{ height: "36px", padding: "0 14px", fontSize: "0.825rem" }}
+          style={{ height: "34px", padding: "0 12px", fontSize: "0.8rem", gap: "4px" }}
         >
-          Edit
+          <Edit2 size={13} /> Edit
         </Button>
 
         <Button
           variant="danger"
           onClick={() => onDelete(account)}
-          style={{ height: "36px", padding: "0 14px", fontSize: "0.825rem", marginLeft: "auto" }}
+          style={{ height: "34px", padding: "0 12px", fontSize: "0.8rem", marginLeft: "auto", gap: "4px" }}
         >
-          Delete
+          <Trash2 size={13} /> Delete
         </Button>
       </div>
     </div>

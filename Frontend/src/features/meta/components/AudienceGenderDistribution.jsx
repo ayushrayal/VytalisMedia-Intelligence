@@ -28,7 +28,7 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
 
   // SVG Donut Calculations
   const radius = 60;
-  const strokeWidth = 22;
+  const strokeWidth = 20;
   const circumference = 2 * Math.PI * radius;
 
   let accumulatedPercent = 0;
@@ -72,18 +72,18 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
       <div
         style={{
           backgroundColor: "#FFFFFF",
-          borderRadius: "var(--radius-card, 16px)",
-          border: "1px solid var(--color-border, #E8EAED)",
+          borderRadius: "var(--radius-card, 12px)",
+          border: "1px solid var(--color-border, #E5E7EB)",
           padding: "20px 24px",
           display: "flex",
           flexDirection: "column",
           gap: "16px",
-          boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+          boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
+            <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
               Gender Distribution
             </h4>
             <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
@@ -128,7 +128,7 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
                 pointerEvents: "none",
               }}
             >
-              <span style={{ fontSize: "1.1rem", fontWeight: "750", color: "var(--color-text-primary, #111827)" }}>
+              <span style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
                 {formatNumber(totalReach)}
               </span>
               <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)" }}>Total Reach</span>
@@ -136,7 +136,7 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
           </div>
 
           {/* Legend */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1, minWidth: "140px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", flex: 1, minWidth: "140px" }}>
             {donutPaths.map((seg, idx) => {
               const pctStr = (seg.pct * 100).toFixed(1);
               return (
@@ -149,20 +149,20 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "6px 10px",
-                    borderRadius: "8px",
-                    backgroundColor: hoveredSegment === seg.gender ? "var(--color-surface, #F7F9FC)" : "transparent",
+                    borderRadius: "6px",
+                    backgroundColor: hoveredSegment === seg.gender ? "var(--color-surface-subtle, #F1F5F9)" : "transparent",
                     transition: "background-color 0.15s ease",
                     cursor: "pointer",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: seg.color }} />
-                    <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--color-text-primary, #111827)" }}>
+                    <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: seg.color }} />
+                    <span style={{ fontSize: "0.825rem", fontWeight: "600", color: "var(--color-text-primary, #0F172A)" }}>
                       {seg.label}
                     </span>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <strong style={{ fontSize: "0.85rem", color: "var(--color-text-primary, #111827)", display: "block" }}>
+                    <strong style={{ fontSize: "0.825rem", color: "var(--color-text-primary, #0F172A)", display: "block" }}>
                       {pctStr}%
                     </strong>
                     <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)" }}>
@@ -180,18 +180,18 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
       <div
         style={{
           backgroundColor: "#FFFFFF",
-          borderRadius: "var(--radius-card, 16px)",
-          border: "1px solid var(--color-border, #E8EAED)",
+          borderRadius: "var(--radius-card, 12px)",
+          border: "1px solid var(--color-border, #E5E7EB)",
           padding: "20px 24px",
           display: "flex",
           flexDirection: "column",
           gap: "16px",
-          boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+          boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
           <div>
-            <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
+            <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
               Gender Comparison
             </h4>
             <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
@@ -200,7 +200,7 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
           </div>
 
           {/* Metric Selector Pills */}
-          <div style={{ display: "flex", backgroundColor: "var(--color-surface, #F7F9FC)", borderRadius: "8px", padding: "2px", border: "1px solid var(--color-border, #E8EAED)" }}>
+          <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)" }}>
             {[
               { id: "reach", label: "Reach" },
               { id: "spend", label: "Spend" },
@@ -214,15 +214,15 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
                   key={m.id}
                   onClick={() => setMetric(m.id)}
                   style={{
-                    padding: "4px 10px",
+                    padding: "4px 8px",
                     border: "none",
-                    borderRadius: "6px",
+                    borderRadius: "4px",
                     backgroundColor: active ? "#FFFFFF" : "transparent",
                     color: active ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
                     fontWeight: active ? "700" : "500",
                     fontSize: "0.75rem",
                     cursor: "pointer",
-                    boxShadow: active ? "0 1px 3px rgba(0, 0, 0, 0.08)" : "none",
+                    boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.05)" : "none",
                     transition: "all 0.15s ease",
                   }}
                 >
@@ -246,22 +246,22 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
             return (
               <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.85rem" }}>
-                  <span style={{ fontWeight: "600", color: "var(--color-text-primary, #111827)" }}>
+                  <span style={{ fontWeight: "600", color: "var(--color-text-primary, #0F172A)" }}>
                     {row.label}
                   </span>
-                  <strong style={{ color: "var(--color-text-primary, #111827)" }}>
+                  <strong style={{ color: "var(--color-text-primary, #0F172A)" }}>
                     {getFormattedValue(row.item, metric)}
                   </strong>
                 </div>
 
                 <div
                   style={{
-                    height: "12px",
+                    height: "10px",
                     width: "100%",
-                    backgroundColor: "var(--color-surface, #F7F9FC)",
+                    backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
                     borderRadius: "999px",
                     overflow: "hidden",
-                    border: "1px solid var(--color-border, #E8EAED)",
+                    border: "1px solid var(--color-border, #E5E7EB)",
                   }}
                 >
                   <div

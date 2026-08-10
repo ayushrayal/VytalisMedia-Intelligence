@@ -12,6 +12,7 @@ import Skeleton from "../../../components/ui/Skeleton.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Button from "../../../components/ui/Button.jsx";
+import { Image as ImageIcon } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
@@ -163,24 +164,24 @@ export const Creatives = () => {
                   onClick={() => handleCardClick(row)}
                   style={{
                     backgroundColor: "#FFFFFF",
-                    borderRadius: "var(--radius-card, 16px)",
-                    border: "1px solid var(--color-border, #E8EAED)",
+                    borderRadius: "var(--radius-card, 12px)",
+                    border: "1px solid var(--color-border, #E5E7EB)",
                     overflow: "hidden",
                     display: "flex",
                     flexDirection: "column",
-                    boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+                    boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
                     cursor: "pointer",
                     transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = "translateY(-2px)";
-                    e.currentTarget.style.boxShadow = "0 6px 16px rgba(15, 23, 42, 0.08)";
+                    e.currentTarget.style.boxShadow = "var(--shadow-card, 0 4px 6px -1px rgba(0, 0, 0, 0.04))";
                     e.currentTarget.style.borderColor = "#0A84FF";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.boxShadow = "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))";
-                    e.currentTarget.style.borderColor = "var(--color-border, #E8EAED)";
+                    e.currentTarget.style.boxShadow = "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))";
+                    e.currentTarget.style.borderColor = "var(--color-border, #E5E7EB)";
                   }}
                 >
                   {imageUrl ? (
@@ -197,42 +198,44 @@ export const Creatives = () => {
                       style={{
                         width: "100%",
                         height: "150px",
-                        background: "var(--gradient-hero, linear-gradient(#F2F8FF, #EAF3FF))",
+                        backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: "var(--color-primary-hover, #0060DF)",
+                        color: "var(--color-text-secondary, #64748B)",
                         fontWeight: "600",
-                        fontSize: "0.9rem",
+                        fontSize: "0.85rem",
+                        gap: "6px",
                       }}
                     >
-                      🎨 Creative Asset
+                      <ImageIcon size={18} />
+                      Creative Asset
                     </div>
                   )}
                   <div style={{ padding: "18px", display: "flex", flexDirection: "column", gap: "10px", flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-                      <h4 style={{ margin: 0, color: "var(--color-text-primary, #111827)", fontSize: "1rem", fontWeight: "700" }}>{row.ad_name || "Unnamed Ad"}</h4>
+                      <h4 style={{ margin: 0, color: "var(--color-text-primary, #0F172A)", fontSize: "0.95rem", fontWeight: "650" }}>{row.ad_name || "Unnamed Ad"}</h4>
                       {rawStatus && <StatusBadge status={rawStatus} />}
                     </div>
-                    <div style={{ fontSize: "0.8rem", color: "var(--color-text-secondary, #64748B)" }}>
+                    <div style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
                       Campaign: {row.campaign || "-"}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "4px", padding: "12px", borderRadius: "10px", backgroundColor: "var(--color-surface, #F7F9FC)", fontSize: "0.85rem" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "4px", padding: "12px", borderRadius: "8px", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", fontSize: "0.825rem" }}>
                       <div>
-                        <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.75rem", display: "block" }}>Spend</span>
-                        <strong style={{ color: "var(--color-text-primary, #111827)" }}>{formatCurrency(row.spend, row.currency)}</strong>
+                        <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.72rem", display: "block" }}>Spend</span>
+                        <strong style={{ color: "var(--color-text-primary, #0F172A)" }}>{formatCurrency(row.spend, row.currency)}</strong>
                       </div>
                       <div>
-                        <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.75rem", display: "block" }}>Clicks</span>
-                        <strong style={{ color: "var(--color-text-primary, #111827)" }}>{formatNumber(row.clicks)}</strong>
+                        <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.72rem", display: "block" }}>Clicks</span>
+                        <strong style={{ color: "var(--color-text-primary, #0F172A)" }}>{formatNumber(row.clicks)}</strong>
                       </div>
                       <div>
-                        <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.75rem", display: "block" }}>CTR</span>
-                        <strong style={{ color: "var(--color-text-primary, #111827)" }}>{formatPercentage(row.ctr)}</strong>
+                        <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.72rem", display: "block" }}>CTR</span>
+                        <strong style={{ color: "var(--color-text-primary, #0F172A)" }}>{formatPercentage(row.ctr)}</strong>
                       </div>
                       <div>
-                        <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.75rem", display: "block" }}>CPC</span>
-                        <strong style={{ color: "var(--color-text-primary, #111827)" }}>{formatCurrency(row.cpc, row.currency)}</strong>
+                        <span style={{ color: "var(--color-text-muted, #94A3B8)", fontSize: "0.72rem", display: "block" }}>CPC</span>
+                        <strong style={{ color: "var(--color-text-primary, #0F172A)" }}>{formatCurrency(row.cpc, row.currency)}</strong>
                       </div>
                     </div>
                   </div>
@@ -242,7 +245,7 @@ export const Creatives = () => {
           </div>
 
           {/* Creative Grid Pagination Controls Container */}
-          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "var(--radius-card, 16px)", border: "1px solid var(--color-border, #E8EAED)", overflow: "hidden", boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))" }}>
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "var(--radius-card, 12px)", border: "1px solid var(--color-border, #E5E7EB)", overflow: "hidden", boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))" }}>
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}

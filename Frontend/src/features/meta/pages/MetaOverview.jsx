@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { getMetaOverview } from "../services/meta.api.js";
 import PageHeader from "../../../components/shared/PageHeader.jsx";
-import MetricCard from "../../../components/shared/MetricCard.jsx";
+import MetricCard from "../../../components/ui/MetricCard.jsx";
 import AccountSwitcher from "../components/AccountSwitcher.jsx";
 import DateFilter from "../components/DateFilter.jsx";
 import SpendFilter from "../components/SpendFilter.jsx";
@@ -9,11 +9,30 @@ import Skeleton from "../../../components/ui/Skeleton.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Button from "../../../components/ui/Button.jsx";
+import {
+  ShoppingBag,
+  DollarSign,
+  Target,
+  TrendingUp,
+  Wallet,
+  Eye,
+  Users,
+  MousePointer2,
+  BarChart3,
+  Tag,
+} from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
 import { getErrorMessage } from "../../../utils/error.js";
 
+/**
+ * MetaOverview Page Component.
+ * Features:
+ * - Purchase Performance Group (Purchases, Conversion Value, Cost per Result, Purchase ROAS)
+ * - Volume & Efficiency Group (Spend, Impressions, Reach, Clicks, Avg CTR, Avg CPC)
+ * - Daily Performance breakdown table
+ */
 export const MetaOverview = () => {
   const [data, setData] = useState([]);
   const [meta, setMeta] = useState(null);
@@ -67,7 +86,7 @@ export const MetaOverview = () => {
     { spend: 0, impressions: 0, reach: 0, clicks: 0, purchases: 0, purchaseValue: 0, currency: "INR" }
   );
 
-  // Derived Aggregate Ratios (Strict rules: Total Spend / Total Purchases & Total Conversion Value / Total Spend)
+  // Derived Aggregate Ratios
   const overallCostPerResult = totals.purchases > 0 ? totals.spend / totals.purchases : null;
   const overallPurchaseRoas = totals.spend > 0 ? totals.purchaseValue / totals.spend : null;
 
@@ -91,7 +110,7 @@ export const MetaOverview = () => {
       {meta && (
         <div style={{ marginBottom: "20px", fontSize: "0.8rem", color: "var(--color-text-muted, #94A3B8)", display: "flex", gap: "8px", alignItems: "center" }}>
           <span>Source:</span>
-          <span style={{ padding: "2px 10px", borderRadius: "var(--radius-pill, 999px)", backgroundColor: "var(--color-primary-light, #EAF3FF)", color: "var(--color-primary-hover, #0060DF)", fontWeight: "600" }}>
+          <span style={{ padding: "2px 10px", borderRadius: "var(--radius-pill, 999px)", backgroundColor: "var(--color-primary-light, rgba(10, 132, 255, 0.08))", color: "#0A84FF", fontWeight: "600" }}>
             {meta.source}
           </span>
           <span style={{ marginLeft: "8px" }}>Cached: {new Date(meta.cachedAt).toLocaleTimeString()}</span>
@@ -99,57 +118,62 @@ export const MetaOverview = () => {
       )}
 
       {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
-          <Skeleton height="120px" />
-          <Skeleton height="120px" />
-          <Skeleton height="120px" />
-          <Skeleton height="120px" />
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+            <Skeleton height="110px" />
+            <Skeleton height="110px" />
+            <Skeleton height="110px" />
+            <Skeleton height="110px" />
+          </div>
+          <Skeleton height="320px" />
         </div>
       ) : error ? (
         <ErrorState message={error} onRetry={fetchData} />
       ) : data.length === 0 ? (
         <EmptyState title="No Overview Metrics Found" description="No Meta overview records were returned for this date range." />
       ) : (
-        <div>
-          {/* Row 1: Primary Purchase Metrics */}
-          <div style={{ marginBottom: "16px" }}>
-            <h4 style={{ margin: "0 0 12px 0", fontSize: "0.9rem", fontWeight: "700", color: "var(--color-text-primary, #111827)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+          {/* Group 1: Purchase Performance */}
+          <div>
+            <h4 style={{ margin: "0 0 14px 0", fontSize: "0.85rem", fontWeight: "700", color: "var(--color-text-secondary, #64748B)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
               Purchase Performance
             </h4>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
-              <MetricCard label="Purchases" value={formatNumber(totals.purchases)} icon="🛍️" />
-              <MetricCard label="Purchase Conversion Value" value={formatCurrency(totals.purchaseValue, totals.currency)} icon="💎" />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+              <MetricCard title="Purchases" value={formatNumber(totals.purchases)} icon={ShoppingBag} accentColor="#16A34A" />
+              <MetricCard title="Conversion Value" value={formatCurrency(totals.purchaseValue, totals.currency)} icon={DollarSign} accentColor="#16A34A" />
               <MetricCard
-                label="Cost per Result"
+                title="Cost per Result"
                 value={overallCostPerResult !== null ? formatCurrency(overallCostPerResult, totals.currency) : "—"}
-                icon="🎯"
+                icon={Target}
+                accentColor="#0A84FF"
               />
               <MetricCard
-                label="Purchase ROAS"
+                title="Purchase ROAS"
                 value={overallPurchaseRoas !== null ? `${overallPurchaseRoas.toFixed(2)}x` : "—"}
-                icon="🚀"
+                icon={TrendingUp}
+                accentColor="#16A34A"
               />
             </div>
           </div>
 
-          {/* Row 2: Performance & Efficiency Metrics */}
-          <div style={{ marginBottom: "28px" }}>
-            <h4 style={{ margin: "0 0 12px 0", fontSize: "0.9rem", fontWeight: "700", color: "var(--color-text-primary, #111827)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          {/* Group 2: Volume & Efficiency Metrics */}
+          <div>
+            <h4 style={{ margin: "0 0 14px 0", fontSize: "0.85rem", fontWeight: "700", color: "var(--color-text-secondary, #64748B)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
               Volume & Efficiency
             </h4>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
-              <MetricCard label="Total Spend" value={formatCurrency(totals.spend, totals.currency)} icon="💰" />
-              <MetricCard label="Impressions" value={formatNumber(totals.impressions)} icon="👁️" />
-              <MetricCard label="Reach" value={formatNumber(totals.reach)} icon="👥" />
-              <MetricCard label="Clicks" value={formatNumber(totals.clicks)} icon="🖱️" />
-              <MetricCard label="Average CTR" value={formatPercentage(avgCtr)} icon="📈" />
-              <MetricCard label="Average CPC" value={formatCurrency(avgCpc, totals.currency)} icon="🏷️" />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+              <MetricCard title="Total Spend" value={formatCurrency(totals.spend, totals.currency)} icon={Wallet} accentColor="#16A34A" />
+              <MetricCard title="Impressions" value={formatNumber(totals.impressions)} icon={Eye} accentColor="#8B5CF6" />
+              <MetricCard title="Reach" value={formatNumber(totals.reach)} icon={Users} accentColor="#0A84FF" />
+              <MetricCard title="Clicks" value={formatNumber(totals.clicks)} icon={MousePointer2} accentColor="#EC4899" />
+              <MetricCard title="Average CTR" value={formatPercentage(avgCtr)} icon={BarChart3} accentColor="#0A84FF" />
+              <MetricCard title="Average CPC" value={formatCurrency(avgCpc, totals.currency)} icon={Tag} accentColor="#8B5CF6" />
             </div>
           </div>
 
-          {/* Daily Performance Card */}
-          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "var(--radius-card, 16px)", border: "1px solid var(--color-border, #E8EAED)", padding: "24px", overflowX: "auto", boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))" }}>
-            <h3 style={{ margin: "0 0 18px 0", color: "var(--color-text-primary, #111827)", fontSize: "1.15rem", fontWeight: "650" }}>Daily Performance Breakdown</h3>
+          {/* Daily Performance Breakdown Table Card */}
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "var(--radius-card, 12px)", border: "1px solid var(--color-border, #E5E7EB)", padding: "24px", overflowX: "auto", boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))" }}>
+            <h3 style={{ margin: "0 0 18px 0", color: "var(--color-text-primary, #0F172A)", fontSize: "1.05rem", fontWeight: "700" }}>Daily Performance Breakdown</h3>
 
             {filteredData.length === 0 ? (
               <EmptyState
@@ -162,9 +186,9 @@ export const MetaOverview = () => {
                 }
               />
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", color: "var(--color-text-primary, #111827)", fontSize: "0.875rem" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", color: "var(--color-text-primary, #0F172A)", fontSize: "0.85rem" }}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--color-border, #E8EAED)", textAlign: "left", backgroundColor: "var(--color-surface, #F7F9FC)", color: "var(--color-text-secondary, #64748B)" }}>
+                  <tr style={{ borderBottom: "1px solid var(--color-border, #E5E7EB)", textAlign: "left", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", color: "var(--color-text-secondary, #64748B)" }}>
                     <th style={{ padding: "12px 14px" }}>Date</th>
                     <th style={{ padding: "12px 14px", textAlign: "right" }}>Spend</th>
                     <th style={{ padding: "12px 14px", textAlign: "right" }}>Purchases</th>
@@ -184,12 +208,12 @@ export const MetaOverview = () => {
                     const rowRoas = row.purchase_roas ?? row.purchase_roas_omni_purchase;
 
                     return (
-                      <tr key={idx} style={{ borderBottom: "1px solid var(--color-border, #E8EAED)", transition: "background-color 0.15s ease" }}>
+                      <tr key={idx} style={{ borderBottom: "1px solid var(--color-border, #E5E7EB)", transition: "background-color 0.15s ease" }}>
                         <td style={{ padding: "12px 14px", fontWeight: "600" }}>{row.date}</td>
                         <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency)}</td>
                         <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>{formatNumber(rowPurchases)}</td>
                         <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(rowValue, row.currency)}</td>
-                        <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>
+                        <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right", color: "#16A34A" }}>
                           {rowRoas !== null && rowRoas !== undefined ? `${Number(rowRoas).toFixed(2)}x` : "—"}
                         </td>
                         <td style={{ padding: "12px 14px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>

@@ -1,13 +1,8 @@
 import React, { useMemo } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 /**
  * Reusable SaaS Pagination Component for Vytalis Intelligence.
- *
- * Supports:
- * - Intelligent page range generation with ellipsis (e.g. 1 ... 4 5 6 ... 246)
- * - Accessible ← Previous and Next → buttons
- * - Rows per page selector dropdown (10, 25, 50)
- * - Mobile responsive layout
  */
 export const Pagination = ({
   currentPage = 1,
@@ -68,12 +63,12 @@ export const Pagination = ({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "14px 20px",
-        borderTop: "1px solid var(--color-border, #E8EAED)",
-        backgroundColor: "var(--color-surface, #F7F9FC)",
+        padding: "12px 20px",
+        borderTop: "1px solid var(--color-border, #E5E7EB)",
+        backgroundColor: "var(--color-surface, #FFFFFF)",
         flexWrap: "wrap",
         gap: "12px",
-        fontSize: "0.85rem",
+        fontSize: "0.825rem",
         color: "var(--color-text-secondary, #64748B)",
       }}
     >
@@ -86,7 +81,7 @@ export const Pagination = ({
 
         {onPageSizeChange && (
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="page-size-select" style={{ fontSize: "0.8rem", color: "var(--color-text-muted, #94A3B8)" }}>
+            <label htmlFor="page-size-select" style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)" }}>
               Rows per page:
             </label>
             <select
@@ -95,12 +90,12 @@ export const Pagination = ({
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
               aria-label="Select rows per page"
               style={{
-                padding: "4px 8px",
+                padding: "3px 8px",
                 borderRadius: "6px",
-                border: "1px solid var(--color-border, #E8EAED)",
+                border: "1px solid var(--color-border, #E5E7EB)",
                 backgroundColor: "#FFFFFF",
-                color: "var(--color-text-primary, #111827)",
-                fontSize: "0.8rem",
+                color: "var(--color-text-primary, #0F172A)",
+                fontSize: "0.78rem",
                 fontWeight: "600",
                 cursor: "pointer",
                 outline: "none",
@@ -117,39 +112,43 @@ export const Pagination = ({
       </div>
 
       {/* Right Controls: Previous / Page Numbers / Next */}
-      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
         {/* Previous Button */}
         <button
           onClick={() => onPageChange && onPageChange(safeCurrentPage - 1)}
           disabled={safeCurrentPage <= 1}
           aria-label="Go to previous page"
           style={{
-            padding: "6px 12px",
+            padding: "5px 10px",
             borderRadius: "6px",
-            border: "1px solid var(--color-border, #E8EAED)",
+            border: "1px solid var(--color-border, #E5E7EB)",
             backgroundColor: safeCurrentPage <= 1 ? "transparent" : "#FFFFFF",
-            color: safeCurrentPage <= 1 ? "var(--color-text-muted, #94A3B8)" : "var(--color-text-primary, #111827)",
+            color: safeCurrentPage <= 1 ? "var(--color-text-muted, #94A3B8)" : "var(--color-text-primary, #0F172A)",
             fontSize: "0.8rem",
-            fontWeight: "600",
+            fontWeight: "500",
             cursor: safeCurrentPage <= 1 ? "not-allowed" : "pointer",
             transition: "all 0.15s ease",
-            opacity: safeCurrentPage <= 1 ? 0.6 : 1,
+            opacity: safeCurrentPage <= 1 ? 0.5 : 1,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
           }}
         >
-          ← Previous
+          <ChevronLeft size={14} />
+          Previous
         </button>
 
         {/* Page Number Buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
           {pageNumbers.map((page, idx) => {
             if (page === "...") {
               return (
                 <span
                   key={`ellipsis-${idx}`}
                   style={{
-                    padding: "4px 6px",
+                    padding: "2px 5px",
                     color: "var(--color-text-muted, #94A3B8)",
-                    fontSize: "0.8rem",
+                    fontSize: "0.78rem",
                   }}
                 >
                   …
@@ -165,14 +164,14 @@ export const Pagination = ({
                 aria-label={`Go to page ${page}`}
                 aria-current={isSelected ? "page" : undefined}
                 style={{
-                  minWidth: "30px",
-                  height: "30px",
-                  padding: "0 6px",
+                  minWidth: "28px",
+                  height: "28px",
+                  padding: "0 4px",
                   borderRadius: "6px",
-                  border: isSelected ? "1px solid #0A84FF" : "1px solid var(--color-border, #E8EAED)",
+                  border: isSelected ? "1px solid #0A84FF" : "1px solid var(--color-border, #E5E7EB)",
                   backgroundColor: isSelected ? "#0A84FF" : "#FFFFFF",
-                  color: isSelected ? "#FFFFFF" : "var(--color-text-primary, #111827)",
-                  fontSize: "0.8rem",
+                  color: isSelected ? "#FFFFFF" : "var(--color-text-primary, #0F172A)",
+                  fontSize: "0.78rem",
                   fontWeight: isSelected ? "700" : "500",
                   cursor: "pointer",
                   transition: "all 0.15s ease",
@@ -193,19 +192,23 @@ export const Pagination = ({
           disabled={safeCurrentPage >= totalPages || totalPages === 0}
           aria-label="Go to next page"
           style={{
-            padding: "6px 12px",
+            padding: "5px 10px",
             borderRadius: "6px",
-            border: "1px solid var(--color-border, #E8EAED)",
+            border: "1px solid var(--color-border, #E5E7EB)",
             backgroundColor: safeCurrentPage >= totalPages || totalPages === 0 ? "transparent" : "#FFFFFF",
-            color: safeCurrentPage >= totalPages || totalPages === 0 ? "var(--color-text-muted, #94A3B8)" : "var(--color-text-primary, #111827)",
+            color: safeCurrentPage >= totalPages || totalPages === 0 ? "var(--color-text-muted, #94A3B8)" : "var(--color-text-primary, #0F172A)",
             fontSize: "0.8rem",
-            fontWeight: "600",
+            fontWeight: "500",
             cursor: safeCurrentPage >= totalPages || totalPages === 0 ? "not-allowed" : "pointer",
             transition: "all 0.15s ease",
-            opacity: safeCurrentPage >= totalPages || totalPages === 0 ? 0.6 : 1,
+            opacity: safeCurrentPage >= totalPages || totalPages === 0 ? 0.5 : 1,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
           }}
         >
-          Next →
+          Next
+          <ChevronRight size={14} />
         </button>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React from "react";
+import { Award, Zap, Lightbulb, TrendingUp, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
@@ -33,28 +34,27 @@ export const PlacesInsightsAndHighlights = ({
         <div
           style={{
             backgroundColor: "#FFFFFF",
-            borderRadius: "var(--radius-card, 16px)",
-            border: "1px solid var(--color-border, #E8EAED)",
+            borderRadius: "var(--radius-card, 12px)",
+            border: "1px solid var(--color-border, #E5E7EB)",
             padding: "20px 24px",
             display: "flex",
             flexDirection: "column",
             gap: "12px",
-            boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
-            background: "linear-gradient(135deg, #F2F8FF, #FFFFFF)",
+            boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: "0.78rem", fontWeight: "750", color: "#0A84FF", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              🏆 Best Performing Region
+            <span style={{ fontSize: "0.78rem", fontWeight: "700", color: "#0A84FF", textTransform: "uppercase", letterSpacing: "0.5px", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              <Award size={16} /> Best Performing Region
             </span>
-            <span style={{ fontSize: "0.75rem", backgroundColor: "rgba(10, 132, 255, 0.1)", color: "#0A84FF", padding: "3px 8px", borderRadius: "999px", fontWeight: "600" }}>
+            <span style={{ fontSize: "0.75rem", backgroundColor: "rgba(10, 132, 255, 0.08)", color: "#0A84FF", padding: "2px 8px", borderRadius: "999px", fontWeight: "600" }}>
               Highest CTR
             </span>
           </div>
 
           {bestRegion ? (
             <>
-              <div style={{ fontSize: "1.35rem", fontWeight: "750", color: "var(--color-text-primary, #111827)" }}>
+              <div style={{ fontSize: "1.35rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
                 {bestRegion.region}
                 {bestRegion.country && (
                   <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted, #94A3B8)", fontWeight: "normal", marginLeft: "8px" }}>
@@ -63,22 +63,22 @@ export const PlacesInsightsAndHighlights = ({
                 )}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "4px", backgroundColor: "#FFFFFF", padding: "12px", borderRadius: "10px", border: "1px solid var(--color-border, #E8EAED)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "4px", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", padding: "12px", borderRadius: "8px", border: "1px solid var(--color-border, #E5E7EB)" }}>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CTR</span>
-                  <strong style={{ fontSize: "1rem", color: "#0A84FF", fontWeight: "750" }}>{formatPercentage(bestRegion.ctr)}</strong>
+                  <strong style={{ fontSize: "1rem", color: "#0A84FF", fontWeight: "700" }}>{formatPercentage(bestRegion.ctr)}</strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CPC</span>
-                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #111827)" }}>{formatCurrency(bestRegion.cpc, currency)}</strong>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #0F172A)" }}>{formatCurrency(bestRegion.cpc, currency)}</strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Clicks</span>
-                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #111827)" }}>{formatNumber(bestRegion.clicks)}</strong>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #0F172A)" }}>{formatNumber(bestRegion.clicks)}</strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Spend</span>
-                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #111827)" }}>{formatCurrency(bestRegion.spend, currency)}</strong>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #0F172A)" }}>{formatCurrency(bestRegion.spend, currency)}</strong>
                 </div>
               </div>
             </>
@@ -93,28 +93,27 @@ export const PlacesInsightsAndHighlights = ({
         <div
           style={{
             backgroundColor: "#FFFFFF",
-            borderRadius: "var(--radius-card, 16px)",
-            border: "1px solid var(--color-border, #E8EAED)",
+            borderRadius: "var(--radius-card, 12px)",
+            border: "1px solid var(--color-border, #E5E7EB)",
             padding: "20px 24px",
             display: "flex",
             flexDirection: "column",
             gap: "12px",
-            boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
-            background: "linear-gradient(135deg, #DCFCE7 0%, #FFFFFF 100%)",
+            boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: "0.78rem", fontWeight: "750", color: "#16A34A", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              ⚡ Most Efficient Region
+            <span style={{ fontSize: "0.78rem", fontWeight: "700", color: "#16A34A", textTransform: "uppercase", letterSpacing: "0.5px", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+              <Zap size={16} /> Most Efficient Region
             </span>
-            <span style={{ fontSize: "0.75rem", backgroundColor: "rgba(22, 163, 74, 0.12)", color: "#16A34A", padding: "3px 8px", borderRadius: "999px", fontWeight: "600" }}>
+            <span style={{ fontSize: "0.75rem", backgroundColor: "rgba(22, 163, 74, 0.08)", color: "#16A34A", padding: "2px 8px", borderRadius: "999px", fontWeight: "600" }}>
               Lowest CPC
             </span>
           </div>
 
           {efficientRegion ? (
             <>
-              <div style={{ fontSize: "1.35rem", fontWeight: "750", color: "var(--color-text-primary, #111827)" }}>
+              <div style={{ fontSize: "1.35rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
                 {efficientRegion.region}
                 {efficientRegion.country && (
                   <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted, #94A3B8)", fontWeight: "normal", marginLeft: "8px" }}>
@@ -123,22 +122,22 @@ export const PlacesInsightsAndHighlights = ({
                 )}
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "4px", backgroundColor: "#FFFFFF", padding: "12px", borderRadius: "10px", border: "1px solid var(--color-border, #E8EAED)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "4px", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", padding: "12px", borderRadius: "8px", border: "1px solid var(--color-border, #E5E7EB)" }}>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CPC</span>
-                  <strong style={{ fontSize: "1rem", color: "#16A34A", fontWeight: "750" }}>{formatCurrency(efficientRegion.cpc, currency)}</strong>
+                  <strong style={{ fontSize: "1rem", color: "#16A34A", fontWeight: "700" }}>{formatCurrency(efficientRegion.cpc, currency)}</strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CTR</span>
-                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #111827)" }}>{formatPercentage(efficientRegion.ctr)}</strong>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #0F172A)" }}>{formatPercentage(efficientRegion.ctr)}</strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Clicks</span>
-                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #111827)" }}>{formatNumber(efficientRegion.clicks)}</strong>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #0F172A)" }}>{formatNumber(efficientRegion.clicks)}</strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Spend</span>
-                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #111827)" }}>{formatCurrency(efficientRegion.spend, currency)}</strong>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #0F172A)" }}>{formatCurrency(efficientRegion.spend, currency)}</strong>
                 </div>
               </div>
             </>
@@ -153,18 +152,18 @@ export const PlacesInsightsAndHighlights = ({
         <div
           style={{
             backgroundColor: "#FFFFFF",
-            borderRadius: "var(--radius-card, 16px)",
-            border: "1px solid var(--color-border, #E8EAED)",
+            borderRadius: "var(--radius-card, 12px)",
+            border: "1px solid var(--color-border, #E5E7EB)",
             padding: "20px 24px",
             display: "flex",
             flexDirection: "column",
             gap: "14px",
-            boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+            boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "1.1rem" }}>💡</span>
-            <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
+            <Lightbulb size={18} color="#0A84FF" />
+            <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
               Geographic Insights
             </h4>
           </div>
@@ -180,11 +179,11 @@ export const PlacesInsightsAndHighlights = ({
                   key={idx}
                   style={{
                     padding: "10px 14px",
-                    borderRadius: "10px",
-                    backgroundColor: "var(--color-surface, #F7F9FC)",
+                    borderRadius: "8px",
+                    backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
                     borderLeft: "3px solid #0A84FF",
-                    fontSize: "0.85rem",
-                    color: "var(--color-text-primary, #111827)",
+                    fontSize: "0.825rem",
+                    color: "var(--color-text-primary, #0F172A)",
                     fontWeight: "500",
                     lineHeight: "1.4",
                   }}
@@ -209,18 +208,18 @@ export const PlacesInsightsAndHighlights = ({
         <div
           style={{
             backgroundColor: "#FFFFFF",
-            borderRadius: "var(--radius-card, 16px)",
-            border: "1px solid var(--color-border, #E8EAED)",
+            borderRadius: "var(--radius-card, 12px)",
+            border: "1px solid var(--color-border, #E5E7EB)",
             padding: "20px 24px",
             display: "flex",
             flexDirection: "column",
             gap: "14px",
-            boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+            boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "1rem" }}>💚</span>
-            <h4 style={{ margin: 0, fontSize: "1.02rem", fontWeight: "700", color: "#16A34A" }}>
+            <TrendingUp size={18} color="#16A34A" />
+            <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "#16A34A" }}>
               Top Performing Regions
             </h4>
           </div>
@@ -239,13 +238,13 @@ export const PlacesInsightsAndHighlights = ({
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "10px 14px",
-                    borderRadius: "10px",
+                    borderRadius: "8px",
                     backgroundColor: "rgba(22, 163, 74, 0.05)",
                     border: "1px solid rgba(22, 163, 74, 0.15)",
                   }}
                 >
                   <div>
-                    <span style={{ fontWeight: "700", color: "var(--color-text-primary, #111827)", fontSize: "0.9rem" }}>
+                    <span style={{ fontWeight: "650", color: "var(--color-text-primary, #0F172A)", fontSize: "0.875rem" }}>
                       {r.region}
                     </span>
                     <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>
@@ -253,7 +252,7 @@ export const PlacesInsightsAndHighlights = ({
                     </span>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <span style={{ fontWeight: "750", color: "#16A34A", fontSize: "0.9rem", display: "block" }}>
+                    <span style={{ fontWeight: "700", color: "#16A34A", fontSize: "0.875rem", display: "block" }}>
                       {formatPercentage(r.ctr)} CTR
                     </span>
                     <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)" }}>
@@ -270,18 +269,18 @@ export const PlacesInsightsAndHighlights = ({
         <div
           style={{
             backgroundColor: "#FFFFFF",
-            borderRadius: "var(--radius-card, 16px)",
-            border: "1px solid var(--color-border, #E8EAED)",
+            borderRadius: "var(--radius-card, 12px)",
+            border: "1px solid var(--color-border, #E5E7EB)",
             padding: "20px 24px",
             display: "flex",
             flexDirection: "column",
             gap: "14px",
-            boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+            boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "1rem" }}>⚠️</span>
-            <h4 style={{ margin: 0, fontSize: "1.02rem", fontWeight: "700", color: "#F59E0B" }}>
+            <AlertTriangle size={18} color="#F59E0B" />
+            <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "#D97706" }}>
               Needs Attention (High Spend, Low CTR)
             </h4>
           </div>
@@ -300,13 +299,13 @@ export const PlacesInsightsAndHighlights = ({
                     alignItems: "center",
                     justifyContent: "space-between",
                     padding: "10px 14px",
-                    borderRadius: "10px",
+                    borderRadius: "8px",
                     backgroundColor: "rgba(245, 158, 11, 0.05)",
                     border: "1px solid rgba(245, 158, 11, 0.2)",
                   }}
                 >
                   <div>
-                    <span style={{ fontWeight: "700", color: "var(--color-text-primary, #111827)", fontSize: "0.9rem" }}>
+                    <span style={{ fontWeight: "650", color: "var(--color-text-primary, #0F172A)", fontSize: "0.875rem" }}>
                       {r.region}
                     </span>
                     <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>
@@ -314,7 +313,7 @@ export const PlacesInsightsAndHighlights = ({
                     </span>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <span style={{ fontWeight: "750", color: "#E5484D", fontSize: "0.9rem", display: "block" }}>
+                    <span style={{ fontWeight: "700", color: "#DC2626", fontSize: "0.875rem", display: "block" }}>
                       {formatPercentage(r.ctr)} CTR
                     </span>
                     <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)" }}>
