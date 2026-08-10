@@ -20,18 +20,18 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
     <div
       style={{
         backgroundColor: "#FFFFFF",
-        borderRadius: "var(--radius-card, 16px)",
-        border: "1px solid var(--color-border, #E8EAED)",
+        borderRadius: "var(--radius-card, 12px)",
+        border: "1px solid var(--color-border, #E5E7EB)",
         padding: "20px 24px",
         display: "flex",
         flexDirection: "column",
         gap: "16px",
-        boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+        boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
+          <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
             Top 5 Regions Overview
           </h4>
           <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
@@ -40,7 +40,7 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
         </div>
 
         {/* Metric Selector Pills */}
-        <div style={{ display: "flex", backgroundColor: "var(--color-surface, #F7F9FC)", borderRadius: "8px", padding: "3px", border: "1px solid var(--color-border, #E8EAED)", gap: "2px" }}>
+        <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)", gap: "2px" }}>
           {[
             { id: "spend", label: "Spend" },
             { id: "reach", label: "Reach" },
@@ -53,15 +53,15 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
                 key={m.id}
                 onClick={() => setMetric(m.id)}
                 style={{
-                  padding: "5px 12px",
+                  padding: "4px 10px",
                   border: "none",
-                  borderRadius: "6px",
+                  borderRadius: "4px",
                   backgroundColor: active ? "#FFFFFF" : "transparent",
                   color: active ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
                   fontWeight: active ? "700" : "500",
-                  fontSize: "0.8rem",
+                  fontSize: "0.75rem",
                   cursor: "pointer",
-                  boxShadow: active ? "0 1px 3px rgba(0, 0, 0, 0.08)" : "none",
+                  boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.05)" : "none",
                   transition: "all 0.15s ease",
                 }}
               >
@@ -76,7 +76,7 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
           gap: "14px",
         }}
       >
@@ -89,9 +89,9 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
             <div
               key={region.region || idx}
               style={{
-                backgroundColor: "var(--color-surface, #F7F9FC)",
-                borderRadius: "12px",
-                border: "1px solid var(--color-border, #E8EAED)",
+                backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
+                borderRadius: "10px",
+                border: "1px solid var(--color-border, #E5E7EB)",
                 padding: "16px",
                 display: "flex",
                 flexDirection: "column",
@@ -100,7 +100,7 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: "750", color: "#0A84FF", backgroundColor: "rgba(10, 132, 255, 0.1)", padding: "2px 8px", borderRadius: "999px" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: "700", color: "#0A84FF", backgroundColor: "rgba(10, 132, 255, 0.08)", padding: "2px 8px", borderRadius: "999px" }}>
                   #{idx + 1} Region
                 </span>
                 {region.country && (
@@ -111,28 +111,28 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
               </div>
 
               <div>
-                <h5 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #111827)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <h5 style={{ margin: 0, fontSize: "0.95rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {region.region || "Unknown Region"}
                 </h5>
               </div>
 
               {/* Key Metrics Grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", paddingTop: "6px", borderTop: "1px solid var(--color-border, #E8EAED)", fontSize: "0.8rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", paddingTop: "8px", borderTop: "1px solid var(--color-border, #E5E7EB)", fontSize: "0.8rem" }}>
                 <div>
                   <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Spend</span>
-                  <strong style={{ color: "var(--color-text-primary, #111827)", fontWeight: metric === "spend" ? "750" : "600" }}>
+                  <strong style={{ color: "var(--color-text-primary, #0F172A)", fontWeight: metric === "spend" ? "750" : "600" }}>
                     {formatCurrency(region.spend, currency)}
                   </strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Reach</span>
-                  <strong style={{ color: "var(--color-text-primary, #111827)", fontWeight: metric === "reach" ? "750" : "600" }}>
+                  <strong style={{ color: "var(--color-text-primary, #0F172A)", fontWeight: metric === "reach" ? "750" : "600" }}>
                     {formatNumber(region.reach)}
                   </strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Clicks</span>
-                  <strong style={{ color: "var(--color-text-primary, #111827)", fontWeight: metric === "clicks" ? "750" : "600" }}>
+                  <strong style={{ color: "var(--color-text-primary, #0F172A)", fontWeight: metric === "clicks" ? "750" : "600" }}>
                     {formatNumber(region.clicks)}
                   </strong>
                 </div>

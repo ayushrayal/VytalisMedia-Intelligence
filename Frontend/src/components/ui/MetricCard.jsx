@@ -1,90 +1,112 @@
 import React from "react";
 
 /**
- * Reusable MetricCard Component for Vytalis SaaS Analytics.
- *
- * Displays a clean, data-focused KPI card with:
- * - Small section label
- * - Subtle monochrome Lucide icon
- * - Large crisp metric value
- * - Optional comparison trend badge (e.g. ↑ 12.4% vs previous period)
- * - Muted subtitle / helper text
+ * Reusable MetricCard Primitive for Vytalis Intelligence.
+ * Premium B2B SaaS metric card matching Linear / Stripe design language.
  */
 export const MetricCard = ({
   title,
+  label, // alias for title
   value,
   subtitle,
-  icon: Icon,
   trend,
-  accentColor,
+  trendPositive = true,
+  icon: IconComponent,
+  accentColor = "#0A84FF",
+  onClick,
 }) => {
+  const displayTitle = title || label || "Metric";
+
   return (
     <div
+      onClick={onClick}
       style={{
-        backgroundColor: "var(--color-surface, #FFFFFF)",
-        borderRadius: "var(--radius-card, 12px)",
-        border: "1px solid var(--color-border, #E5E7EB)",
-        padding: "18px 20px",
+        backgroundColor: "#FFFFFF",
+        borderRadius: "16px",
+        border: "1px solid #E5E7EB",
+        padding: "20px 24px",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
-        boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
-        transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+        boxShadow: "0 1px 3px rgba(15, 23, 42, 0.03)",
+        cursor: onClick ? "pointer" : "default",
+        transition: "border-color 0.15s ease, background-color 0.15s ease, transform 0.15s ease",
+      }}
+      onMouseEnter={(e) => {
+        if (onClick) {
+          e.currentTarget.style.borderColor = "#0A84FF";
+          e.currentTarget.style.backgroundColor = "#FAFCFF";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (onClick) {
+          e.currentTarget.style.borderColor = "#E5E7EB";
+          e.currentTarget.style.backgroundColor = "#FFFFFF";
+        }
       }}
     >
-      {/* Header: Title + Subtle Lucide Icon */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-        <span style={{ fontSize: "0.825rem", fontWeight: "600", color: "var(--color-text-secondary, #64748B)", letterSpacing: "-0.1px" }}>
-          {title}
-        </span>
-        {Icon && (
+      {/* Top Row: Circular Icon Pill & Label */}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+        {IconComponent && (
           <div
             style={{
+              width: "34px",
+              height: "34px",
+              borderRadius: "50%",
+              backgroundColor: `${accentColor}12`, // 8% - 10% opacity tint
+              color: accentColor,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: "32px",
-              height: "32px",
-              borderRadius: "8px",
-              backgroundColor: accentColor ? `${accentColor}12` : "var(--color-surface-subtle, #F1F5F9)",
-              color: accentColor || "var(--color-text-secondary, #64748B)",
+              flexShrink: 0,
             }}
           >
-            <Icon size={18} strokeWidth={2} />
+            <IconComponent size={17} strokeWidth={2.2} />
           </div>
         )}
+        <span style={{ fontSize: "13px", fontWeight: "600", color: "#64748B" }}>
+          {displayTitle}
+        </span>
       </div>
 
-      {/* Metric Value & Trend */}
+      {/* Metric Value & Subtitle */}
       <div>
-        <div style={{ fontSize: "1.75rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)", letterSpacing: "-0.4px", lineHeight: "1.2" }}>
-          {value}
+        <div
+          style={{
+            fontSize: "28px",
+            fontWeight: "700",
+            color: "#0F172A",
+            letterSpacing: "-0.5px",
+            lineHeight: "1.2",
+          }}
+        >
+          {value !== null && value !== undefined && value !== "" ? value : "—"}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px", flexWrap: "wrap" }}>
-          {trend && (
-            <span
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: "600",
-                color: trend.positive === false ? "#DC2626" : "#16A34A",
-                backgroundColor: trend.positive === false ? "rgba(220, 38, 38, 0.08)" : "rgba(22, 163, 74, 0.08)",
-                padding: "2px 6px",
-                borderRadius: "4px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "2px",
-              }}
-            >
-              {trend.value}
-            </span>
-          )}
-          {subtitle && (
-            <span style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)" }}>
-              {subtitle}
-            </span>
-          )}
-        </div>
+        {/* Subtitle / Context */}
+        {(subtitle || trend) && (
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "6px", fontSize: "12px" }}>
+            {trend && (
+              <span
+                style={{
+                  fontWeight: "600",
+                  color: trendPositive ? "#16A34A" : "#DC2626",
+                  backgroundColor: trendPositive ? "rgba(22, 163, 74, 0.08)" : "rgba(220, 38, 38, 0.08)",
+                  padding: "1px 6px",
+                  borderRadius: "4px",
+                  fontSize: "11px",
+                }}
+              >
+                {trend}
+              </span>
+            )}
+            {subtitle && (
+              <span style={{ color: "#94A3B8" }}>
+                {subtitle}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

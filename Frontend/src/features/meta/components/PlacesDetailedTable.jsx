@@ -67,16 +67,16 @@ export const PlacesDetailedTable = ({ data = [], currency = "INR" }) => {
     <div
       style={{
         backgroundColor: "#FFFFFF",
-        borderRadius: "var(--radius-card, 16px)",
-        border: "1px solid var(--color-border, #E8EAED)",
+        borderRadius: "var(--radius-card, 12px)",
+        border: "1px solid var(--color-border, #E5E7EB)",
         overflow: "hidden",
-        boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+        boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
       }}
     >
       {/* Table Card Header */}
-      <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--color-border, #E8EAED)", backgroundColor: "var(--color-surface, #F7F9FC)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--color-border, #E5E7EB)", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
         <div>
-          <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
+          <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
             Detailed Geographic Data
           </h4>
           <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
@@ -87,9 +87,9 @@ export const PlacesDetailedTable = ({ data = [], currency = "INR" }) => {
 
       {/* Table Body */}
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", color: "var(--color-text-primary, #111827)", fontSize: "0.875rem" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", color: "var(--color-text-primary, #0F172A)", fontSize: "0.85rem" }}>
           <thead>
-            <tr style={{ borderBottom: "1px solid var(--color-border, #E8EAED)", textAlign: "left", backgroundColor: "#FFFFFF", color: "var(--color-text-secondary, #64748B)" }}>
+            <tr style={{ borderBottom: "1px solid var(--color-border, #E5E7EB)", textAlign: "left", backgroundColor: "#FFFFFF", color: "var(--color-text-secondary, #64748B)" }}>
               {[
                 { field: "country", label: "Country", align: "left" },
                 { field: "region", label: "Region", align: "left" },
@@ -104,7 +104,7 @@ export const PlacesDetailedTable = ({ data = [], currency = "INR" }) => {
                   key={col.field}
                   onClick={() => handleSort(col.field)}
                   style={{
-                    padding: "14px 18px",
+                    padding: "12px 18px",
                     textAlign: col.align,
                     cursor: "pointer",
                     userSelect: "none",
@@ -130,28 +130,28 @@ export const PlacesDetailedTable = ({ data = [], currency = "INR" }) => {
                 <tr
                   key={idx}
                   style={{
-                    borderBottom: "1px solid var(--color-border, #E8EAED)",
+                    borderBottom: "1px solid var(--color-border, #E5E7EB)",
                     transition: "background-color 0.15s ease",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--color-surface-hover, #F2F8FF)";
+                    e.currentTarget.style.backgroundColor = "var(--color-surface-subtle, #F1F5F9)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = "transparent";
                   }}
                 >
-                  <td style={{ padding: "14px 18px", fontWeight: "700" }}>
+                  <td style={{ padding: "12px 18px", fontWeight: "650" }}>
                     {row.country ? (
                       <span
                         style={{
                           display: "inline-flex",
                           padding: "2px 8px",
                           borderRadius: "999px",
-                          fontSize: "0.78rem",
+                          fontSize: "0.75rem",
                           fontWeight: "600",
-                          backgroundColor: "var(--color-surface, #F7F9FC)",
+                          backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
                           color: "var(--color-text-secondary, #64748B)",
-                          border: "1px solid var(--color-border, #E8EAED)",
+                          border: "1px solid var(--color-border, #E5E7EB)",
                         }}
                       >
                         {row.country}
@@ -160,15 +160,15 @@ export const PlacesDetailedTable = ({ data = [], currency = "INR" }) => {
                       "-"
                     )}
                   </td>
-                  <td style={{ padding: "14px 18px", fontWeight: "600", color: "var(--color-text-primary, #111827)" }}>
+                  <td style={{ padding: "12px 18px", fontWeight: "600", color: "var(--color-text-primary, #0F172A)" }}>
                     {row.region || "Unknown Region"}
                   </td>
-                  <td style={{ padding: "14px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency || currency)}</td>
-                  <td style={{ padding: "14px 18px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>
-                  <td style={{ padding: "14px 18px", textAlign: "right" }}>{formatNumber(row.reach)}</td>
-                  <td style={{ padding: "14px 18px", textAlign: "right" }}>{formatNumber(row.clicks)}</td>
-                  <td style={{ padding: "14px 18px", fontWeight: "600", textAlign: "right" }}>{formatPercentage(row.ctr)}</td>
-                  <td style={{ padding: "14px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.cpc, row.currency || currency)}</td>
+                  <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency || currency)}</td>
+                  <td style={{ padding: "12px 18px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>
+                  <td style={{ padding: "12px 18px", textAlign: "right" }}>{formatNumber(row.reach)}</td>
+                  <td style={{ padding: "12px 18px", textAlign: "right" }}>{formatNumber(row.clicks)}</td>
+                  <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatPercentage(row.ctr)}</td>
+                  <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.cpc, row.currency || currency)}</td>
                 </tr>
               ))
             )}
