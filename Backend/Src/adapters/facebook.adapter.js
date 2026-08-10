@@ -17,6 +17,59 @@ const buildAccountFilter = (activeMetaAccount) => {
 };
 
 /**
+ * Safely extracts a numeric value or returns null/fallback.
+ */
+const getNumericOrNull = (val) => {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "number") return isNaN(val) ? null : val;
+  if (typeof val === "string") {
+    const parsed = parseFloat(val);
+    return isNaN(parsed) ? null : parsed;
+  }
+  if (Array.isArray(val)) {
+    if (val.length === 0) return null;
+    const first = val[0];
+    if (first && first.value !== undefined) {
+      const parsed = parseFloat(first.value);
+      return isNaN(parsed) ? null : parsed;
+    }
+  }
+  if (typeof val === "object" && val.value !== undefined) {
+    const parsed = parseFloat(val.value);
+    return isNaN(parsed) ? null : parsed;
+  }
+  return null;
+};
+
+/**
+ * Normalizes raw Windsor overview response data.
+ * Maps provider fields to clean application domain properties:
+ * - actions_omni_purchase -> purchases
+ * - action_values_omni_purchase -> purchase_conversion_value
+ * - cost_per_action_type_omni_purchase -> cost_per_result
+ * - purchase_roas_omni_purchase -> purchase_roas
+ */
+const normalizeOverviewData = (rawData) => {
+  if (!Array.isArray(rawData)) return [];
+
+  return rawData.map((row) => {
+    const normalized = { ...row };
+
+    const rawPurchases = row.actions_omni_purchase ?? row.purchases;
+    const rawValue = row.action_values_omni_purchase ?? row.purchase_conversion_value;
+    const rawCost = row.cost_per_action_type_omni_purchase ?? row.cost_per_result;
+    const rawRoas = row.purchase_roas_omni_purchase ?? row.purchase_roas;
+
+    normalized.purchases = getNumericOrNull(rawPurchases) ?? 0;
+    normalized.purchase_conversion_value = getNumericOrNull(rawValue) ?? 0;
+    normalized.cost_per_result = getNumericOrNull(rawCost);
+    normalized.purchase_roas = getNumericOrNull(rawRoas);
+
+    return normalized;
+  });
+};
+
+/**
  * Fetches Facebook Account Overview metrics from Windsor.
  */
 const fetchOverview = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) => {
@@ -31,9 +84,13 @@ const fetchOverview = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }
     "cpc",
     "cpm",
     "frequency",
+    "actions_omni_purchase",
+    "action_values_omni_purchase",
+    "cost_per_action_type_omni_purchase",
+    "purchase_roas_omni_purchase",
   ];
 
-  return await windsorProvider.fetchData({
+  const rawData = await windsorProvider.fetchData({
     connector: WINDSOR_CONSTANTS.CONNECTOR_FACEBOOK,
     fields,
     datePreset,
@@ -41,6 +98,8 @@ const fetchOverview = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }
     dateTo,
     filters: buildAccountFilter(activeMetaAccount),
   });
+
+  return normalizeOverviewData(rawData);
 };
 
 /**
@@ -48,26 +107,20 @@ const fetchOverview = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }
  */
 const fetchCampaigns = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) => {
   const fields = [
-    "date",
-    "currency",
-    "account_id",
-    "account_name",
-    "campaign_id",
     "campaign",
+    "campaign_id",
     "campaign_status",
     "campaign_effective_status",
     "campaign_objective",
-    "buying_type",
-    "campaign_daily_budget",
-    "campaign_lifetime_budget",
     "spend",
-    "clicks",
     "impressions",
     "reach",
+    "clicks",
     "ctr",
     "cpc",
     "cpm",
     "frequency",
+    "currency",
   ];
 
   return await windsorProvider.fetchData({
@@ -81,26 +134,25 @@ const fetchCampaigns = async ({ activeMetaAccount, datePreset, dateFrom, dateTo 
 };
 
 /**
- * Fetches Facebook AdSets metrics from Windsor.
+ * Fetches Facebook Ad Sets metrics from Windsor.
  */
 const fetchAdsets = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) => {
   const fields = [
-    "date",
-    "currency",
+    "adset_name",
+    "adset_id",
     "campaign",
     "campaign_id",
-    "adset_id",
-    "adset_name",
     "effective_status",
+    "adset_status",
     "spend",
     "impressions",
     "reach",
     "clicks",
-    "link_clicks",
     "ctr",
     "cpc",
     "cpm",
     "frequency",
+    "currency",
   ];
 
   return await windsorProvider.fetchData({
@@ -129,6 +181,8 @@ const fetchCreatives = async ({ activeMetaAccount, datePreset, dateFrom, dateTo 
     "effective_status",
     "thumbnail_url",
     "image_url",
+    "video_id",
+    "object_story_spec",
     "facebook_permalink_url",
     "instagram_permalink_url",
     "spend",
@@ -160,12 +214,10 @@ const fetchCreatives = async ({ activeMetaAccount, datePreset, dateFrom, dateTo 
 };
 
 /**
- * Fetches Facebook Audience Demographics (age, gender) metrics from Windsor.
+ * Fetches Facebook Audience demographics metrics from Windsor.
  */
 const fetchAudience = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) => {
   const fields = [
-    "date",
-    "currency",
     "age",
     "gender",
     "spend",
@@ -176,6 +228,7 @@ const fetchAudience = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }
     "cpc",
     "cpm",
     "frequency",
+    "currency",
   ];
 
   return await windsorProvider.fetchData({
@@ -189,12 +242,10 @@ const fetchAudience = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }
 };
 
 /**
- * Fetches Facebook Place / Geographic metrics from Windsor.
+ * Fetches Facebook Places geographic metrics from Windsor.
  */
 const fetchPlaces = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) => {
   const fields = [
-    "date",
-    "currency",
     "country",
     "region",
     "spend",
@@ -203,6 +254,9 @@ const fetchPlaces = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) 
     "clicks",
     "ctr",
     "cpc",
+    "cpm",
+    "frequency",
+    "currency",
   ];
 
   return await windsorProvider.fetchData({

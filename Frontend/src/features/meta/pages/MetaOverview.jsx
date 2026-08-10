@@ -52,17 +52,24 @@ export const MetaOverview = () => {
     });
   }, [data, spendFilter]);
 
+  // Total Aggregations
   const totals = data.reduce(
     (acc, row) => {
       acc.spend += Number(row.spend || 0);
       acc.impressions += Number(row.impressions || 0);
       acc.reach += Number(row.reach || 0);
       acc.clicks += Number(row.clicks || 0);
+      acc.purchases += Number(row.purchases ?? row.actions_omni_purchase ?? 0);
+      acc.purchaseValue += Number(row.purchase_conversion_value ?? row.action_values_omni_purchase ?? 0);
       acc.currency = row.currency || acc.currency;
       return acc;
     },
-    { spend: 0, impressions: 0, reach: 0, clicks: 0, currency: "USD" }
+    { spend: 0, impressions: 0, reach: 0, clicks: 0, purchases: 0, purchaseValue: 0, currency: "INR" }
   );
+
+  // Derived Aggregate Ratios (Strict rules: Total Spend / Total Purchases & Total Conversion Value / Total Spend)
+  const overallCostPerResult = totals.purchases > 0 ? totals.spend / totals.purchases : null;
+  const overallPurchaseRoas = totals.spend > 0 ? totals.purchaseValue / totals.spend : null;
 
   const avgCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0;
   const avgCpc = totals.clicks > 0 ? totals.spend / totals.clicks : 0;
@@ -104,14 +111,40 @@ export const MetaOverview = () => {
         <EmptyState title="No Overview Metrics Found" description="No Meta overview records were returned for this date range." />
       ) : (
         <div>
-          {/* KPI Grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px", marginBottom: "28px" }}>
-            <MetricCard label="Total Spend" value={formatCurrency(totals.spend, totals.currency)} icon="💰" />
-            <MetricCard label="Impressions" value={formatNumber(totals.impressions)} icon="👁️" />
-            <MetricCard label="Reach" value={formatNumber(totals.reach)} icon="🎯" />
-            <MetricCard label="Clicks" value={formatNumber(totals.clicks)} icon="🖱️" />
-            <MetricCard label="Average CTR" value={formatPercentage(avgCtr)} icon="📈" />
-            <MetricCard label="Average CPC" value={formatCurrency(avgCpc, totals.currency)} icon="🏷️" />
+          {/* Row 1: Primary Purchase Metrics */}
+          <div style={{ marginBottom: "16px" }}>
+            <h4 style={{ margin: "0 0 12px 0", fontSize: "0.9rem", fontWeight: "700", color: "var(--color-text-primary, #111827)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Purchase Performance
+            </h4>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+              <MetricCard label="Purchases" value={formatNumber(totals.purchases)} icon="🛍️" />
+              <MetricCard label="Purchase Conversion Value" value={formatCurrency(totals.purchaseValue, totals.currency)} icon="💎" />
+              <MetricCard
+                label="Cost per Result"
+                value={overallCostPerResult !== null ? formatCurrency(overallCostPerResult, totals.currency) : "—"}
+                icon="🎯"
+              />
+              <MetricCard
+                label="Purchase ROAS"
+                value={overallPurchaseRoas !== null ? `${overallPurchaseRoas.toFixed(2)}x` : "—"}
+                icon="🚀"
+              />
+            </div>
+          </div>
+
+          {/* Row 2: Performance & Efficiency Metrics */}
+          <div style={{ marginBottom: "28px" }}>
+            <h4 style={{ margin: "0 0 12px 0", fontSize: "0.9rem", fontWeight: "700", color: "var(--color-text-primary, #111827)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Volume & Efficiency
+            </h4>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+              <MetricCard label="Total Spend" value={formatCurrency(totals.spend, totals.currency)} icon="💰" />
+              <MetricCard label="Impressions" value={formatNumber(totals.impressions)} icon="👁️" />
+              <MetricCard label="Reach" value={formatNumber(totals.reach)} icon="👥" />
+              <MetricCard label="Clicks" value={formatNumber(totals.clicks)} icon="🖱️" />
+              <MetricCard label="Average CTR" value={formatPercentage(avgCtr)} icon="📈" />
+              <MetricCard label="Average CPC" value={formatCurrency(avgCpc, totals.currency)} icon="🏷️" />
+            </div>
           </div>
 
           {/* Daily Performance Card */}
@@ -134,6 +167,9 @@ export const MetaOverview = () => {
                   <tr style={{ borderBottom: "1px solid var(--color-border, #E8EAED)", textAlign: "left", backgroundColor: "var(--color-surface, #F7F9FC)", color: "var(--color-text-secondary, #64748B)" }}>
                     <th style={{ padding: "12px 14px" }}>Date</th>
                     <th style={{ padding: "12px 14px", textAlign: "right" }}>Spend</th>
+                    <th style={{ padding: "12px 14px", textAlign: "right" }}>Purchases</th>
+                    <th style={{ padding: "12px 14px", textAlign: "right" }}>Purchase Value</th>
+                    <th style={{ padding: "12px 14px", textAlign: "right" }}>ROAS</th>
                     <th style={{ padding: "12px 14px", textAlign: "right" }}>Impressions</th>
                     <th style={{ padding: "12px 14px", textAlign: "right" }}>Reach</th>
                     <th style={{ padding: "12px 14px", textAlign: "right" }}>Clicks</th>
@@ -142,17 +178,28 @@ export const MetaOverview = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredData.map((row, idx) => (
-                    <tr key={idx} style={{ borderBottom: "1px solid var(--color-border, #E8EAED)", transition: "background-color 0.15s ease" }}>
-                      <td style={{ padding: "12px 14px", fontWeight: "600" }}>{row.date}</td>
-                      <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency)}</td>
-                      <td style={{ padding: "12px 14px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>
-                      <td style={{ padding: "12px 14px", textAlign: "right" }}>{formatNumber(row.reach)}</td>
-                      <td style={{ padding: "12px 14px", textAlign: "right" }}>{formatNumber(row.clicks)}</td>
-                      <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>{formatPercentage(row.ctr)}</td>
-                      <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.cpc, row.currency)}</td>
-                    </tr>
-                  ))}
+                  {filteredData.map((row, idx) => {
+                    const rowPurchases = Number(row.purchases ?? row.actions_omni_purchase ?? 0);
+                    const rowValue = Number(row.purchase_conversion_value ?? row.action_values_omni_purchase ?? 0);
+                    const rowRoas = row.purchase_roas ?? row.purchase_roas_omni_purchase;
+
+                    return (
+                      <tr key={idx} style={{ borderBottom: "1px solid var(--color-border, #E8EAED)", transition: "background-color 0.15s ease" }}>
+                        <td style={{ padding: "12px 14px", fontWeight: "600" }}>{row.date}</td>
+                        <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency)}</td>
+                        <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>{formatNumber(rowPurchases)}</td>
+                        <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(rowValue, row.currency)}</td>
+                        <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>
+                          {rowRoas !== null && rowRoas !== undefined ? `${Number(rowRoas).toFixed(2)}x` : "—"}
+                        </td>
+                        <td style={{ padding: "12px 14px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>
+                        <td style={{ padding: "12px 14px", textAlign: "right" }}>{formatNumber(row.reach)}</td>
+                        <td style={{ padding: "12px 14px", textAlign: "right" }}>{formatNumber(row.clicks)}</td>
+                        <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>{formatPercentage(row.ctr)}</td>
+                        <td style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.cpc, row.currency)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
