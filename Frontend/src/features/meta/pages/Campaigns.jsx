@@ -8,6 +8,7 @@ import StatusFilter from "../components/StatusFilter.jsx";
 import StatusBadge, { getNormalizedStatus } from "../components/StatusBadge.jsx";
 import CampaignDetailsDrawer from "../components/CampaignDetailsDrawer.jsx";
 import CreativeDetailsDrawer from "../components/CreativeDetailsDrawer.jsx";
+import Pagination from "../../../components/ui/Pagination.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
@@ -17,6 +18,14 @@ import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
 import { getErrorMessage } from "../../../utils/error.js";
 
+/**
+ * Campaigns Page Component.
+ * Features:
+ * - Table delivery & performance breakdown
+ * - Global dataset column sorting (Spend, CTR, CPC, Clicks, Reach, Name, etc.)
+ * - Client-side pagination (Default: 10 per page, options: 10, 25, 50)
+ * - Persistent pagination state across drawer open/close actions
+ */
 export const Campaigns = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +35,14 @@ export const Campaigns = () => {
   // Local Filter State
   const [spendFilter, setSpendFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Sorting State
+  const [sortField, setSortField] = useState("spend");
+  const [sortOrder, setSortOrder] = useState("desc");
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Drawer States
   const [selectedCampaignId, setSelectedCampaignId] = useState(null);
@@ -68,6 +85,62 @@ export const Campaigns = () => {
       return matchesSpend && matchesStatus;
     });
   }, [data, spendFilter, statusFilter]);
+
+  // 1. Sort complete dataset FIRST before pagination
+  const sortedData = useMemo(() => {
+    return [...filteredData].sort((a, b) => {
+      let valA = a[sortField];
+      let valB = b[sortField];
+
+      if (["spend", "impressions", "reach", "clicks", "ctr", "cpc"].includes(sortField)) {
+        valA = Number(valA || 0);
+        valB = Number(valB || 0);
+      } else if (sortField === "campaign") {
+        valA = String(a.campaign || a.campaign_name || "").toLowerCase();
+        valB = String(b.campaign || b.campaign_name || "").toLowerCase();
+      } else {
+        valA = String(valA || "").toLowerCase();
+        valB = String(valB || "").toLowerCase();
+      }
+
+      if (valA < valB) return sortOrder === "asc" ? -1 : 1;
+      if (valA > valB) return sortOrder === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [filteredData, sortField, sortOrder]);
+
+  // Reset page to 1 whenever filters or sorting changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [data, spendFilter, statusFilter, sortField, sortOrder]);
+
+  // Page Reset Safety clamp
+  const totalPages = Math.ceil(sortedData.length / pageSize) || 1;
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
+  // 2. Slice paginated subset for DOM rendering
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedData.slice(start, start + pageSize);
+  }, [sortedData, currentPage, pageSize]);
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("desc");
+    }
+  };
+
+  const renderSortIndicator = (field) => {
+    if (sortField !== field) return <span style={{ opacity: 0.3, marginLeft: "4px" }}>↕</span>;
+    return <span style={{ marginLeft: "4px", color: "#0A84FF" }}>{sortOrder === "asc" ? "▲" : "▼"}</span>;
+  };
 
   const handleClearFilters = () => {
     setSpendFilter("all");
@@ -122,19 +195,37 @@ export const Campaigns = () => {
             <table style={{ width: "100%", borderCollapse: "collapse", color: "var(--color-text-primary, #111827)", fontSize: "0.875rem" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--color-border, #E8EAED)", textAlign: "left", backgroundColor: "var(--color-surface, #F7F9FC)", color: "var(--color-text-secondary, #64748B)" }}>
-                  <th style={{ padding: "14px 18px" }}>Campaign Name</th>
-                  <th style={{ padding: "14px 18px" }}>Status</th>
-                  <th style={{ padding: "14px 18px" }}>Objective</th>
-                  <th style={{ padding: "14px 18px", textAlign: "right" }}>Spend</th>
-                  <th style={{ padding: "14px 18px", textAlign: "right" }}>Impressions</th>
-                  <th style={{ padding: "14px 18px", textAlign: "right" }}>Reach</th>
-                  <th style={{ padding: "14px 18px", textAlign: "right" }}>Clicks</th>
-                  <th style={{ padding: "14px 18px", textAlign: "right" }}>CTR</th>
-                  <th style={{ padding: "14px 18px", textAlign: "right" }}>CPC</th>
+                  {[
+                    { field: "campaign", label: "Campaign Name", align: "left" },
+                    { field: "campaign_status", label: "Status", align: "left" },
+                    { field: "campaign_objective", label: "Objective", align: "left" },
+                    { field: "spend", label: "Spend", align: "right" },
+                    { field: "impressions", label: "Impressions", align: "right" },
+                    { field: "reach", label: "Reach", align: "right" },
+                    { field: "clicks", label: "Clicks", align: "right" },
+                    { field: "ctr", label: "CTR", align: "right" },
+                    { field: "cpc", label: "CPC", align: "right" },
+                  ].map((col) => (
+                    <th
+                      key={col.field}
+                      onClick={() => handleSort(col.field)}
+                      style={{
+                        padding: "14px 18px",
+                        textAlign: col.align,
+                        cursor: "pointer",
+                        userSelect: "none",
+                        fontWeight: sortField === col.field ? "700" : "600",
+                        color: sortField === col.field ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
+                      }}
+                    >
+                      {col.label}
+                      {renderSortIndicator(col.field)}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {filteredData.map((row, idx) => {
+                {paginatedData.map((row, idx) => {
                   const rawStatus = row.campaign_status || row.campaign_effective_status || row.effective_status || row.status || "ACTIVE";
                   return (
                     <tr
@@ -169,6 +260,20 @@ export const Campaigns = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={sortedData.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[10, 25, 50]}
+          />
         </div>
       )}
 
@@ -192,4 +297,3 @@ export const Campaigns = () => {
 };
 
 export default Campaigns;
-
