@@ -3,9 +3,7 @@ import { getMetaAccounts, setActiveMetaAccount } from "../services/meta.api.js";
 
 /**
  * Meta Feature AccountSwitcher component.
- * Displays available Meta accounts and allows switching preferred activeMetaAccount.
- * 
- * MUST reside in features/meta/components/
+ * Height: 42px, Radius: 10px, Surface: #FFFFFF / #F7F9FC, Border: #E8EAED.
  */
 export const AccountSwitcher = ({ onAccountSwitched }) => {
   const [accounts, setAccounts] = useState([]);
@@ -56,7 +54,7 @@ export const AccountSwitcher = ({ onAccountSwitched }) => {
 
   if (loading) {
     return (
-      <div style={{ padding: "6px 12px", color: "#94a3b8", fontSize: "0.875rem" }}>
+      <div style={{ height: "42px", display: "flex", alignItems: "center", padding: "0 14px", color: "var(--color-text-muted, #94A3B8)", fontSize: "0.875rem" }}>
         Loading accounts...
       </div>
     );
@@ -64,7 +62,7 @@ export const AccountSwitcher = ({ onAccountSwitched }) => {
 
   if (error || accounts.length === 0) {
     return (
-      <div style={{ color: "#f87171", fontSize: "0.875rem" }}>
+      <div style={{ height: "42px", display: "flex", alignItems: "center", color: "var(--color-error, #E5484D)", fontSize: "0.875rem" }}>
         No Meta Accounts ({accounts.length})
       </div>
     );
@@ -72,21 +70,24 @@ export const AccountSwitcher = ({ onAccountSwitched }) => {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-      <span style={{ fontSize: "0.85rem", color: "#94a3b8", fontWeight: "500" }}>Account:</span>
+      <span style={{ fontSize: "0.85rem", color: "var(--color-text-secondary, #64748B)", fontWeight: "600" }}>Account:</span>
       <select
         value={activeAccount || ""}
         onChange={handleSelectAccount}
         disabled={switching}
         style={{
-          padding: "6px 12px",
-          borderRadius: "6px",
-          backgroundColor: "#1e293b",
-          border: "1px solid #334155",
-          color: "#f8fafc",
+          height: "42px",
+          padding: "0 14px",
+          borderRadius: "var(--radius-input, 10px)",
+          backgroundColor: "#FFFFFF",
+          border: "1px solid var(--color-border, #E8EAED)",
+          color: "var(--color-text-primary, #111827)",
           fontSize: "0.875rem",
           fontWeight: "600",
           outline: "none",
           cursor: switching ? "wait" : "pointer",
+          transition: "all 0.15s ease",
+          boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
         }}
       >
         {accounts.map((acc) => (
@@ -95,7 +96,7 @@ export const AccountSwitcher = ({ onAccountSwitched }) => {
           </option>
         ))}
       </select>
-      {switching && <span style={{ fontSize: "0.75rem", color: "#818cf8" }}>Updating...</span>}
+      {switching && <span style={{ fontSize: "0.75rem", color: "var(--color-primary, #0A84FF)", fontWeight: "600" }}>Updating...</span>}
     </div>
   );
 };

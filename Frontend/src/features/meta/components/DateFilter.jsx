@@ -1,11 +1,10 @@
 import React, { useState } from "react";
-import { buildDateParams, getTodayISO, getYesterdayISO } from "../../../utils/date.js";
+import { buildDateParams, getTodayISO } from "../../../utils/date.js";
 
 /**
  * Meta Feature DateFilter component.
- * Allows selecting preset or custom date ranges.
+ * Height: 42px, Radius: 10px, Surface: #FFFFFF, Border: #E8EAED.
  * 
- * MUST reside in features/meta/components/
  * STRICT CONTRACT: Never sends datePreset together with dateFrom/dateTo.
  */
 export const DateFilter = ({ onChange, initialPreset = "last_7d" }) => {
@@ -51,20 +50,23 @@ export const DateFilter = ({ onChange, initialPreset = "last_7d" }) => {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-        <span style={{ fontSize: "0.85rem", color: "#94a3b8", fontWeight: "500" }}>Date Range:</span>
+        <span style={{ fontSize: "0.85rem", color: "var(--color-text-secondary, #64748B)", fontWeight: "600" }}>Date Range:</span>
         <select
           value={selectedPreset}
           onChange={handlePresetChange}
           style={{
-            padding: "6px 12px",
-            borderRadius: "6px",
-            backgroundColor: "#1e293b",
-            border: "1px solid #334155",
-            color: "#f8fafc",
+            height: "42px",
+            padding: "0 14px",
+            borderRadius: "var(--radius-input, 10px)",
+            backgroundColor: "#FFFFFF",
+            border: "1px solid var(--color-border, #E8EAED)",
+            color: "var(--color-text-primary, #111827)",
             fontSize: "0.875rem",
             fontWeight: "500",
             outline: "none",
             cursor: "pointer",
+            transition: "all 0.15s ease",
+            boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
           }}
         >
           <option value="today">Today</option>
@@ -86,36 +88,39 @@ export const DateFilter = ({ onChange, initialPreset = "last_7d" }) => {
             value={customFrom}
             onChange={(e) => setCustomFrom(e.target.value)}
             style={{
-              padding: "4px 8px",
-              borderRadius: "6px",
-              backgroundColor: "#1e293b",
-              border: "1px solid #334155",
-              color: "#f8fafc",
+              height: "42px",
+              padding: "0 10px",
+              borderRadius: "var(--radius-input, 10px)",
+              backgroundColor: "#FFFFFF",
+              border: "1px solid var(--color-border, #E8EAED)",
+              color: "var(--color-text-primary, #111827)",
               fontSize: "0.85rem",
             }}
           />
-          <span style={{ color: "#94a3b8", fontSize: "0.85rem" }}>to</span>
+          <span style={{ color: "var(--color-text-secondary, #64748B)", fontSize: "0.85rem" }}>to</span>
           <input
             type="date"
             value={customTo}
             onChange={(e) => setCustomTo(e.target.value)}
             style={{
-              padding: "4px 8px",
-              borderRadius: "6px",
-              backgroundColor: "#1e293b",
-              border: "1px solid #334155",
-              color: "#f8fafc",
+              height: "42px",
+              padding: "0 10px",
+              borderRadius: "var(--radius-input, 10px)",
+              backgroundColor: "#FFFFFF",
+              border: "1px solid var(--color-border, #E8EAED)",
+              color: "var(--color-text-primary, #111827)",
               fontSize: "0.85rem",
             }}
           />
           <button
             type="submit"
             style={{
-              padding: "4px 10px",
-              backgroundColor: "#6366f1",
-              color: "#ffffff",
+              height: "42px",
+              padding: "0 14px",
+              backgroundColor: "var(--color-primary, #0A84FF)",
+              color: "#FFFFFF",
               border: "none",
-              borderRadius: "6px",
+              borderRadius: "var(--radius-button, 10px)",
               fontSize: "0.85rem",
               fontWeight: "600",
               cursor: "pointer",

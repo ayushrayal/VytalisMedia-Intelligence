@@ -1,33 +1,34 @@
 import React from "react";
 
 /**
- * Genuinely shared MetricCard component.
- * Displays KPI label, value, optional subtitle/trend.
+ * Shared MetricCard component.
+ * Card background #F7F9FC, border #E8EAED, radius 16px, padding 20px-24px.
+ * KPI value: 28px-34px (fontWeight 700).
  */
-export const MetricCard = ({ label, value, subtitle, icon, trend, style = {} }) => {
+export const MetricCard = ({ label, value, subtitle, icon, style = {} }) => {
   return (
     <div
       style={{
-        backgroundColor: "#1e293b",
-        border: "1px solid #334155",
-        borderRadius: "12px",
-        padding: "20px",
+        backgroundColor: "var(--color-surface, #F7F9FC)",
+        border: "1px solid var(--color-border, #E8EAED)",
+        borderRadius: "var(--radius-card, 16px)",
+        padding: "22px 24px",
         display: "flex",
         flexDirection: "column",
-        gap: "8px",
-        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+        gap: "10px",
+        boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
         ...style,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontSize: "0.875rem", fontWeight: "500", color: "#94a3b8" }}>{label}</span>
-        {icon && <span style={{ fontSize: "1.2rem" }}>{icon}</span>}
+        <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--color-text-secondary, #64748B)" }}>{label}</span>
+        {icon && <span style={{ fontSize: "1.25rem", color: "var(--color-primary, #0A84FF)" }}>{icon}</span>}
       </div>
-      <div style={{ fontSize: "1.75rem", fontWeight: "700", color: "#f8fafc" }}>
+      <div style={{ fontSize: "2rem", fontWeight: "700", color: "var(--color-text-primary, #111827)", letterSpacing: "-0.6px" }}>
         {value !== undefined && value !== null ? value : "-"}
       </div>
       {subtitle && (
-        <span style={{ fontSize: "0.8rem", color: "#64748b" }}>{subtitle}</span>
+        <span style={{ fontSize: "0.8rem", color: "var(--color-text-muted, #94A3B8)" }}>{subtitle}</span>
       )}
     </div>
   );

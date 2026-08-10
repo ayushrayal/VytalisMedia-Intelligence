@@ -2,9 +2,9 @@ import React from "react";
 
 /**
  * Generic Spinner UI Primitive.
- * Reusable loading indicator.
+ * Reusable light theme loading spinner.
  */
-export const Spinner = ({ size = "md", color = "#6366f1" }) => {
+export const Spinner = ({ size = "md", color = "var(--color-primary, #0A84FF)" }) => {
   const dim = size === "sm" ? "16px" : size === "lg" ? "36px" : "24px";
 
   return (
@@ -13,7 +13,7 @@ export const Spinner = ({ size = "md", color = "#6366f1" }) => {
         width: dim,
         height: dim,
         borderRadius: "50%",
-        border: `3px solid rgba(255, 255, 255, 0.1)`,
+        border: "3px solid var(--color-border, #E8EAED)",
         borderTopColor: color,
         animation: "spin 0.8s linear infinite",
         display: "inline-block",

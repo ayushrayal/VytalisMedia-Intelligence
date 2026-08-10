@@ -40,7 +40,7 @@ export const Welcome = ({ onOnboarded }) => {
     <div
       style={{
         minHeight: "100vh",
-        backgroundColor: "#0f172a",
+        backgroundColor: "var(--color-background, #FFFFFF)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -49,21 +49,21 @@ export const Welcome = ({ onOnboarded }) => {
     >
       <div
         style={{
-          backgroundColor: "#1e293b",
-          border: "1px solid #334155",
-          borderRadius: "16px",
-          padding: "36px",
+          backgroundColor: "var(--color-surface, #F7F9FC)",
+          border: "1px solid var(--color-border, #E8EAED)",
+          borderRadius: "var(--radius-card, 16px)",
+          padding: "40px",
           maxWidth: "480px",
           width: "100%",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+          boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
         }}
       >
-        <div style={{ marginBottom: "24px", textAlign: "center" }}>
+        <div style={{ marginBottom: "28px", textAlign: "center" }}>
           <AppLogo size="lg" />
-          <h2 style={{ margin: "16px 0 8px 0", color: "#f8fafc", fontSize: "1.5rem" }}>
+          <h2 style={{ margin: "20px 0 8px 0", color: "var(--color-text-primary, #111827)", fontSize: "1.5rem", fontWeight: "700" }}>
             Connect Your Meta Account
           </h2>
-          <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.9rem" }}>
+          <p style={{ margin: 0, color: "var(--color-text-secondary, #64748B)", fontSize: "0.9rem" }}>
             Welcome to Vytalis Intelligence! Add your first Meta Ad Account to unlock analytics.
           </p>
         </div>
@@ -71,11 +71,11 @@ export const Welcome = ({ onOnboarded }) => {
         {error && (
           <div
             style={{
-              padding: "12px",
-              backgroundColor: "#450a0a",
-              border: "1px solid #991b1b",
-              borderRadius: "8px",
-              color: "#fca5a5",
+              padding: "12px 14px",
+              backgroundColor: "var(--color-error-light, rgba(229, 72, 77, 0.10))",
+              border: "1px solid rgba(229, 72, 77, 0.20)",
+              borderRadius: "var(--radius-input, 10px)",
+              color: "var(--color-error, #E5484D)",
               fontSize: "0.875rem",
               marginBottom: "20px",
             }}
@@ -84,7 +84,7 @@ export const Welcome = ({ onOnboarded }) => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
           <Input
             label="Meta Account Display Name"
             placeholder="e.g. Vytalis Main Ad Account"

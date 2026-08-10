@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 
 /**
  * Generic Dropdown UI Primitive.
- * Zero business logic. Fully reusable.
+ * Modern SaaS Popover: #FFFFFF background, #E8EAED border, 12px radius, subtle shadow.
  */
 export const Dropdown = ({ trigger, children }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,13 +30,14 @@ export const Dropdown = ({ trigger, children }) => {
             top: "100%",
             right: 0,
             marginTop: "8px",
-            backgroundColor: "#1e293b",
-            border: "1px solid #334155",
-            borderRadius: "8px",
-            boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)",
+            backgroundColor: "#FFFFFF",
+            border: "1px solid var(--color-border, #E8EAED)",
+            borderRadius: "12px",
+            boxShadow: "0 8px 16px -4px rgba(15, 23, 42, 0.08)",
             zIndex: 100,
-            minWidth: "180px",
+            minWidth: "190px",
             overflow: "hidden",
+            padding: "4px 0",
           }}
           onClick={() => setIsOpen(false)}
         >

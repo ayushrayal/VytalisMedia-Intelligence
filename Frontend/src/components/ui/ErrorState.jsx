@@ -2,7 +2,7 @@ import React from "react";
 
 /**
  * Generic ErrorState UI Primitive.
- * Displayed when an API request fails.
+ * Uses #E5484D error token with clean light styling.
  */
 export const ErrorState = ({
   title = "Failed to load data",
@@ -18,26 +18,27 @@ export const ErrorState = ({
         justifyContent: "center",
         padding: "36px 24px",
         textAlign: "center",
-        backgroundColor: "#2d1a24",
-        borderRadius: "12px",
-        border: "1px solid #831843",
-        color: "#f43f5e",
+        backgroundColor: "var(--color-error-light, rgba(229, 72, 77, 0.08))",
+        borderRadius: "var(--radius-card, 16px)",
+        border: "1px solid rgba(229, 72, 77, 0.20)",
+        color: "var(--color-error, #E5484D)",
       }}
     >
       <div style={{ fontSize: "2rem", marginBottom: "8px" }}>⚠️</div>
-      <h4 style={{ margin: "0 0 6px 0", fontSize: "1.1rem", color: "#fda4af" }}>{title}</h4>
-      <p style={{ margin: "0 0 16px 0", fontSize: "0.875rem", color: "#fecdd3", maxWidth: "450px" }}>
+      <h4 style={{ margin: "0 0 6px 0", fontSize: "1.1rem", color: "var(--color-error, #E5484D)", fontWeight: "650" }}>{title}</h4>
+      <p style={{ margin: "0 0 16px 0", fontSize: "0.875rem", color: "var(--color-text-secondary, #64748B)", maxWidth: "450px" }}>
         {message}
       </p>
       {onRetry && (
         <button
           onClick={onRetry}
           style={{
-            padding: "8px 16px",
-            backgroundColor: "#e11d48",
-            color: "#ffffff",
+            height: "40px",
+            padding: "0 18px",
+            backgroundColor: "var(--color-error, #E5484D)",
+            color: "#FFFFFF",
             border: "none",
-            borderRadius: "6px",
+            borderRadius: "var(--radius-button, 10px)",
             fontWeight: "600",
             cursor: "pointer",
           }}

@@ -51,8 +51,9 @@ export const DashboardOverview = () => {
         actions={<AccountSwitcher onAccountSwitched={fetchSummary} />}
       />
 
+      {/* KPI Section */}
       <div style={{ marginBottom: "32px" }}>
-        <h3 style={{ margin: "0 0 16px 0", color: "#f8fafc", fontSize: "1.2rem" }}>
+        <h3 style={{ margin: "0 0 16px 0", color: "var(--color-text-primary, #111827)", fontSize: "1.15rem", fontWeight: "650" }}>
           Meta Performance Summary (Last 7 Days)
         </h3>
 
@@ -73,20 +74,59 @@ export const DashboardOverview = () => {
         )}
       </div>
 
+      {/* Product Integration Card */}
       <div
         style={{
-          backgroundColor: "#1e293b",
-          borderRadius: "12px",
-          border: "1px border-dashed #334155",
-          padding: "24px",
-          textAlign: "center",
-          color: "#94a3b8",
+          backgroundColor: "var(--color-surface, #F7F9FC)",
+          borderRadius: "var(--radius-card, 16px)",
+          border: "1px solid var(--color-border, #E8EAED)",
+          padding: "28px 32px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "20px",
+          boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
         }}
       >
-        <h4 style={{ margin: "0 0 8px 0", color: "#cbd5e1" }}>Shopify Integration</h4>
-        <p style={{ margin: 0, fontSize: "0.875rem" }}>
-          Shopify store connection and revenue analytics will be available in future updates.
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "12px",
+              backgroundColor: "rgba(22, 163, 74, 0.10)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "1.5rem",
+            }}
+          >
+            🛍️
+          </div>
+          <div>
+            <h4 style={{ margin: "0 0 4px 0", color: "var(--color-text-primary, #111827)", fontSize: "1.1rem", fontWeight: "700" }}>
+              Shopify Store Integration
+            </h4>
+            <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--color-text-secondary, #64748B)" }}>
+              Connect your e-commerce store to unlock revenue attribution, ROAS, and cross-channel funnel metrics.
+            </p>
+          </div>
+        </div>
+
+        <span
+          style={{
+            padding: "6px 14px",
+            borderRadius: "var(--radius-pill, 999px)",
+            backgroundColor: "var(--color-primary-light, #EAF3FF)",
+            color: "var(--color-primary-hover, #0060DF)",
+            fontSize: "0.8rem",
+            fontWeight: "600",
+            letterSpacing: "0.2px",
+          }}
+        >
+          Coming Soon
+        </span>
       </div>
     </div>
   );

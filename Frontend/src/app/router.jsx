@@ -63,13 +63,13 @@ const LoginPage = ({ setUser }) => {
 
   return (
     <AuthLayout>
-      <h2 style={{ margin: "0 0 8px 0", color: "#f8fafc", fontSize: "1.5rem" }}>Welcome Back</h2>
-      <p style={{ margin: "0 0 24px 0", color: "#94a3b8", fontSize: "0.875rem" }}>
+      <h2 style={{ margin: "0 0 8px 0", color: "var(--color-text-primary, #111827)", fontSize: "1.5rem", fontWeight: "700" }}>Welcome Back</h2>
+      <p style={{ margin: "0 0 24px 0", color: "var(--color-text-secondary, #475569)", fontSize: "0.875rem" }}>
         Sign in to access your business analytics
       </p>
 
       {error && (
-        <div style={{ padding: "10px 14px", backgroundColor: "#450a0a", border: "1px solid #991b1b", borderRadius: "8px", color: "#fca5a5", fontSize: "0.85rem", marginBottom: "16px" }}>
+        <div style={{ padding: "10px 14px", backgroundColor: "var(--color-error-light, rgba(229, 72, 77, 0.10))", border: "1px solid rgba(229, 72, 77, 0.25)", borderRadius: "var(--radius-input, 8px)", color: "var(--color-error, #E5484D)", fontSize: "0.85rem", marginBottom: "16px" }}>
           {error}
         </div>
       )}
@@ -82,11 +82,11 @@ const LoginPage = ({ setUser }) => {
         </Button>
       </form>
 
-      <div style={{ marginTop: "24px", textAlign: "center", fontSize: "0.875rem", color: "#94a3b8" }}>
+      <div style={{ marginTop: "24px", textAlign: "center", fontSize: "0.875rem", color: "var(--color-text-secondary, #475569)" }}>
         Don't have an account?{" "}
         <button
           onClick={() => navigate("/signup")}
-          style={{ background: "none", border: "none", color: "#818cf8", cursor: "pointer", fontWeight: "600" }}
+          style={{ background: "none", border: "none", color: "var(--color-primary, #0A84FF)", cursor: "pointer", fontWeight: "600" }}
         >
           Sign Up
         </button>
@@ -129,13 +129,13 @@ const SignupPage = ({ setUser }) => {
 
   return (
     <AuthLayout>
-      <h2 style={{ margin: "0 0 8px 0", color: "#f8fafc", fontSize: "1.5rem" }}>Create Vytalis Account</h2>
-      <p style={{ margin: "0 0 24px 0", color: "#94a3b8", fontSize: "0.875rem" }}>
+      <h2 style={{ margin: "0 0 8px 0", color: "var(--color-text-primary, #111827)", fontSize: "1.5rem", fontWeight: "700" }}>Create Vytalis Account</h2>
+      <p style={{ margin: "0 0 24px 0", color: "var(--color-text-secondary, #475569)", fontSize: "0.875rem" }}>
         Register using your system access code
       </p>
 
       {error && (
-        <div style={{ padding: "10px 14px", backgroundColor: "#450a0a", border: "1px solid #991b1b", borderRadius: "8px", color: "#fca5a5", fontSize: "0.85rem", marginBottom: "16px" }}>
+        <div style={{ padding: "10px 14px", backgroundColor: "var(--color-error-light, rgba(229, 72, 77, 0.10))", border: "1px solid rgba(229, 72, 77, 0.25)", borderRadius: "var(--radius-input, 8px)", color: "var(--color-error, #E5484D)", fontSize: "0.85rem", marginBottom: "16px" }}>
           {error}
         </div>
       )}
@@ -150,11 +150,11 @@ const SignupPage = ({ setUser }) => {
         </Button>
       </form>
 
-      <div style={{ marginTop: "24px", textAlign: "center", fontSize: "0.875rem", color: "#94a3b8" }}>
+      <div style={{ marginTop: "24px", textAlign: "center", fontSize: "0.875rem", color: "var(--color-text-secondary, #475569)" }}>
         Already registered?{" "}
         <button
           onClick={() => navigate("/login")}
-          style={{ background: "none", border: "none", color: "#818cf8", cursor: "pointer", fontWeight: "600" }}
+          style={{ background: "none", border: "none", color: "var(--color-primary, #0A84FF)", cursor: "pointer", fontWeight: "600" }}
         >
           Sign In
         </button>
@@ -167,14 +167,14 @@ const SignupPage = ({ setUser }) => {
 // ROUTE GUARDS & WRAPPERS
 // ==========================================
 
+const LoadingScreen = () => (
+  <div style={{ minHeight: "100vh", backgroundColor: "var(--color-background, #FFFFFF)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-primary, #0A84FF)", fontSize: "1.2rem", fontWeight: "600" }}>
+    Loading Vytalis Intelligence...
+  </div>
+);
+
 const PublicRoute = ({ user, authLoading }) => {
-  if (authLoading) {
-    return (
-      <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", color: "#6366f1", fontSize: "1.2rem", fontWeight: "600" }}>
-        Loading Vytalis Intelligence...
-      </div>
-    );
-  }
+  if (authLoading) return <LoadingScreen />;
 
   const token = getAccessToken();
   if (token && user) {
@@ -190,13 +190,7 @@ const PublicRoute = ({ user, authLoading }) => {
 const WelcomeRoute = ({ user, authLoading, restoreSession }) => {
   const navigate = useNavigate();
 
-  if (authLoading) {
-    return (
-      <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", color: "#6366f1", fontSize: "1.2rem", fontWeight: "600" }}>
-        Loading Vytalis Intelligence...
-      </div>
-    );
-  }
+  if (authLoading) return <LoadingScreen />;
 
   const token = getAccessToken();
   if (!token || !user) {
@@ -218,13 +212,7 @@ const WelcomeRoute = ({ user, authLoading, restoreSession }) => {
 };
 
 const ProtectedRoute = ({ user, setUser, authLoading }) => {
-  if (authLoading) {
-    return (
-      <div style={{ minHeight: "100vh", backgroundColor: "#0f172a", display: "flex", alignItems: "center", justifyContent: "center", color: "#6366f1", fontSize: "1.2rem", fontWeight: "600" }}>
-        Loading Vytalis Intelligence...
-      </div>
-    );
-  }
+  if (authLoading) return <LoadingScreen />;
 
   const token = getAccessToken();
   if (!token || !user) {

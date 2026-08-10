@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 
 /**
  * Generic Modal UI Primitive.
- * Zero business logic. Fully reusable.
+ * Overlay: rgba(15, 23, 42, 0.25), Modal: #FFFFFF, Radius: 16px.
  */
 export const Modal = ({ isOpen, onClose, title, children }) => {
   useEffect(() => {
@@ -25,7 +25,7 @@ export const Modal = ({ isOpen, onClose, title, children }) => {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "rgba(15, 23, 42, 0.75)",
+        backgroundColor: "rgba(15, 23, 42, 0.25)",
         backdropFilter: "blur(4px)",
         display: "flex",
         alignItems: "center",
@@ -36,13 +36,13 @@ export const Modal = ({ isOpen, onClose, title, children }) => {
     >
       <div
         style={{
-          backgroundColor: "#1e293b",
-          borderRadius: "12px",
-          border: "1px solid #334155",
-          padding: "24px",
+          backgroundColor: "#FFFFFF",
+          borderRadius: "var(--radius-card, 16px)",
+          border: "1px solid var(--color-border, #E8EAED)",
+          padding: "24px 28px",
           maxWidth: "500px",
           width: "90%",
-          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.5)",
+          boxShadow: "0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -51,18 +51,19 @@ export const Modal = ({ isOpen, onClose, title, children }) => {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: "16px",
+            marginBottom: "18px",
           }}
         >
-          <h3 style={{ margin: 0, fontSize: "1.25rem", color: "#f8fafc" }}>{title}</h3>
+          <h3 style={{ margin: 0, fontSize: "1.2rem", color: "var(--color-text-primary, #111827)", fontWeight: "700" }}>{title}</h3>
           <button
             onClick={onClose}
             style={{
               background: "none",
               border: "none",
-              color: "#94a3b8",
-              fontSize: "1.5rem",
+              color: "var(--color-text-muted, #94A3B8)",
+              fontSize: "1.4rem",
               cursor: "pointer",
+              padding: "2px 6px",
             }}
           >
             ×
