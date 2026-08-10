@@ -133,6 +133,31 @@ const getAnalyticsData = async (req, res, next) => {
 };
 
 /**
+ * Handles request for detailed Meta campaign data (campaign details, adsets, creatives, performance).
+ * Endpoint: GET /api/meta/campaigns/:campaignId/details
+ */
+const getCampaignDetails = async (req, res, next) => {
+  try {
+    const { campaignId } = req.params;
+    const result = await metaAnalyticsService.getCampaignDetails({
+      user: req.user,
+      campaignId,
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Campaign details retrieved successfully.",
+      result.data,
+      result.meta
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Handles request to set preferred active Meta account for authenticated user.
  * Endpoint: PATCH /api/meta/accounts/active
  */
@@ -163,5 +188,8 @@ module.exports = {
   deleteAccount,
   deleteAllAccounts,
   getAnalyticsData,
+  getCampaignDetails,
   setActiveAccount,
 };
+
+

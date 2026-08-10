@@ -7,11 +7,25 @@ const {
   validateUpdateAccount,
   validateAccountIdParam,
 } = require("../validators/meta.validator");
-const { validateAnalyticsRequest } = require("../validators/meta-analytics.validator");
+const {
+  validateAnalyticsRequest,
+  validateCampaignDetailsRequest,
+} = require("../validators/meta-analytics.validator");
 const { protect } = require("../middleware/auth.middleware");
 
 // Protect all Meta account and analytics routes with JWT authentication
 router.use(protect);
+
+/**
+ * @route   GET /api/meta/campaigns/:campaignId/details
+ * @desc    Fetch Meta campaign details, ad sets, creatives, and performance breakdown
+ * @access  Private
+ */
+router.get(
+  "/campaigns/:campaignId/details",
+  validateCampaignDetailsRequest,
+  metaController.getCampaignDetails
+);
 
 /**
  * @route   GET /api/meta/analytics/:endpoint

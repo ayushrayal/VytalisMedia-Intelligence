@@ -6,6 +6,8 @@ import DateFilter from "../components/DateFilter.jsx";
 import SpendFilter from "../components/SpendFilter.jsx";
 import StatusFilter from "../components/StatusFilter.jsx";
 import StatusBadge, { getNormalizedStatus } from "../components/StatusBadge.jsx";
+import CampaignDetailsDrawer from "../components/CampaignDetailsDrawer.jsx";
+import CreativeDetailsDrawer from "../components/CreativeDetailsDrawer.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
@@ -24,6 +26,13 @@ export const Campaigns = () => {
   // Local Filter State
   const [spendFilter, setSpendFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Drawer States
+  const [selectedCampaignId, setSelectedCampaignId] = useState(null);
+  const [isCampaignDrawerOpen, setIsCampaignDrawerOpen] = useState(false);
+
+  const [selectedCreative, setSelectedCreative] = useState(null);
+  const [isCreativeDrawerOpen, setIsCreativeDrawerOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -63,6 +72,17 @@ export const Campaigns = () => {
   const handleClearFilters = () => {
     setSpendFilter("all");
     setStatusFilter("all");
+  };
+
+  const handleRowClick = (row) => {
+    const id = row.campaign_id || row.id || row.campaign;
+    setSelectedCampaignId(id);
+    setIsCampaignDrawerOpen(true);
+  };
+
+  const handleSelectCreative = (creative) => {
+    setSelectedCreative(creative);
+    setIsCreativeDrawerOpen(true);
   };
 
   return (
@@ -117,7 +137,21 @@ export const Campaigns = () => {
                 {filteredData.map((row, idx) => {
                   const rawStatus = row.campaign_status || row.campaign_effective_status || row.effective_status || row.status || "ACTIVE";
                   return (
-                    <tr key={idx} style={{ borderBottom: "1px solid var(--color-border, #E8EAED)", transition: "background-color 0.15s ease" }}>
+                    <tr
+                      key={idx}
+                      onClick={() => handleRowClick(row)}
+                      style={{
+                        borderBottom: "1px solid var(--color-border, #E8EAED)",
+                        transition: "background-color 0.15s ease",
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "var(--color-surface-hover, #F2F8FF)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "transparent";
+                      }}
+                    >
                       <td style={{ padding: "14px 18px", fontWeight: "600" }}>{row.campaign || row.campaign_name || "-"}</td>
                       <td style={{ padding: "14px 18px" }}>
                         <StatusBadge status={rawStatus} />
@@ -137,8 +171,25 @@ export const Campaigns = () => {
           </div>
         </div>
       )}
+
+      {/* Campaign Details Drawer */}
+      <CampaignDetailsDrawer
+        campaignId={selectedCampaignId}
+        isOpen={isCampaignDrawerOpen}
+        onClose={() => setIsCampaignDrawerOpen(false)}
+        dateParams={dateParams}
+        onSelectCreative={handleSelectCreative}
+      />
+
+      {/* Nested Creative Details Drawer */}
+      <CreativeDetailsDrawer
+        creative={selectedCreative}
+        isOpen={isCreativeDrawerOpen}
+        onClose={() => setIsCreativeDrawerOpen(false)}
+      />
     </div>
   );
 };
 
 export default Campaigns;
+

@@ -114,6 +114,85 @@ const getAnalyticsData = async ({ user, endpoint, query = {} }) => {
   };
 };
 
+/**
+ * Fetches comprehensive campaign details (adsets, creatives, performance) for a specific campaign with Redis caching.
+ *
+ * @param {Object} options
+ * @param {Object} options.user - Authenticated user object containing preferences
+ * @param {string} options.campaignId - Target campaign ID
+ * @param {Object} options.query - Raw query parameters ({ datePreset, dateFrom, dateTo })
+ * @returns {Promise<Object>} Object containing campaign details and meta metadata
+ */
+const getCampaignDetails = async ({ user, campaignId, query = {} }) => {
+  if (!user || !user.preferences || !user.preferences.activeMetaAccount) {
+    const error = new Error("No active Meta account selected");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const activeMetaAccount = user.preferences.activeMetaAccount;
+  const userId = user._id ? user._id.toString() : user.id ? user.id.toString() : "anonymous";
+
+  const { dateRangeKey, datePreset, dateFrom, dateTo } = normalizeDateParams({
+    datePreset: query.datePreset,
+    dateFrom: query.dateFrom,
+    dateTo: query.dateTo,
+  });
+
+  const cacheKey = `meta:${userId}:${activeMetaAccount}:campaign_details:${campaignId}:${dateRangeKey}`;
+
+  try {
+    const cached = await cacheUtil.get(cacheKey);
+    if (cached && cached.data) {
+      return {
+        data: cached.data,
+        meta: {
+          cachedAt: cached.cachedAt,
+          expiresAt: cached.expiresAt,
+          source: "redis",
+        },
+      };
+    }
+  } catch (cacheErr) {
+    logger.warn(`[Redis ERROR] Cache lookup failed for key ${cacheKey}: ${cacheErr.message}`);
+  }
+
+  const rawData = await facebookAdapter.fetchCampaignDetails({
+    activeMetaAccount,
+    campaignId,
+    datePreset,
+    dateFrom,
+    dateTo,
+  });
+
+  const baseTtl = 300; // 5 minutes
+  const jitteredTtl = calculateJitteredTtl(baseTtl);
+
+  const now = new Date();
+  const cachedAt = now.toISOString();
+  const expiresAt = new Date(now.getTime() + jitteredTtl * 1000).toISOString();
+
+  const cachePayload = {
+    data: rawData,
+    cachedAt,
+    expiresAt,
+    source: "windsor",
+  };
+
+  await cacheUtil.set(cacheKey, cachePayload, jitteredTtl);
+
+  return {
+    data: rawData,
+    meta: {
+      cachedAt,
+      expiresAt,
+      source: "windsor",
+    },
+  };
+};
+
 module.exports = {
   getAnalyticsData,
+  getCampaignDetails,
 };
+

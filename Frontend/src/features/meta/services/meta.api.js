@@ -81,7 +81,13 @@ export const getAudience = async (params = {}) => {
   return await http.get(`/meta/analytics/audience${query}`);
 };
 
+export const getCampaignDetails = async (campaignId, params = {}) => {
+  const query = buildQueryString(params);
+  return await http.get(`/meta/campaigns/${encodeURIComponent(campaignId)}/details${query}`);
+};
+
 export const getPlaces = async (params = {}) => {
   const query = buildQueryString(params);
   return await http.get(`/meta/analytics/places${query}`);
 };
+

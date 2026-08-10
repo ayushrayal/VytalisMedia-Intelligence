@@ -60,8 +60,8 @@ const normalizeOverviewData = (rawData) => {
     const rawCost = row.cost_per_action_type_omni_purchase ?? row.cost_per_result;
     const rawRoas = row.purchase_roas_omni_purchase ?? row.purchase_roas;
 
-    normalized.purchases = getNumericOrNull(rawPurchases) ?? 0;
-    normalized.purchase_conversion_value = getNumericOrNull(rawValue) ?? 0;
+    normalized.purchases = getNumericOrNull(rawPurchases);
+    normalized.purchase_conversion_value = getNumericOrNull(rawValue);
     normalized.cost_per_result = getNumericOrNull(rawCost);
     normalized.purchase_roas = getNumericOrNull(rawRoas);
 
@@ -105,7 +105,7 @@ const fetchOverview = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }
 /**
  * Fetches Facebook Campaigns metrics from Windsor.
  */
-const fetchCampaigns = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) => {
+const fetchCampaigns = async ({ activeMetaAccount, datePreset, dateFrom, dateTo, campaignId }) => {
   const fields = [
     "campaign",
     "campaign_id",
@@ -123,20 +123,27 @@ const fetchCampaigns = async ({ activeMetaAccount, datePreset, dateFrom, dateTo 
     "currency",
   ];
 
-  return await windsorProvider.fetchData({
+  const filters = buildAccountFilter(activeMetaAccount);
+  if (campaignId) {
+    filters.push(["campaign_id", "eq", campaignId]);
+  }
+
+  const rawData = await windsorProvider.fetchData({
     connector: WINDSOR_CONSTANTS.CONNECTOR_FACEBOOK,
     fields,
     datePreset,
     dateFrom,
     dateTo,
-    filters: buildAccountFilter(activeMetaAccount),
+    filters,
   });
+
+  return normalizeOverviewData(rawData);
 };
 
 /**
  * Fetches Facebook Ad Sets metrics from Windsor.
  */
-const fetchAdsets = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) => {
+const fetchAdsets = async ({ activeMetaAccount, datePreset, dateFrom, dateTo, campaignId }) => {
   const fields = [
     "adset_name",
     "adset_id",
@@ -155,20 +162,25 @@ const fetchAdsets = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) 
     "currency",
   ];
 
+  const filters = buildAccountFilter(activeMetaAccount);
+  if (campaignId) {
+    filters.push(["campaign_id", "eq", campaignId]);
+  }
+
   return await windsorProvider.fetchData({
     connector: WINDSOR_CONSTANTS.CONNECTOR_FACEBOOK,
     fields,
     datePreset,
     dateFrom,
     dateTo,
-    filters: buildAccountFilter(activeMetaAccount),
+    filters,
   });
 };
 
 /**
  * Fetches Facebook Ad Creatives metrics from Windsor.
  */
-const fetchCreatives = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) => {
+const fetchCreatives = async ({ activeMetaAccount, datePreset, dateFrom, dateTo, campaignId }) => {
   const fields = [
     "date",
     "currency",
@@ -203,13 +215,18 @@ const fetchCreatives = async ({ activeMetaAccount, datePreset, dateFrom, dateTo 
     "video_avg_time_watched_actions",
   ];
 
+  const filters = buildAccountFilter(activeMetaAccount);
+  if (campaignId) {
+    filters.push(["campaign_id", "eq", campaignId]);
+  }
+
   return await windsorProvider.fetchData({
     connector: WINDSOR_CONSTANTS.CONNECTOR_FACEBOOK,
     fields,
     datePreset,
     dateFrom,
     dateTo,
-    filters: buildAccountFilter(activeMetaAccount),
+    filters,
   });
 };
 
@@ -269,6 +286,129 @@ const fetchPlaces = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) 
   });
 };
 
+/**
+ * Fetches comprehensive details for a single campaign belonging to activeMetaAccount.
+ */
+const fetchCampaignDetails = async ({ activeMetaAccount, campaignId, datePreset, dateFrom, dateTo }) => {
+  // Parallel Windsor fetch for campaign, ad sets, and creatives
+  let [campaignsList, adsetsList, creativesList] = await Promise.all([
+    fetchCampaigns({ activeMetaAccount, datePreset, dateFrom, dateTo, campaignId }),
+    fetchAdsets({ activeMetaAccount, datePreset, dateFrom, dateTo, campaignId }),
+    fetchCreatives({ activeMetaAccount, datePreset, dateFrom, dateTo, campaignId }),
+  ]);
+
+  let targetCampaign = (campaignsList || []).find(
+    (c) => String(c.campaign_id || c.id) === String(campaignId) || String(c.campaign) === String(campaignId)
+  );
+
+  if (!targetCampaign) {
+    const allCampaigns = await fetchCampaigns({ activeMetaAccount, datePreset, dateFrom, dateTo });
+    targetCampaign = (allCampaigns || []).find(
+      (c) => String(c.campaign_id || c.id) === String(campaignId) || String(c.campaign) === String(campaignId)
+    );
+  }
+
+  if (!targetCampaign) {
+    const error = new Error(`Campaign '${campaignId}' not found for the active Meta account`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const actualCampaignId = String(targetCampaign.campaign_id || targetCampaign.id || campaignId);
+  const campaignName = targetCampaign.campaign || targetCampaign.campaign_name;
+
+  if (!adsetsList || adsetsList.length === 0) {
+    adsetsList = await fetchAdsets({ activeMetaAccount, datePreset, dateFrom, dateTo });
+  }
+  if (!creativesList || creativesList.length === 0) {
+    creativesList = await fetchCreatives({ activeMetaAccount, datePreset, dateFrom, dateTo });
+  }
+
+  const filteredAdSets = (adsetsList || []).filter(
+    (a) => String(a.campaign_id) === actualCampaignId || (campaignName && String(a.campaign) === String(campaignName))
+  );
+  const filteredCreatives = (creativesList || []).filter(
+    (cr) => String(cr.campaign_id) === actualCampaignId || (campaignName && String(cr.campaign) === String(campaignName))
+  );
+
+  const adSets = filteredAdSets.map((a) => ({
+    id: String(a.adset_id || a.id || ""),
+    name: a.adset_name || a.name || "Unnamed Ad Set",
+    status: a.adset_status || a.effective_status || a.status || "ACTIVE",
+    spend: getNumericOrNull(a.spend),
+    impressions: getNumericOrNull(a.impressions),
+    reach: getNumericOrNull(a.reach),
+    clicks: getNumericOrNull(a.clicks),
+    ctr: getNumericOrNull(a.ctr),
+    cpc: getNumericOrNull(a.cpc),
+    currency: a.currency || targetCampaign.currency || "INR",
+  }));
+
+  const creatives = filteredCreatives.map((cr) => ({
+    id: String(cr.ad_id || cr.creative_id || cr.id || ""),
+    ad_name: cr.ad_name || cr.creative_name || "Unnamed Creative",
+    ad_id: String(cr.ad_id || cr.creative_id || cr.id || ""),
+    effective_status: cr.effective_status || cr.ad_status || cr.status || "ACTIVE",
+    thumbnail_url: cr.thumbnail_url || null,
+    image_url: cr.image_url || null,
+    facebook_permalink_url: cr.facebook_permalink_url || null,
+    instagram_permalink_url: cr.instagram_permalink_url || null,
+    spend: getNumericOrNull(cr.spend),
+    impressions: getNumericOrNull(cr.impressions),
+    reach: getNumericOrNull(cr.reach),
+    clicks: getNumericOrNull(cr.clicks),
+    link_clicks: getNumericOrNull(cr.link_clicks),
+    ctr: getNumericOrNull(cr.ctr),
+    cpc: getNumericOrNull(cr.cpc),
+    cpm: getNumericOrNull(cr.cpm),
+    frequency: getNumericOrNull(cr.frequency),
+    currency: cr.currency || targetCampaign.currency || "INR",
+    video_id: cr.video_id || null,
+    video_play_actions: getNumericOrNull(cr.video_play_actions),
+    video_p25_watched_actions: getNumericOrNull(cr.video_p25_watched_actions),
+    video_p50_watched_actions: getNumericOrNull(cr.video_p50_watched_actions),
+    video_p75_watched_actions: getNumericOrNull(cr.video_p75_watched_actions),
+    video_p95_watched_actions: getNumericOrNull(cr.video_p95_watched_actions),
+    video_p100_watched_actions: getNumericOrNull(cr.video_p100_watched_actions),
+    video_avg_time_watched_actions: getNumericOrNull(cr.video_avg_time_watched_actions),
+  }));
+
+  const hasCreativeLinkClicks = creatives.some((c) => c.link_clicks !== null);
+  const totalLinkClicks = hasCreativeLinkClicks
+    ? creatives.reduce((acc, c) => acc + (c.link_clicks || 0), 0)
+    : null;
+
+  const performance = {
+    spend: getNumericOrNull(targetCampaign.spend),
+    impressions: getNumericOrNull(targetCampaign.impressions),
+    reach: getNumericOrNull(targetCampaign.reach),
+    clicks: getNumericOrNull(targetCampaign.clicks),
+    link_clicks: totalLinkClicks !== null ? totalLinkClicks : getNumericOrNull(targetCampaign.link_clicks),
+    ctr: getNumericOrNull(targetCampaign.ctr),
+    cpc: getNumericOrNull(targetCampaign.cpc),
+    cpm: getNumericOrNull(targetCampaign.cpm),
+    frequency: getNumericOrNull(targetCampaign.frequency),
+    purchases: getNumericOrNull(targetCampaign.purchases),
+    purchase_conversion_value: getNumericOrNull(targetCampaign.purchase_conversion_value),
+    cost_per_result: getNumericOrNull(targetCampaign.cost_per_result),
+    purchase_roas: getNumericOrNull(targetCampaign.purchase_roas),
+    currency: targetCampaign.currency || "INR",
+  };
+
+  return {
+    campaign: {
+      id: actualCampaignId,
+      name: campaignName || "Unnamed Campaign",
+      status: targetCampaign.campaign_status || targetCampaign.campaign_effective_status || targetCampaign.effective_status || "ACTIVE",
+      objective: targetCampaign.campaign_objective || "OUTCOME_SALES",
+      currency: targetCampaign.currency || "INR",
+    },
+    adSets,
+    creatives,
+    performance,
+  };
+};
+
 module.exports = {
   fetchOverview,
   fetchCampaigns,
@@ -276,4 +416,6 @@ module.exports = {
   fetchCreatives,
   fetchAudience,
   fetchPlaces,
+  fetchCampaignDetails,
 };
+
