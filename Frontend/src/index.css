@@ -102,3 +102,12 @@ p, span, td, th {
     opacity: 0.3;
   }
 }
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}

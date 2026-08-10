@@ -18,6 +18,7 @@ export const DashboardLayout = ({ user, setUser }) => {
     { route: "/meta/creatives", label: "Creatives", icon: "🖼️" },
     { route: "/meta/audience", label: "Audience", icon: "👥" },
     { route: "/meta/places", label: "Places", icon: "📍" },
+    { route: "/settings/accounts", label: "Meta Accounts", icon: "⚙️" },
   ];
 
   const handleLogout = () => {

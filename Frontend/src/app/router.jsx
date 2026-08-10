@@ -19,6 +19,7 @@ import AdSets from "../features/meta/pages/AdSets.jsx";
 import Creatives from "../features/meta/pages/Creatives.jsx";
 import Audience from "../features/meta/pages/Audience.jsx";
 import Places from "../features/meta/pages/Places.jsx";
+import MetaAccounts from "../features/meta/pages/MetaAccounts.jsx";
 import Input from "../components/ui/Input.jsx";
 import Button from "../components/ui/Button.jsx";
 
@@ -306,8 +307,9 @@ export const Router = () => {
           <Route path="/meta/audience" element={<Audience />} />
           <Route path="/meta/places" element={<Places />} />
           <Route path="/meta" element={<Navigate to="/meta/overview" replace />} />
-          <Route path="/settings" element={<Navigate to="/overview" replace />} />
-          <Route path="/settings/*" element={<Navigate to="/overview" replace />} />
+          <Route path="/settings/accounts" element={<MetaAccounts />} />
+          <Route path="/settings" element={<Navigate to="/settings/accounts" replace />} />
+          <Route path="/integrations" element={<Navigate to="/settings/accounts" replace />} />
         </Route>
 
         {/* Fallback Catch-all Route */}

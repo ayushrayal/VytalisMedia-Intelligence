@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { getMetaAccounts, setActiveMetaAccount } from "../services/meta.api.js";
 
 /**
  * Meta Feature AccountSwitcher component.
  * Height: 42px, Radius: 10px, Surface: #FFFFFF / #F7F9FC, Border: #E8EAED.
+ * Includes a direct 'Manage' link navigating to /settings/accounts.
  */
 export const AccountSwitcher = ({ onAccountSwitched }) => {
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
   const [activeAccount, setActiveAccount] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -62,8 +65,23 @@ export const AccountSwitcher = ({ onAccountSwitched }) => {
 
   if (error || accounts.length === 0) {
     return (
-      <div style={{ height: "42px", display: "flex", alignItems: "center", color: "var(--color-error, #E5484D)", fontSize: "0.875rem" }}>
-        No Meta Accounts ({accounts.length})
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <span style={{ fontSize: "0.85rem", color: "var(--color-error, #E5484D)" }}>No Accounts</span>
+        <button
+          onClick={() => navigate("/settings/accounts")}
+          style={{
+            background: "none",
+            border: "1px solid var(--color-border, #E8EAED)",
+            borderRadius: "8px",
+            padding: "4px 10px",
+            fontSize: "0.78rem",
+            color: "#0A84FF",
+            fontWeight: "600",
+            cursor: "pointer",
+          }}
+        >
+          + Add Account
+        </button>
       </div>
     );
   }
@@ -96,6 +114,29 @@ export const AccountSwitcher = ({ onAccountSwitched }) => {
           </option>
         ))}
       </select>
+
+      <button
+        onClick={() => navigate("/settings/accounts")}
+        title="Manage Meta Accounts"
+        style={{
+          height: "42px",
+          padding: "0 12px",
+          borderRadius: "var(--radius-input, 10px)",
+          backgroundColor: "var(--color-surface, #F7F9FC)",
+          border: "1px solid var(--color-border, #E8EAED)",
+          color: "var(--color-primary-hover, #0060DF)",
+          fontSize: "0.825rem",
+          fontWeight: "600",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          transition: "all 0.15s ease",
+        }}
+      >
+        ⚙️ Manage
+      </button>
+
       {switching && <span style={{ fontSize: "0.75rem", color: "var(--color-primary, #0A84FF)", fontWeight: "600" }}>Updating...</span>}
     </div>
   );

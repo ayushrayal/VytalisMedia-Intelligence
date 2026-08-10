@@ -6,6 +6,7 @@ import DateFilter from "../components/DateFilter.jsx";
 import SpendFilter from "../components/SpendFilter.jsx";
 import StatusFilter from "../components/StatusFilter.jsx";
 import StatusBadge, { getNormalizedStatus } from "../components/StatusBadge.jsx";
+import CreativeDetailsDrawer from "../components/CreativeDetailsDrawer.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
@@ -24,6 +25,10 @@ export const Creatives = () => {
   // Local Filter State
   const [spendFilter, setSpendFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Drawer Detail State
+  const [selectedCreative, setSelectedCreative] = useState(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -72,6 +77,11 @@ export const Creatives = () => {
     return data.some((row) => row.effective_status || row.ad_status || row.status);
   }, [data]);
 
+  const handleCardClick = (creative) => {
+    setSelectedCreative(creative);
+    setIsDrawerOpen(true);
+  };
+
   return (
     <div>
       <PageHeader
@@ -115,6 +125,7 @@ export const Creatives = () => {
             return (
               <div
                 key={idx}
+                onClick={() => handleCardClick(row)}
                 style={{
                   backgroundColor: "#FFFFFF",
                   borderRadius: "var(--radius-card, 16px)",
@@ -123,7 +134,8 @@ export const Creatives = () => {
                   display: "flex",
                   flexDirection: "column",
                   boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
-                  transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                  cursor: "pointer",
+                  transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
                 }}
               >
                 {imageUrl ? (
@@ -184,6 +196,13 @@ export const Creatives = () => {
           })}
         </div>
       )}
+
+      {/* Right-Side Detail Drawer */}
+      <CreativeDetailsDrawer
+        creative={selectedCreative}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+      />
     </div>
   );
 };
