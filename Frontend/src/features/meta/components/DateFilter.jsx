@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { buildDateParams, getTodayISO } from "../../../utils/date.js";
+import { ChevronDown } from "lucide-react";
 
 /**
  * Meta Feature DateFilter component.
- * Height: 42px, Radius: 10px, Surface: #FFFFFF, Border: #E8EAED.
+ * Height: 36px, Radius: 8px, Surface: #FFFFFF, Border: #E5E7EB.
  * 
  * STRICT CONTRACT: Never sends datePreset together with dateFrom/dateTo.
  */
@@ -48,80 +49,86 @@ export const DateFilter = ({ onChange, initialPreset = "last_7d" }) => {
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-        <span style={{ fontSize: "0.85rem", color: "var(--color-text-secondary, #64748B)", fontWeight: "600" }}>Date Range:</span>
-        <select
-          value={selectedPreset}
-          onChange={handlePresetChange}
-          style={{
-            height: "42px",
-            padding: "0 14px",
-            borderRadius: "var(--radius-input, 10px)",
-            backgroundColor: "#FFFFFF",
-            border: "1px solid var(--color-border, #E8EAED)",
-            color: "var(--color-text-primary, #111827)",
-            fontSize: "0.875rem",
-            fontWeight: "500",
-            outline: "none",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-            boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
-          }}
-        >
-          <option value="today">Today</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="last_7d">Last 7 Days</option>
-          <option value="last_30d">Last 30 Days</option>
-          <option value="this_month">This Month</option>
-          <option value="custom">Custom Range</option>
-        </select>
+        <span style={{ fontSize: "12px", color: "#64748B", fontWeight: "600" }}>Date Range:</span>
+        <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+          <select
+            value={selectedPreset}
+            onChange={handlePresetChange}
+            style={{
+              height: "36px",
+              padding: "0 28px 0 10px",
+              borderRadius: "8px",
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #E5E7EB",
+              color: "#0F172A",
+              fontSize: "13px",
+              fontWeight: "500",
+              outline: "none",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+              boxShadow: "0 1px 2px rgba(15, 23, 42, 0.03)",
+              appearance: "none",
+              WebkitAppearance: "none",
+              MozAppearance: "none",
+            }}
+          >
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="last_7d">Last 7 Days</option>
+            <option value="last_30d">Last 30 Days</option>
+            <option value="this_month">This Month</option>
+            <option value="custom">Custom Range</option>
+          </select>
+          <ChevronDown size={14} style={{ position: "absolute", right: "8px", color: "#64748B", pointerEvents: "none" }} />
+        </div>
       </div>
 
       {isCustom && (
         <form
           onSubmit={handleApplyCustom}
-          style={{ display: "flex", alignItems: "center", gap: "8px" }}
+          style={{ display: "flex", alignItems: "center", gap: "6px" }}
         >
           <input
             type="date"
             value={customFrom}
             onChange={(e) => setCustomFrom(e.target.value)}
             style={{
-              height: "42px",
-              padding: "0 10px",
-              borderRadius: "var(--radius-input, 10px)",
+              height: "36px",
+              padding: "0 8px",
+              borderRadius: "8px",
               backgroundColor: "#FFFFFF",
-              border: "1px solid var(--color-border, #E8EAED)",
-              color: "var(--color-text-primary, #111827)",
-              fontSize: "0.85rem",
+              border: "1px solid #E5E7EB",
+              color: "#0F172A",
+              fontSize: "12px",
             }}
           />
-          <span style={{ color: "var(--color-text-secondary, #64748B)", fontSize: "0.85rem" }}>to</span>
+          <span style={{ color: "#64748B", fontSize: "12px" }}>to</span>
           <input
             type="date"
             value={customTo}
             onChange={(e) => setCustomTo(e.target.value)}
             style={{
-              height: "42px",
-              padding: "0 10px",
-              borderRadius: "var(--radius-input, 10px)",
+              height: "36px",
+              padding: "0 8px",
+              borderRadius: "8px",
               backgroundColor: "#FFFFFF",
-              border: "1px solid var(--color-border, #E8EAED)",
-              color: "var(--color-text-primary, #111827)",
-              fontSize: "0.85rem",
+              border: "1px solid #E5E7EB",
+              color: "#0F172A",
+              fontSize: "12px",
             }}
           />
           <button
             type="submit"
             style={{
-              height: "42px",
-              padding: "0 14px",
-              backgroundColor: "var(--color-primary, #0A84FF)",
+              height: "36px",
+              padding: "0 12px",
+              backgroundColor: "#0A84FF",
               color: "#FFFFFF",
               border: "none",
-              borderRadius: "var(--radius-button, 10px)",
-              fontSize: "0.85rem",
+              borderRadius: "8px",
+              fontSize: "13px",
               fontWeight: "600",
               cursor: "pointer",
             }}
