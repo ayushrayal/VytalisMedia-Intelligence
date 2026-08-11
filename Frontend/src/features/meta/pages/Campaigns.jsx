@@ -90,7 +90,7 @@ export const Campaigns = () => {
       let valA = a[sortField];
       let valB = b[sortField];
 
-      if (["spend", "impressions", "reach", "clicks", "ctr", "cpc"].includes(sortField)) {
+      if (["spend", "impressions", "reach", "clicks", "ctr", "cpc", "cpm", "frequency", "purchases", "purchase_conversion_value", "cost_per_result", "purchase_roas", "actions_add_to_cart", "actions_initiate_checkout", "unique_outbound_clicks_ctr_outbound_click"].includes(sortField)) {
         valA = Number(valA || 0);
         valB = Number(valB || 0);
       } else if (sortField === "campaign") {
@@ -189,17 +189,25 @@ export const Campaigns = () => {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", color: "#0F172A", fontSize: "13px" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid #E5E7EB", textAlign: "left", backgroundColor: "#F1F5F9", color: "#64748B" }}>
+                <tr style={{ borderBottom: "1px solid #E5E7EB", textAlign: "left", backgroundColor: "#F1F5F9", color: "#64748B", whiteSpace: "nowrap" }}>
                   {[
                     { field: "campaign", label: "Campaign Name", align: "left" },
                     { field: "campaign_status", label: "Status", align: "left" },
                     { field: "campaign_objective", label: "Objective", align: "left" },
                     { field: "spend", label: "Spend", align: "right" },
-                    { field: "impressions", label: "Impressions", align: "right" },
+                    { field: "cost_per_result", label: "Cost / Result", align: "right" },
+                    { field: "purchases", label: "Purchases", align: "right" },
+                    { field: "purchase_conversion_value", label: "Purchase Value", align: "right" },
+                    { field: "purchase_roas", label: "ROAS", align: "right" },
+                    { field: "actions_add_to_cart", label: "Add to Cart", align: "right" },
+                    { field: "actions_initiate_checkout", label: "Checkout Initiated", align: "right" },
                     { field: "reach", label: "Reach", align: "right" },
-                    { field: "clicks", label: "Clicks", align: "right" },
+                    { field: "impressions", label: "Impressions", align: "right" },
                     { field: "ctr", label: "CTR", align: "right" },
+                    { field: "unique_outbound_clicks_ctr_outbound_click", label: "Unique Outbound CTR", align: "right" },
                     { field: "cpc", label: "CPC", align: "right" },
+                    { field: "cpm", label: "CPM", align: "right" },
+                    { field: "frequency", label: "Frequency", align: "right" },
                   ].map((col) => (
                     <th
                       key={col.field}
@@ -211,6 +219,7 @@ export const Campaigns = () => {
                         userSelect: "none",
                         fontWeight: sortField === col.field ? "700" : "600",
                         color: sortField === col.field ? "#0A84FF" : "#64748B",
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {col.label}
@@ -224,6 +233,10 @@ export const Campaigns = () => {
                   const rawStatus = row.campaign_status || row.campaign_effective_status || row.effective_status || row.status || "ACTIVE";
                   const campaignId = row.campaign_id || row.id;
 
+                  const rawAddToCart = row.actions_add_to_cart ?? row.add_to_cart;
+                  const rawCheckout = row.actions_initiate_checkout ?? row.initiate_checkout;
+                  const rawUniqueCtr = row.unique_outbound_clicks_ctr_outbound_click ?? row.unique_outbound_clicks_ctr;
+
                   return (
                     <tr
                       key={idx}
@@ -232,6 +245,7 @@ export const Campaigns = () => {
                         borderBottom: "1px solid #E5E7EB",
                         transition: "background-color 0.15s ease",
                         cursor: "pointer",
+                        whiteSpace: "nowrap",
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = "#F8FAFC";
@@ -255,11 +269,37 @@ export const Campaigns = () => {
                       </td>
                       <td style={{ padding: "12px 16px", color: "#64748B" }}>{row.campaign_objective || "-"}</td>
                       <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency)}</td>
-                      <td style={{ padding: "12px 16px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>
+                        {row.cost_per_result !== null && row.cost_per_result !== undefined ? formatCurrency(row.cost_per_result, row.currency) : "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>
+                        {row.purchases !== null && row.purchases !== undefined ? formatNumber(row.purchases) : "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>
+                        {row.purchase_conversion_value !== null && row.purchase_conversion_value !== undefined ? formatCurrency(row.purchase_conversion_value, row.currency) : "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right", color: "#16A34A" }}>
+                        {row.purchase_roas !== null && row.purchase_roas !== undefined ? `${Number(row.purchase_roas).toFixed(2)}x` : "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                        {rawAddToCart !== null && rawAddToCart !== undefined ? formatNumber(rawAddToCart) : "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                        {rawCheckout !== null && rawCheckout !== undefined ? formatNumber(rawCheckout) : "—"}
+                      </td>
                       <td style={{ padding: "12px 16px", textAlign: "right" }}>{formatNumber(row.reach)}</td>
-                      <td style={{ padding: "12px 16px", textAlign: "right" }}>{formatNumber(row.clicks)}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>
                       <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>{formatPercentage(row.ctr)}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>
+                        {rawUniqueCtr !== null && rawUniqueCtr !== undefined ? formatPercentage(rawUniqueCtr) : "—"}
+                      </td>
                       <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.cpc, row.currency)}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>
+                        {row.cpm !== null && row.cpm !== undefined ? formatCurrency(row.cpm, row.currency) : "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                        {row.frequency !== null && row.frequency !== undefined ? Number(row.frequency).toFixed(2) : "—"}
+                      </td>
                     </tr>
                   );
                 })}

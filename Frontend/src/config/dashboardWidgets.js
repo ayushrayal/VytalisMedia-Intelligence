@@ -116,6 +116,43 @@ export const DASHBOARD_WIDGETS = [
     enabledByDefault: false,
   },
 
+  {
+    id: "add-to-cart",
+    type: "metric",
+    title: "Add to Cart",
+    category: "Conversion Funnel",
+    description: "Total add to cart conversion actions",
+    icon: ShoppingBag,
+    enabledByDefault: false,
+  },
+  {
+    id: "checkout-initiated",
+    type: "metric",
+    title: "Checkout Initiated",
+    category: "Conversion Funnel",
+    description: "Total checkout initiated conversion actions",
+    icon: ShoppingBag,
+    enabledByDefault: false,
+  },
+  {
+    id: "unique-outbound-ctr",
+    type: "metric",
+    title: "Unique Outbound CTR",
+    category: "Delivery & Efficiency",
+    description: "Unique outbound click-through rate",
+    icon: BarChart3,
+    enabledByDefault: false,
+  },
+  {
+    id: "cpm",
+    type: "metric",
+    title: "CPM",
+    category: "Delivery & Efficiency",
+    description: "Cost per thousand impressions",
+    icon: Tag,
+    enabledByDefault: false,
+  },
+
   // Main Chart Section
   {
     id: "performance-trend",

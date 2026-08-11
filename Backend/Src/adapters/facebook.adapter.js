@@ -42,31 +42,41 @@ const getNumericOrNull = (val) => {
 };
 
 /**
- * Normalizes raw Windsor overview response data.
- * Maps provider fields to clean application domain properties:
- * - actions_omni_purchase -> purchases
- * - action_values_omni_purchase -> purchase_conversion_value
- * - cost_per_action_type_omni_purchase -> cost_per_result
- * - purchase_roas_omni_purchase -> purchase_roas
+ * Normalizes provider metric fields for a single record.
+ * Preserves all row properties while mapping raw provider fields to clean domain properties.
+ */
+const normalizeRowMetrics = (row) => {
+  if (!row || typeof row !== "object") return row;
+  const normalized = { ...row };
+
+  const rawPurchases = row.actions_omni_purchase ?? row.purchases;
+  const rawValue = row.action_values_omni_purchase ?? row.purchase_conversion_value;
+  const rawCost = row.cost_per_action_type_omni_purchase ?? row.cost_per_result;
+  const rawRoas = row.purchase_roas_omni_purchase ?? row.purchase_roas;
+
+  const rawAddToCart = row.actions_add_to_cart ?? row.add_to_cart;
+  const rawInitiateCheckout = row.actions_initiate_checkout ?? row.initiate_checkout;
+  const rawUniqueOutboundCtr = row.unique_outbound_clicks_ctr_outbound_click ?? row.unique_outbound_clicks_ctr;
+
+  normalized.purchases = getNumericOrNull(rawPurchases);
+  normalized.purchase_conversion_value = getNumericOrNull(rawValue);
+  normalized.cost_per_result = getNumericOrNull(rawCost);
+  normalized.purchase_roas = getNumericOrNull(rawRoas);
+
+  normalized.actions_add_to_cart = getNumericOrNull(rawAddToCart);
+  normalized.actions_initiate_checkout = getNumericOrNull(rawInitiateCheckout);
+  normalized.unique_outbound_clicks_ctr_outbound_click = getNumericOrNull(rawUniqueOutboundCtr);
+  normalized.cpm = getNumericOrNull(row.cpm);
+
+  return normalized;
+};
+
+/**
+ * Normalizes raw Windsor overview response data array.
  */
 const normalizeOverviewData = (rawData) => {
   if (!Array.isArray(rawData)) return [];
-
-  return rawData.map((row) => {
-    const normalized = { ...row };
-
-    const rawPurchases = row.actions_omni_purchase ?? row.purchases;
-    const rawValue = row.action_values_omni_purchase ?? row.purchase_conversion_value;
-    const rawCost = row.cost_per_action_type_omni_purchase ?? row.cost_per_result;
-    const rawRoas = row.purchase_roas_omni_purchase ?? row.purchase_roas;
-
-    normalized.purchases = getNumericOrNull(rawPurchases);
-    normalized.purchase_conversion_value = getNumericOrNull(rawValue);
-    normalized.cost_per_result = getNumericOrNull(rawCost);
-    normalized.purchase_roas = getNumericOrNull(rawRoas);
-
-    return normalized;
-  });
+  return rawData.map(normalizeRowMetrics);
 };
 
 /**
@@ -88,6 +98,9 @@ const fetchOverview = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }
     "action_values_omni_purchase",
     "cost_per_action_type_omni_purchase",
     "purchase_roas_omni_purchase",
+    "actions_add_to_cart",
+    "actions_initiate_checkout",
+    "unique_outbound_clicks_ctr_outbound_click",
   ];
 
   const rawData = await windsorProvider.fetchData({
@@ -121,6 +134,13 @@ const fetchCampaigns = async ({ activeMetaAccount, datePreset, dateFrom, dateTo,
     "cpm",
     "frequency",
     "currency",
+    "actions_omni_purchase",
+    "action_values_omni_purchase",
+    "cost_per_action_type_omni_purchase",
+    "purchase_roas_omni_purchase",
+    "actions_add_to_cart",
+    "actions_initiate_checkout",
+    "unique_outbound_clicks_ctr_outbound_click",
   ];
 
   const filters = buildAccountFilter(activeMetaAccount);
@@ -160,6 +180,13 @@ const fetchAdsets = async ({ activeMetaAccount, datePreset, dateFrom, dateTo, ca
     "cpm",
     "frequency",
     "currency",
+    "actions_omni_purchase",
+    "action_values_omni_purchase",
+    "cost_per_action_type_omni_purchase",
+    "purchase_roas_omni_purchase",
+    "actions_add_to_cart",
+    "actions_initiate_checkout",
+    "unique_outbound_clicks_ctr_outbound_click",
   ];
 
   const filters = buildAccountFilter(activeMetaAccount);
@@ -167,7 +194,7 @@ const fetchAdsets = async ({ activeMetaAccount, datePreset, dateFrom, dateTo, ca
     filters.push(["campaign_id", "eq", campaignId]);
   }
 
-  return await windsorProvider.fetchData({
+  const rawData = await windsorProvider.fetchData({
     connector: WINDSOR_CONSTANTS.CONNECTOR_FACEBOOK,
     fields,
     datePreset,
@@ -175,6 +202,8 @@ const fetchAdsets = async ({ activeMetaAccount, datePreset, dateFrom, dateTo, ca
     dateTo,
     filters,
   });
+
+  return (rawData || []).map(normalizeRowMetrics);
 };
 
 /**
@@ -213,6 +242,13 @@ const fetchCreatives = async ({ activeMetaAccount, datePreset, dateFrom, dateTo,
     "video_p95_watched_actions",
     "video_p100_watched_actions",
     "video_avg_time_watched_actions",
+    "actions_omni_purchase",
+    "action_values_omni_purchase",
+    "cost_per_action_type_omni_purchase",
+    "purchase_roas_omni_purchase",
+    "actions_add_to_cart",
+    "actions_initiate_checkout",
+    "unique_outbound_clicks_ctr_outbound_click",
   ];
 
   const filters = buildAccountFilter(activeMetaAccount);
@@ -220,7 +256,7 @@ const fetchCreatives = async ({ activeMetaAccount, datePreset, dateFrom, dateTo,
     filters.push(["campaign_id", "eq", campaignId]);
   }
 
-  return await windsorProvider.fetchData({
+  const rawData = await windsorProvider.fetchData({
     connector: WINDSOR_CONSTANTS.CONNECTOR_FACEBOOK,
     fields,
     datePreset,
@@ -228,6 +264,8 @@ const fetchCreatives = async ({ activeMetaAccount, datePreset, dateFrom, dateTo,
     dateTo,
     filters,
   });
+
+  return (rawData || []).map(normalizeRowMetrics);
 };
 
 /**
@@ -341,6 +379,15 @@ const fetchCampaignDetails = async ({ activeMetaAccount, campaignId, datePreset,
     clicks: getNumericOrNull(a.clicks),
     ctr: getNumericOrNull(a.ctr),
     cpc: getNumericOrNull(a.cpc),
+    cpm: getNumericOrNull(a.cpm),
+    frequency: getNumericOrNull(a.frequency),
+    actions_add_to_cart: getNumericOrNull(a.actions_add_to_cart ?? a.add_to_cart),
+    actions_initiate_checkout: getNumericOrNull(a.actions_initiate_checkout ?? a.initiate_checkout),
+    unique_outbound_clicks_ctr_outbound_click: getNumericOrNull(a.unique_outbound_clicks_ctr_outbound_click ?? a.unique_outbound_clicks_ctr),
+    purchases: getNumericOrNull(a.purchases ?? a.actions_omni_purchase),
+    purchase_conversion_value: getNumericOrNull(a.purchase_conversion_value ?? a.action_values_omni_purchase),
+    cost_per_result: getNumericOrNull(a.cost_per_result ?? a.cost_per_action_type_omni_purchase),
+    purchase_roas: getNumericOrNull(a.purchase_roas ?? a.purchase_roas_omni_purchase),
     currency: a.currency || targetCampaign.currency || "INR",
   }));
 
@@ -362,6 +409,13 @@ const fetchCampaignDetails = async ({ activeMetaAccount, campaignId, datePreset,
     cpc: getNumericOrNull(cr.cpc),
     cpm: getNumericOrNull(cr.cpm),
     frequency: getNumericOrNull(cr.frequency),
+    actions_add_to_cart: getNumericOrNull(cr.actions_add_to_cart ?? cr.add_to_cart),
+    actions_initiate_checkout: getNumericOrNull(cr.actions_initiate_checkout ?? cr.initiate_checkout),
+    unique_outbound_clicks_ctr_outbound_click: getNumericOrNull(cr.unique_outbound_clicks_ctr_outbound_click ?? cr.unique_outbound_clicks_ctr),
+    purchases: getNumericOrNull(cr.purchases ?? cr.actions_omni_purchase),
+    purchase_conversion_value: getNumericOrNull(cr.purchase_conversion_value ?? cr.action_values_omni_purchase),
+    cost_per_result: getNumericOrNull(cr.cost_per_result ?? cr.cost_per_action_type_omni_purchase),
+    purchase_roas: getNumericOrNull(cr.purchase_roas ?? cr.purchase_roas_omni_purchase),
     currency: cr.currency || targetCampaign.currency || "INR",
     video_id: cr.video_id || null,
     video_play_actions: getNumericOrNull(cr.video_play_actions),
@@ -392,6 +446,9 @@ const fetchCampaignDetails = async ({ activeMetaAccount, campaignId, datePreset,
     purchase_conversion_value: getNumericOrNull(targetCampaign.purchase_conversion_value),
     cost_per_result: getNumericOrNull(targetCampaign.cost_per_result),
     purchase_roas: getNumericOrNull(targetCampaign.purchase_roas),
+    actions_add_to_cart: getNumericOrNull(targetCampaign.actions_add_to_cart ?? targetCampaign.add_to_cart),
+    actions_initiate_checkout: getNumericOrNull(targetCampaign.actions_initiate_checkout ?? targetCampaign.initiate_checkout),
+    unique_outbound_clicks_ctr_outbound_click: getNumericOrNull(targetCampaign.unique_outbound_clicks_ctr_outbound_click ?? targetCampaign.unique_outbound_clicks_ctr),
     currency: targetCampaign.currency || "INR",
   };
 

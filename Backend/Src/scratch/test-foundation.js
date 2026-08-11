@@ -134,7 +134,7 @@ async function runVerificationTests() {
       if (code === 400) {
         return {
           json: function (body) {
-            if (body.errors && body.errors[0].field === "accountId") {
+            if (body.message && body.message.includes("Account ID")) {
               validatorRejectedAccountId = true;
             }
           },

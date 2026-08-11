@@ -12,7 +12,7 @@ import Button from "../../../components/ui/Button.jsx";
 import { useDashboardLayout } from "../../../hooks/useDashboardLayout.js";
 import DashboardGrid from "../../../components/dashboard/DashboardGrid.jsx";
 import DashboardCustomizer from "../../../components/dashboard/DashboardCustomizer.jsx";
-import { SlidersHorizontal, RotateCw } from "lucide-react";
+import { SlidersHorizontal, RefreshCw, Clock3 } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
@@ -155,7 +155,12 @@ export const MetaOverview = () => {
 
   // Total Aggregations
   const totals = useMemo(() => {
-    return overviewData.reduce(
+    let rawUniqueCtr = null;
+    let rawCpm = null;
+    let hasAddToCart = false;
+    let hasCheckoutInit = false;
+
+    const sumTotals = overviewData.reduce(
       (acc, row) => {
         acc.spend += Number(row.spend || 0);
         acc.impressions += Number(row.impressions || 0);
@@ -163,11 +168,39 @@ export const MetaOverview = () => {
         acc.clicks += Number(row.clicks || 0);
         acc.purchases += Number(row.purchases ?? row.actions_omni_purchase ?? 0);
         acc.purchaseValue += Number(row.purchase_conversion_value ?? row.action_values_omni_purchase ?? 0);
+
+        const cartVal = row.actions_add_to_cart ?? row.add_to_cart;
+        if (cartVal !== null && cartVal !== undefined) {
+          hasAddToCart = true;
+          acc.addToCart += Number(cartVal);
+        }
+
+        const checkoutVal = row.actions_initiate_checkout ?? row.initiate_checkout;
+        if (checkoutVal !== null && checkoutVal !== undefined) {
+          hasCheckoutInit = true;
+          acc.checkoutInitiated += Number(checkoutVal);
+        }
+
+        if (row.unique_outbound_clicks_ctr_outbound_click !== undefined && row.unique_outbound_clicks_ctr_outbound_click !== null) {
+          rawUniqueCtr = row.unique_outbound_clicks_ctr_outbound_click;
+        }
+        if (row.cpm !== undefined && row.cpm !== null) {
+          rawCpm = row.cpm;
+        }
+
         acc.currency = row.currency || acc.currency;
         return acc;
       },
-      { spend: 0, impressions: 0, reach: 0, clicks: 0, purchases: 0, purchaseValue: 0, currency: "INR" }
+      { spend: 0, impressions: 0, reach: 0, clicks: 0, purchases: 0, purchaseValue: 0, addToCart: 0, checkoutInitiated: 0, currency: "INR" }
     );
+
+    return {
+      ...sumTotals,
+      addToCart: hasAddToCart ? sumTotals.addToCart : null,
+      checkoutInitiated: hasCheckoutInit ? sumTotals.checkoutInitiated : null,
+      uniqueOutboundCtr: rawUniqueCtr,
+      cpm: rawCpm,
+    };
   }, [overviewData]);
 
   // Derived Ratios
@@ -306,32 +339,56 @@ export const MetaOverview = () => {
   const placementColors = ["#0A84FF", "#16A34A", "#6366F1", "#F59E0B"];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
-      {/* 1. HEADER SECTION WITH CUSTOMIZE BUTTON */}
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      {/* 1. PAGE HEADER & TOOLBAR */}
       <div>
-        <PageHeader
-          title="Meta Overview"
-          subtitle="Track and analyze your Meta (Facebook & Instagram) ad performance."
-          actions={
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-              <DateFilter onChange={(params) => setDateParams(params)} />
-              <AccountSwitcher onAccountSwitched={() => fetchData(false)} />
-              <SpendFilter value={spendFilter} onChange={setSpendFilter} />
+        <div>
+          <h1 style={{ margin: 0, fontSize: "26px", fontWeight: "700", color: "#0F172A", letterSpacing: "-0.4px", lineHeight: "1.2" }}>
+            Meta Overview
+          </h1>
+          <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#64748B" }}>
+            Track and analyze your Meta (Facebook & Instagram) ad performance.
+          </p>
+        </div>
 
-              {/* Customize Button */}
+        {/* Toolbar Container */}
+        <div
+          style={{
+            marginTop: "20px",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "12px",
+          }}
+        >
+          {/* Left Filters Group */}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", flexWrap: "wrap" }}>
+            <DateFilter onChange={(params) => setDateParams(params)} />
+            <AccountSwitcher onAccountSwitched={() => fetchData(false)} />
+            <SpendFilter value={spendFilter} onChange={setSpendFilter} />
+          </div>
+
+          {/* Right Actions Group: Customize (20px gap) Refresh (8px gap) Cached */}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "8px" }}>
+            {/* Customize Button */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginRight: "12px" }}>
+              <label style={{ fontSize: "12px", color: "transparent", userSelect: "none", lineHeight: 1 }}>
+                Action
+              </label>
               <button
                 type="button"
                 onClick={openCustomizer}
                 aria-label="Customize Dashboard"
                 style={{
-                  height: "36px",
-                  padding: "0 12px",
-                  borderRadius: "8px",
+                  height: "44px",
+                  padding: "0 14px",
+                  borderRadius: "9px",
                   backgroundColor: "#FFFFFF",
-                  border: "1px solid #E5E7EB",
-                  color: "#0F172A",
-                  fontSize: "13px",
-                  fontWeight: "500",
+                  border: "1px solid #0A84FF",
+                  color: "#0A84FF",
+                  fontSize: "13.5px",
+                  fontWeight: "600",
                   cursor: "pointer",
                   display: "inline-flex",
                   alignItems: "center",
@@ -341,37 +398,39 @@ export const MetaOverview = () => {
                   outline: "none",
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "#F8FAFC";
-                  e.currentTarget.style.borderColor = "#CBD5E1";
+                  e.currentTarget.style.backgroundColor = "rgba(10, 132, 255, 0.06)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "#FFFFFF";
-                  e.currentTarget.style.borderColor = "#E5E7EB";
                 }}
               >
-                <SlidersHorizontal size={14} color="#64748B" />
+                <SlidersHorizontal size={16} color="#0A84FF" />
                 Customize
               </button>
+            </div>
 
-              {/* Refresh Button */}
+            {/* Refresh Icon Button */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "12px", color: "transparent", userSelect: "none", lineHeight: 1 }}>
+                Refresh
+              </label>
               <button
                 type="button"
                 onClick={() => fetchData(true)}
                 disabled={refreshing}
-                title="Refresh Overview Data"
+                aria-label="Refresh data"
+                title="Refresh data"
                 style={{
-                  height: "36px",
-                  padding: "0 12px",
-                  borderRadius: "8px",
+                  width: "44px",
+                  height: "44px",
+                  borderRadius: "9px",
                   backgroundColor: "#FFFFFF",
-                  border: "1px solid #E5E7EB",
-                  color: "#0F172A",
-                  fontSize: "13px",
-                  fontWeight: "500",
+                  border: "1px solid #E2E8F0",
+                  color: "#334155",
                   cursor: refreshing ? "wait" : "pointer",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "6px",
+                  justifyContent: "center",
                   transition: "all 0.15s ease",
                   boxShadow: "0 1px 2px rgba(15, 23, 42, 0.03)",
                   outline: "none",
@@ -385,26 +444,52 @@ export const MetaOverview = () => {
                 onMouseLeave={(e) => {
                   if (!refreshing) {
                     e.currentTarget.style.backgroundColor = "#FFFFFF";
-                    e.currentTarget.style.borderColor = "#E5E7EB";
+                    e.currentTarget.style.borderColor = "#E2E8F0";
                   }
                 }}
               >
-                <RotateCw
-                  size={14}
+                <RefreshCw
+                  size={16}
+                  color="#334155"
                   className={refreshing ? "spin" : ""}
                   style={{ animation: refreshing ? "spin 1s linear infinite" : "none" }}
                 />
-                Refresh
               </button>
             </div>
-          }
-        />
 
-        {meta && meta.cachedAt && (
-          <div style={{ marginTop: "-16px", fontSize: "12px", color: "#64748B" }}>
-            Updated: {new Date(meta.cachedAt).toLocaleTimeString()}
+            {/* Cached Status Indicator */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "12px", color: "transparent", userSelect: "none", lineHeight: 1 }}>
+                Status
+              </label>
+              <div
+                style={{
+                  height: "44px",
+                  padding: "0 12px",
+                  borderRadius: "9px",
+                  backgroundColor: "#F8FAFC",
+                  border: "1px solid #E2E8F0",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  color: "#64748B",
+                  fontSize: "12.5px",
+                  fontWeight: "600",
+                  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.02)",
+                  userSelect: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Clock3 size={15} color="#64748B" />
+                <span>
+                  {meta && meta.cachedAt
+                    ? `Cached ${new Date(meta.cachedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : "Cached"}
+                </span>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {loading ? (
@@ -500,9 +585,11 @@ export const MetaOverview = () => {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", color: "#0F172A", fontSize: "13px" }}>
                     <thead>
-                      <tr style={{ borderBottom: "1px solid #E5E7EB", textAlign: "left", backgroundColor: "#FFFFFF", color: "#64748B" }}>
+                      <tr style={{ borderBottom: "1px solid #E5E7EB", textAlign: "left", backgroundColor: "#FFFFFF", color: "#64748B", whiteSpace: "nowrap" }}>
                         <th style={{ padding: "12px 18px", fontWeight: "600" }}>Date</th>
                         <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Spend</th>
+                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Add to Cart</th>
+                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Checkout Initiated</th>
                         <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Purchases</th>
                         <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Purchase Value</th>
                         <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>ROAS</th>
@@ -510,7 +597,9 @@ export const MetaOverview = () => {
                         <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Reach</th>
                         <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Clicks</th>
                         <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>CTR</th>
+                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Unique Outbound CTR</th>
                         <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>CPC</th>
+                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>CPM</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -518,6 +607,9 @@ export const MetaOverview = () => {
                         const rowPurchases = Number(row.purchases ?? row.actions_omni_purchase ?? 0);
                         const rowValue = Number(row.purchase_conversion_value ?? row.action_values_omni_purchase ?? 0);
                         const rowRoas = row.purchase_roas ?? row.purchase_roas_omni_purchase;
+                        const rowAddToCart = row.actions_add_to_cart ?? row.add_to_cart;
+                        const rowCheckout = row.actions_initiate_checkout ?? row.initiate_checkout;
+                        const rowUniqueOutboundCtr = row.unique_outbound_clicks_ctr_outbound_click ?? row.unique_outbound_clicks_ctr;
 
                         return (
                           <tr
@@ -525,6 +617,7 @@ export const MetaOverview = () => {
                             style={{
                               borderBottom: "1px solid #E5E7EB",
                               transition: "background-color 0.15s ease",
+                              whiteSpace: "nowrap",
                             }}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.backgroundColor = "#F8FAFC";
@@ -535,6 +628,12 @@ export const MetaOverview = () => {
                           >
                             <td style={{ padding: "12px 18px", fontWeight: "600" }}>{formatShortDate(row.date)}</td>
                             <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency)}</td>
+                            <td style={{ padding: "12px 18px", textAlign: "right" }}>
+                              {rowAddToCart !== null && rowAddToCart !== undefined ? formatNumber(rowAddToCart) : "—"}
+                            </td>
+                            <td style={{ padding: "12px 18px", textAlign: "right" }}>
+                              {rowCheckout !== null && rowCheckout !== undefined ? formatNumber(rowCheckout) : "—"}
+                            </td>
                             <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatNumber(rowPurchases)}</td>
                             <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(rowValue, row.currency)}</td>
                             <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right", color: "#16A34A" }}>
@@ -544,7 +643,13 @@ export const MetaOverview = () => {
                             <td style={{ padding: "12px 18px", textAlign: "right" }}>{formatNumber(row.reach)}</td>
                             <td style={{ padding: "12px 18px", textAlign: "right" }}>{formatNumber(row.clicks)}</td>
                             <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatPercentage(row.ctr)}</td>
+                            <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>
+                              {rowUniqueOutboundCtr !== null && rowUniqueOutboundCtr !== undefined ? formatPercentage(rowUniqueOutboundCtr) : "—"}
+                            </td>
                             <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.cpc, row.currency)}</td>
+                            <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>
+                              {row.cpm !== null && row.cpm !== undefined ? formatCurrency(row.cpm, row.currency) : "—"}
+                            </td>
                           </tr>
                         );
                       })}

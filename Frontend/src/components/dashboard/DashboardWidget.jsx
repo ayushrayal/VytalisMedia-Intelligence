@@ -200,6 +200,26 @@ export const DashboardWidget = ({
         formattedVal = overallPurchaseRoas !== null ? `${overallPurchaseRoas.toFixed(2)}x` : "—";
         sparklineColor = "#16A34A";
         break;
+      case "add-to-cart":
+        rawVal = totals.addToCart;
+        formattedVal = totals.addToCart !== null && totals.addToCart !== undefined ? formatNumber(totals.addToCart) : "—";
+        sparklineColor = "#16A34A";
+        break;
+      case "checkout-initiated":
+        rawVal = totals.checkoutInitiated;
+        formattedVal = totals.checkoutInitiated !== null && totals.checkoutInitiated !== undefined ? formatNumber(totals.checkoutInitiated) : "—";
+        sparklineColor = "#6366F1";
+        break;
+      case "unique-outbound-ctr":
+        rawVal = totals.uniqueOutboundCtr;
+        formattedVal = totals.uniqueOutboundCtr !== null && totals.uniqueOutboundCtr !== undefined ? formatPercentage(totals.uniqueOutboundCtr) : "—";
+        sparklineColor = "#0A84FF";
+        break;
+      case "cpm":
+        rawVal = totals.cpm;
+        formattedVal = totals.cpm !== null && totals.cpm !== undefined ? formatCurrency(totals.cpm, totals.currency) : "—";
+        sparklineColor = "#8B5CF6";
+        break;
       default:
         break;
     }

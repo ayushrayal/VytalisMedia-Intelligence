@@ -122,7 +122,7 @@ export const AccountSwitcher = ({ onAccountSwitched }) => {
           >
             {accounts.map((acc) => (
               <option key={acc.accountId} value={acc.accountId}>
-                {acc.accountName} ({acc.accountId})
+                {acc.accountName}
               </option>
             ))}
           </select>
