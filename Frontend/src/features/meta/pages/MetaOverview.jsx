@@ -5,6 +5,7 @@ import PageHeader from "../../../components/shared/PageHeader.jsx";
 import AccountSwitcher from "../components/AccountSwitcher.jsx";
 import DateFilter from "../components/DateFilter.jsx";
 import SpendFilter from "../components/SpendFilter.jsx";
+import DailyBreakdown from "../components/DailyBreakdown/DailyBreakdown.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
@@ -202,6 +203,8 @@ export const MetaOverview = () => {
       cpm: rawCpm,
     };
   }, [overviewData]);
+
+  const currency = totals.currency || "INR";
 
   // Derived Ratios
   const overallCostPerResult = totals.purchases > 0 ? totals.spend / totals.purchases : null;
@@ -542,122 +545,17 @@ export const MetaOverview = () => {
             onResetDefault={resetToDefault}
           />
 
-          {/* 3. DAILY PERFORMANCE BREAKDOWN TABLE */}
+          {/* 3. DYNAMIC CUSTOMIZABLE DAILY PERFORMANCE BREAKDOWN SECTION */}
           {visibleWidgets.length > 0 && (
-            <div
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderRadius: "12px",
-                border: "1px solid #E5E7EB",
-                overflow: "hidden",
-                boxShadow: "0 1px 3px rgba(15, 23, 42, 0.03)",
-              }}
-            >
-              <div
-                style={{
-                  padding: "16px 20px",
-                  borderBottom: "1px solid #E5E7EB",
-                  backgroundColor: "#F8FAFC",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#0F172A" }}>
-                  Daily Breakdown
-                </h3>
-                <span style={{ fontSize: "12px", color: "#64748B" }}>
-                  {filteredOverviewData.length} records
-                </span>
-              </div>
-
-              {filteredOverviewData.length === 0 ? (
-                <EmptyState
-                  title="No matching records"
-                  description="No daily performance records match your active spend filter."
-                  action={
-                    <Button variant="outline" onClick={() => setSpendFilter("all")}>
-                      Clear Filters
-                    </Button>
-                  }
-                />
-              ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", color: "#0F172A", fontSize: "13px" }}>
-                    <thead>
-                      <tr style={{ borderBottom: "1px solid #E5E7EB", textAlign: "left", backgroundColor: "#FFFFFF", color: "#64748B", whiteSpace: "nowrap" }}>
-                        <th style={{ padding: "12px 18px", fontWeight: "600" }}>Date</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Spend</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Add to Cart</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Checkout Initiated</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Purchases</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Purchase Value</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>ROAS</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Impressions</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Reach</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Clicks</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>CTR</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>Unique Outbound CTR</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>CPC</th>
-                        <th style={{ padding: "12px 18px", textAlign: "right", fontWeight: "600" }}>CPM</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredOverviewData.map((row, idx) => {
-                        const rowPurchases = Number(row.purchases ?? row.actions_omni_purchase ?? 0);
-                        const rowValue = Number(row.purchase_conversion_value ?? row.action_values_omni_purchase ?? 0);
-                        const rowRoas = row.purchase_roas ?? row.purchase_roas_omni_purchase;
-                        const rowAddToCart = row.actions_add_to_cart ?? row.add_to_cart;
-                        const rowCheckout = row.actions_initiate_checkout ?? row.initiate_checkout;
-                        const rowUniqueOutboundCtr = row.unique_outbound_clicks_ctr_outbound_click ?? row.unique_outbound_clicks_ctr;
-
-                        return (
-                          <tr
-                            key={idx}
-                            style={{
-                              borderBottom: "1px solid #E5E7EB",
-                              transition: "background-color 0.15s ease",
-                              whiteSpace: "nowrap",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = "#F8FAFC";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = "transparent";
-                            }}
-                          >
-                            <td style={{ padding: "12px 18px", fontWeight: "600" }}>{formatShortDate(row.date)}</td>
-                            <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency)}</td>
-                            <td style={{ padding: "12px 18px", textAlign: "right" }}>
-                              {rowAddToCart !== null && rowAddToCart !== undefined ? formatNumber(rowAddToCart) : "—"}
-                            </td>
-                            <td style={{ padding: "12px 18px", textAlign: "right" }}>
-                              {rowCheckout !== null && rowCheckout !== undefined ? formatNumber(rowCheckout) : "—"}
-                            </td>
-                            <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatNumber(rowPurchases)}</td>
-                            <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(rowValue, row.currency)}</td>
-                            <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right", color: "#16A34A" }}>
-                              {rowRoas !== null && rowRoas !== undefined ? `${Number(rowRoas).toFixed(2)}x` : "—"}
-                            </td>
-                            <td style={{ padding: "12px 18px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>
-                            <td style={{ padding: "12px 18px", textAlign: "right" }}>{formatNumber(row.reach)}</td>
-                            <td style={{ padding: "12px 18px", textAlign: "right" }}>{formatNumber(row.clicks)}</td>
-                            <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatPercentage(row.ctr)}</td>
-                            <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>
-                              {rowUniqueOutboundCtr !== null && rowUniqueOutboundCtr !== undefined ? formatPercentage(rowUniqueOutboundCtr) : "—"}
-                            </td>
-                            <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.cpc, row.currency)}</td>
-                            <td style={{ padding: "12px 18px", fontWeight: "600", textAlign: "right" }}>
-                              {row.cpm !== null && row.cpm !== undefined ? formatCurrency(row.cpm, row.currency) : "—"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            <DailyBreakdown
+              data={filteredOverviewData}
+              currency={currency}
+              emptyStateAction={
+                <Button variant="outline" onClick={() => setSpendFilter("all")}>
+                  Clear Filters
+                </Button>
+              }
+            />
           )}
         </>
       )}
