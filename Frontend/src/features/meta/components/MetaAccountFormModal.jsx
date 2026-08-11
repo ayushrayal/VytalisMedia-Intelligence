@@ -82,7 +82,7 @@ export const MetaAccountFormModal = ({
         <div>
           <Input
             label="Meta Ad Account ID"
-            placeholder="e.g. 359804707990884"
+            placeholder="e.g. 1010101010101010"
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
             required

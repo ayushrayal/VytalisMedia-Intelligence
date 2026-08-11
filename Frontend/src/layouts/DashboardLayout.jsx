@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import AppLogo from "../components/shared/AppLogo.jsx";
+import LogoutConfirmationModal from "../components/shared/LogoutConfirmationModal.jsx";
 import { removeAccessToken } from "../lib/storage.js";
 import {
   LayoutDashboard,
@@ -24,6 +25,10 @@ import {
  */
 export const DashboardLayout = ({ user, setUser }) => {
   const navigate = useNavigate();
+  const logoutTriggerRef = useRef(null);
+
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const analyticsNavItems = [
     { route: "/overview", label: "Overview", icon: LayoutDashboard },
@@ -46,6 +51,12 @@ export const DashboardLayout = ({ user, setUser }) => {
     removeAccessToken();
     if (setUser) setUser(null);
     navigate("/login");
+  };
+
+  const handleConfirmLogout = () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    handleLogout();
   };
 
   const renderNavGroup = (title, items) => (
@@ -155,8 +166,10 @@ export const DashboardLayout = ({ user, setUser }) => {
           </div>
 
           <button
-            onClick={handleLogout}
+            ref={logoutTriggerRef}
+            onClick={() => setIsLogoutModalOpen(true)}
             title="Log out"
+            aria-label="Log out"
             style={{
               width: "30px",
               height: "30px",
@@ -191,8 +204,18 @@ export const DashboardLayout = ({ user, setUser }) => {
       <main style={{ flex: 1, padding: "28px 32px", overflowY: "auto", minWidth: 0 }}>
         <Outlet />
       </main>
+
+      {/* Logout Confirmation Modal */}
+      <LogoutConfirmationModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleConfirmLogout}
+        isLoggingOut={isLoggingOut}
+        triggerRef={logoutTriggerRef}
+      />
     </div>
   );
 };
 
 export default DashboardLayout;
+

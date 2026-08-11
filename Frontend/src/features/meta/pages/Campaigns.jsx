@@ -73,11 +73,9 @@ export const Campaigns = () => {
   // Derived Filtered Array
   const filteredData = useMemo(() => {
     return data.filter((row) => {
-      // 1. Spend Filter (numeric >= threshold)
       const numericSpend = Number(row.spend || 0);
       const matchesSpend = spendFilter === "all" || numericSpend >= Number(spendFilter);
 
-      // 2. Status Filter (normalized match)
       const rawStatus = row.campaign_status || row.campaign_effective_status || row.effective_status || row.status || "ACTIVE";
       const normStatus = getNormalizedStatus(rawStatus);
       const matchesStatus = statusFilter === "all" || normStatus === statusFilter;
@@ -109,24 +107,13 @@ export const Campaigns = () => {
     });
   }, [filteredData, sortField, sortOrder]);
 
-  // Reset page to 1 whenever filters or sorting changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [data, spendFilter, statusFilter, sortField, sortOrder]);
-
-  // Page Reset Safety clamp
-  const totalPages = Math.ceil(sortedData.length / pageSize) || 1;
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(1);
-    }
-  }, [currentPage, totalPages]);
-
-  // 2. Slice paginated subset for DOM rendering
+  // 2. Slice paginated subset for rendering
   const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return sortedData.slice(start, start + pageSize);
+    const startIndex = (currentPage - 1) * pageSize;
+    return sortedData.slice(startIndex, startIndex + pageSize);
   }, [sortedData, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(sortedData.length / pageSize) || 1;
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -159,12 +146,12 @@ export const Campaigns = () => {
   };
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
       <PageHeader
         title="Meta Campaigns"
         subtitle="Campaign-level delivery and performance breakdown"
         actions={
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
             <AccountSwitcher onAccountSwitched={fetchData} />
             <DateFilter onChange={(params) => setDateParams(params)} />
             <SpendFilter value={spendFilter} onChange={setSpendFilter} />
@@ -174,7 +161,7 @@ export const Campaigns = () => {
       />
 
       {loading ? (
-        <Skeleton height="320px" />
+        <Skeleton height="360px" />
       ) : error ? (
         <ErrorState message={error} onRetry={fetchData} />
       ) : data.length === 0 ? (
@@ -190,11 +177,19 @@ export const Campaigns = () => {
           }
         />
       ) : (
-        <div style={{ backgroundColor: "#FFFFFF", borderRadius: "var(--radius-card, 16px)", border: "1px solid var(--color-border, #E8EAED)", overflow: "hidden", boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))" }}>
+        <div
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: "16px",
+            border: "1px solid #E5E7EB",
+            overflow: "hidden",
+            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.03)",
+          }}
+        >
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", color: "var(--color-text-primary, #111827)", fontSize: "0.875rem" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", color: "#0F172A", fontSize: "13px" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--color-border, #E8EAED)", textAlign: "left", backgroundColor: "var(--color-surface, #F7F9FC)", color: "var(--color-text-secondary, #64748B)" }}>
+                <tr style={{ borderBottom: "1px solid #E5E7EB", textAlign: "left", backgroundColor: "#F1F5F9", color: "#64748B" }}>
                   {[
                     { field: "campaign", label: "Campaign Name", align: "left" },
                     { field: "campaign_status", label: "Status", align: "left" },
@@ -210,12 +205,12 @@ export const Campaigns = () => {
                       key={col.field}
                       onClick={() => handleSort(col.field)}
                       style={{
-                        padding: "14px 18px",
+                        padding: "12px 16px",
                         textAlign: col.align,
                         cursor: "pointer",
                         userSelect: "none",
                         fontWeight: sortField === col.field ? "700" : "600",
-                        color: sortField === col.field ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
+                        color: sortField === col.field ? "#0A84FF" : "#64748B",
                       }}
                     >
                       {col.label}
@@ -227,33 +222,44 @@ export const Campaigns = () => {
               <tbody>
                 {paginatedData.map((row, idx) => {
                   const rawStatus = row.campaign_status || row.campaign_effective_status || row.effective_status || row.status || "ACTIVE";
+                  const campaignId = row.campaign_id || row.id;
+
                   return (
                     <tr
                       key={idx}
                       onClick={() => handleRowClick(row)}
                       style={{
-                        borderBottom: "1px solid var(--color-border, #E8EAED)",
+                        borderBottom: "1px solid #E5E7EB",
                         transition: "background-color 0.15s ease",
                         cursor: "pointer",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "var(--color-surface-hover, #F2F8FF)";
+                        e.currentTarget.style.backgroundColor = "#F8FAFC";
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = "transparent";
                       }}
                     >
-                      <td style={{ padding: "14px 18px", fontWeight: "600" }}>{row.campaign || row.campaign_name || "-"}</td>
-                      <td style={{ padding: "14px 18px" }}>
+                      <td style={{ padding: "12px 16px" }}>
+                        <strong style={{ fontWeight: "600", color: "#0F172A", display: "block" }}>
+                          {row.campaign || row.campaign_name || "-"}
+                        </strong>
+                        {campaignId && (
+                          <span style={{ fontSize: "11px", color: "#94A3B8", fontWeight: "400" }}>
+                            ID: {campaignId}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: "12px 16px" }}>
                         <StatusBadge status={rawStatus} />
                       </td>
-                      <td style={{ padding: "14px 18px" }}>{row.campaign_objective || "-"}</td>
-                      <td style={{ padding: "14px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency)}</td>
-                      <td style={{ padding: "14px 18px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>
-                      <td style={{ padding: "14px 18px", textAlign: "right" }}>{formatNumber(row.reach)}</td>
-                      <td style={{ padding: "14px 18px", textAlign: "right" }}>{formatNumber(row.clicks)}</td>
-                      <td style={{ padding: "14px 18px", fontWeight: "600", textAlign: "right" }}>{formatPercentage(row.ctr)}</td>
-                      <td style={{ padding: "14px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.cpc, row.currency)}</td>
+                      <td style={{ padding: "12px 16px", color: "#64748B" }}>{row.campaign_objective || "-"}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency)}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>{formatNumber(row.reach)}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>{formatNumber(row.clicks)}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>{formatPercentage(row.ctr)}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.cpc, row.currency)}</td>
                     </tr>
                   );
                 })}

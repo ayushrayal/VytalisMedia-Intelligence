@@ -2,52 +2,58 @@ import React from "react";
 
 /**
  * Shared AppLogo component.
- * Blue rounded icon with white "V", strong Vytalis Intelligence typography.
+ * Black rounded icon with white "V", strong Vytalis Intelligence typography with spacious tracking.
  */
 export const AppLogo = ({ size = "md" }) => {
-  const iconDim = size === "sm" ? "26px" : size === "lg" ? "38px" : "32px";
+  const iconDim = size === "sm" ? "28px" : size === "lg" ? "40px" : "34px";
   const fontSize = size === "sm" ? "1rem" : size === "lg" ? "1.45rem" : "1.2rem";
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+      {/* Black Icon Container with White V */}
       <div
         style={{
           width: iconDim,
           height: iconDim,
           borderRadius: "10px",
-          backgroundColor: "var(--color-primary, #0A84FF)",
+          backgroundColor: "#0A92FF",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           color: "#FFFFFF",
           fontWeight: "800",
-          fontSize: size === "sm" ? "0.8rem" : size === "lg" ? "1.2rem" : "1rem",
-          boxShadow: "0 2px 6px rgba(10, 132, 255, 0.25)",
+          fontSize: size === "sm" ? "0.85rem" : size === "lg" ? "1.25rem" : "1.05rem",
+          boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)",
+          flexShrink: 0,
         }}
       >
         V
       </div>
-      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+
+      {/* Typography with Spacing between Vytalis and INTELLIGENCE */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
         <span
           style={{
             fontSize,
             fontWeight: "700",
-            color: "var(--color-text-primary, #111827)",
+            color: "#0F172A",
             letterSpacing: "-0.4px",
+            lineHeight: "1.1",
           }}
         >
           Vytalis
         </span>
         <span
           style={{
-            fontSize: size === "sm" ? "0.65rem" : size === "lg" ? "0.85rem" : "0.75rem",
+            fontSize: size === "sm" ? "0.6rem" : size === "lg" ? "0.8rem" : "0.7rem",
             fontWeight: "600",
-            color: "var(--color-text-secondary, #64748B)",
-            letterSpacing: "0.2px",
+            color: "#64748B",
+            letterSpacing: "1.8px",
             textTransform: "uppercase",
+            lineHeight: "1.1",
           }}
         >
-          Intelligence
+          INTELLIGENCE
         </span>
       </div>
     </div>

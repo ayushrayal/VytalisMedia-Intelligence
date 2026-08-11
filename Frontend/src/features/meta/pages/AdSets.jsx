@@ -63,11 +63,9 @@ export const AdSets = () => {
   // Derived Filtered Array
   const filteredData = useMemo(() => {
     return data.filter((row) => {
-      // 1. Spend Filter (numeric >= threshold)
       const numericSpend = Number(row.spend || 0);
       const matchesSpend = spendFilter === "all" || numericSpend >= Number(spendFilter);
 
-      // 2. Status Filter (normalized match)
       const rawStatus = row.effective_status || row.adset_status || row.status || "ACTIVE";
       const normStatus = getNormalizedStatus(rawStatus);
       const matchesStatus = statusFilter === "all" || normStatus === statusFilter;
@@ -96,12 +94,10 @@ export const AdSets = () => {
     });
   }, [filteredData, sortField, sortOrder]);
 
-  // Reset page to 1 whenever filters or sorting changes
   useEffect(() => {
     setCurrentPage(1);
   }, [data, spendFilter, statusFilter, sortField, sortOrder]);
 
-  // Page Reset Safety clamp
   const totalPages = Math.ceil(sortedData.length / pageSize) || 1;
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -135,12 +131,12 @@ export const AdSets = () => {
   };
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
       <PageHeader
         title="Meta Ad Sets"
         subtitle="Ad Set target audience delivery and performance"
         actions={
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
             <AccountSwitcher onAccountSwitched={fetchData} />
             <DateFilter onChange={(params) => setDateParams(params)} />
             <SpendFilter value={spendFilter} onChange={setSpendFilter} />
@@ -150,7 +146,7 @@ export const AdSets = () => {
       />
 
       {loading ? (
-        <Skeleton height="320px" />
+        <Skeleton height="360px" />
       ) : error ? (
         <ErrorState message={error} onRetry={fetchData} />
       ) : data.length === 0 ? (
@@ -166,11 +162,19 @@ export const AdSets = () => {
           }
         />
       ) : (
-        <div style={{ backgroundColor: "#FFFFFF", borderRadius: "var(--radius-card, 16px)", border: "1px solid var(--color-border, #E8EAED)", overflow: "hidden", boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))" }}>
+        <div
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: "16px",
+            border: "1px solid #E5E7EB",
+            overflow: "hidden",
+            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.03)",
+          }}
+        >
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", color: "var(--color-text-primary, #111827)", fontSize: "0.875rem" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", color: "#0F172A", fontSize: "13px" }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--color-border, #E8EAED)", textAlign: "left", backgroundColor: "var(--color-surface, #F7F9FC)", color: "var(--color-text-secondary, #64748B)" }}>
+                <tr style={{ borderBottom: "1px solid #E5E7EB", textAlign: "left", backgroundColor: "#F1F5F9", color: "#64748B" }}>
                   {[
                     { field: "adset_name", label: "Ad Set Name", align: "left" },
                     { field: "campaign", label: "Campaign", align: "left" },
@@ -186,12 +190,12 @@ export const AdSets = () => {
                       key={col.field}
                       onClick={() => handleSort(col.field)}
                       style={{
-                        padding: "14px 18px",
+                        padding: "12px 16px",
                         textAlign: col.align,
                         cursor: "pointer",
                         userSelect: "none",
                         fontWeight: sortField === col.field ? "700" : "600",
-                        color: sortField === col.field ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
+                        color: sortField === col.field ? "#0A84FF" : "#64748B",
                       }}
                     >
                       {col.label}
@@ -203,31 +207,42 @@ export const AdSets = () => {
               <tbody>
                 {paginatedData.map((row, idx) => {
                   const rawStatus = row.effective_status || row.adset_status || row.status || "ACTIVE";
+                  const adsetId = row.adset_id || row.id;
+
                   return (
                     <tr
                       key={idx}
                       style={{
-                        borderBottom: "1px solid var(--color-border, #E8EAED)",
+                        borderBottom: "1px solid #E5E7EB",
                         transition: "background-color 0.15s ease",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "var(--color-surface-hover, #F2F8FF)";
+                        e.currentTarget.style.backgroundColor = "#F8FAFC";
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = "transparent";
                       }}
                     >
-                      <td style={{ padding: "14px 18px", fontWeight: "600" }}>{row.adset_name || "-"}</td>
-                      <td style={{ padding: "14px 18px" }}>{row.campaign || "-"}</td>
-                      <td style={{ padding: "14px 18px" }}>
+                      <td style={{ padding: "12px 16px" }}>
+                        <strong style={{ fontWeight: "600", color: "#0F172A", display: "block" }}>
+                          {row.adset_name || row.adset || "-"}
+                        </strong>
+                        {adsetId && (
+                          <span style={{ fontSize: "11px", color: "#94A3B8", fontWeight: "400" }}>
+                            ID: {adsetId}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: "12px 16px", color: "#64748B" }}>{row.campaign || "-"}</td>
+                      <td style={{ padding: "12px 16px" }}>
                         <StatusBadge status={rawStatus} />
                       </td>
-                      <td style={{ padding: "14px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency)}</td>
-                      <td style={{ padding: "14px 18px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>
-                      <td style={{ padding: "14px 18px", textAlign: "right" }}>{formatNumber(row.reach)}</td>
-                      <td style={{ padding: "14px 18px", textAlign: "right" }}>{formatNumber(row.clicks)}</td>
-                      <td style={{ padding: "14px 18px", fontWeight: "600", textAlign: "right" }}>{formatPercentage(row.ctr)}</td>
-                      <td style={{ padding: "14px 18px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.cpc, row.currency)}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.spend, row.currency)}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>{formatNumber(row.impressions)}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>{formatNumber(row.reach)}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>{formatNumber(row.clicks)}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>{formatPercentage(row.ctr)}</td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", textAlign: "right" }}>{formatCurrency(row.cpc, row.currency)}</td>
                     </tr>
                   );
                 })}
