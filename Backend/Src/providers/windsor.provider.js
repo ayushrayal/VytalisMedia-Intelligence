@@ -38,10 +38,6 @@ const fetchData = async ({
     filters,
   });
 
-  // Mask API key in log output for safety
-  const safeLogUrl = url.replace(/api_key=[^&]+/, "api_key=***REDACTED***");
-  logger.info(`[Windsor REQUEST] Endpoint: ${connector} | URL: ${safeLogUrl}`);
-
   const startTime = Date.now();
 
   try {
@@ -49,9 +45,6 @@ const fetchData = async ({
     const response = await axios.get(url, {
       timeout: timeoutMs,
     });
-
-    const responseTime = Date.now() - startTime;
-    logger.info(`[Windsor RESPONSE TIME] Connector: ${connector} | ${responseTime}ms`);
 
     if (response.data && Array.isArray(response.data.data)) {
       return response.data.data;

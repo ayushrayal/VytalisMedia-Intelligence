@@ -46,8 +46,6 @@ const signupUser = async ({ name, email, password, accessCode }) => {
 
   const accessToken = generateAccessToken({ id: createdUser._id });
 
-  logger.info(`User registered successfully with ID: ${createdUser._id}`);
-
   // Fetch sanitized user object without password
   const user = await User.findById(createdUser._id);
 
@@ -85,8 +83,6 @@ const loginUser = async ({ email, password }) => {
   }
 
   const accessToken = generateAccessToken({ id: user._id });
-
-  logger.info(`User logged in successfully with ID: ${user._id}`);
 
   // Fetch sanitized user object without password
   const sanitizedUser = await User.findById(user._id);

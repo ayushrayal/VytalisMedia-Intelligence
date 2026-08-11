@@ -95,14 +95,11 @@ const addMetaAccount = async (userId, { accountId, accountName }) => {
   // First Account Rule: Automatically set preferred active Meta account
   if (isFirstAccount) {
     user.preferences.activeMetaAccount = cleanAccountId;
-    logger.info(`First Meta account added. Set activeMetaAccount preference to ${cleanAccountId}`);
   }
 
   await user.save();
 
   const addedAccount = user.integrations.meta[user.integrations.meta.length - 1];
-  logger.info(`Meta account ${cleanAccountId} added successfully for user ${userId}`);
-
   return addedAccount;
 };
 
@@ -210,12 +207,10 @@ const updateMetaAccount = async (userId, accountIdParam, { accountId: newAccount
   // Sync preference if preferred account's accountId changed
   if (isPreferredAccount && cleanNewAccountId) {
     user.preferences.activeMetaAccount = cleanNewAccountId;
-    logger.info(`Updated preferred activeMetaAccount to ${cleanNewAccountId}`);
   }
 
   await user.save();
 
-  logger.info(`Meta account ${cleanParamId} updated successfully for user ${userId}`);
   return account;
 };
 
@@ -254,16 +249,13 @@ const deleteMetaAccount = async (userId, accountId) => {
   if (isPreferredAccount) {
     if (user.integrations.meta.length > 0) {
       user.preferences.activeMetaAccount = user.integrations.meta[0].accountId;
-      logger.info(`Deleted preferred account. Reassigned activeMetaAccount to ${user.preferences.activeMetaAccount}`);
     } else {
       user.preferences.activeMetaAccount = null;
-      logger.info(`Deleted preferred account. No remaining accounts; activeMetaAccount set to null`);
     }
   }
 
   await user.save();
 
-  logger.info(`Meta account ${cleanAccountId} deleted successfully for user ${userId}`);
   return deletedAccount;
 };
 
@@ -289,7 +281,6 @@ const deleteAllMetaAccounts = async (userId) => {
 
   await user.save();
 
-  logger.info(`Deleted all (${deletedCount}) Meta accounts and cleared activeMetaAccount for user ${userId}`);
   return { deletedCount };
 };
 
@@ -320,7 +311,6 @@ const setActiveMetaAccount = async (userId, accountId) => {
   }
 
   if (user.preferences.activeMetaAccount === cleanAccountId) {
-    logger.info(`Meta account ${cleanAccountId} is already active for user ${userId}`);
     return {
       activeMetaAccount: cleanAccountId,
       account,
@@ -330,7 +320,6 @@ const setActiveMetaAccount = async (userId, accountId) => {
   user.preferences.activeMetaAccount = cleanAccountId;
   await user.save();
 
-  logger.info(`Switched activeMetaAccount to ${cleanAccountId} for user ${userId}`);
   return {
     activeMetaAccount: cleanAccountId,
     account,

@@ -17,14 +17,8 @@ const startServer = async () => {
         await cacheUtil.connect();
 
         // Start Server
-        app.listen(PORT, () => {
-            console.log(`
-========================================
-🚀 Vytalis Intelligence API Started
-🌐 Server : http://localhost:${PORT}
-🌍 Environment : ${process.env.NODE_ENV}
-========================================
-`);
+        app.listen(PORT, "0.0.0.0", () => {
+            console.log(`Server started on port ${PORT}`);
         });
     } catch (error) {
         console.error("Failed to start server");

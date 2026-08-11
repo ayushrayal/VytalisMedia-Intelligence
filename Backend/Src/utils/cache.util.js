@@ -28,18 +28,12 @@ const connect = async () => {
       logger.error("Redis Client Error", err.message);
     });
 
-    client.on("connect", () => {
-      logger.info("Redis client connecting...");
-    });
-
     client.on("ready", () => {
       isConnected = true;
-      logger.info("Redis client connected and ready.");
     });
 
     client.on("end", () => {
       isConnected = false;
-      logger.info("Redis client disconnected.");
     });
 
     await client.connect();
@@ -58,7 +52,6 @@ const disconnect = async () => {
     try {
       await client.disconnect();
       isConnected = false;
-      logger.info("Redis client disconnected successfully.");
     } catch (error) {
       logger.error("Error disconnecting Redis client:", error.message);
     }
@@ -80,11 +73,9 @@ const get = async (key) => {
   try {
     const rawData = await client.get(key);
     if (!rawData) {
-      logger.info(`[Redis MISS] Key: ${key}`);
       return null;
     }
 
-    logger.info(`[Redis HIT] Key: ${key}`);
     return JSON.parse(rawData);
   } catch (error) {
     logger.error(`Error reading key ${key} from Redis:`, error.message);
@@ -113,7 +104,6 @@ const set = async (key, value, ttlSeconds) => {
     } else {
       await client.set(key, serialized);
     }
-    logger.info(`[Redis SET] Key: ${key} | TTL: ${ttlSeconds}s`);
     return true;
   } catch (error) {
     logger.error(`Error setting key ${key} in Redis:`, error.message);
@@ -134,7 +124,6 @@ const del = async (key) => {
 
   try {
     await client.del(key);
-    logger.info(`[Redis DELETE] Key: ${key}`);
     return true;
   } catch (error) {
     logger.error(`Error deleting key ${key} from Redis:`, error.message);
