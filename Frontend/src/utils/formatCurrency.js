@@ -6,16 +6,16 @@
  * @param {string} [currencyCode="USD"] - ISO currency code
  * @returns {string} Formatted currency string
  */
-export const formatCurrency = (amount, currencyCode = "USD") => {
+export const formatCurrency = (amount, currencyCode = "INR") => {
   if (amount === null || amount === undefined || isNaN(Number(amount))) {
-    return "-";
+    return "₹0.00";
   }
 
   const numericValue = Number(amount);
-  const code = (currencyCode || "USD").toUpperCase();
+  const code = (currencyCode || "INR").toUpperCase();
 
   try {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: code,
       minimumFractionDigits: 2,
@@ -28,3 +28,11 @@ export const formatCurrency = (amount, currencyCode = "USD") => {
     return `${symbol}${numericValue.toFixed(2)}`;
   }
 };
+
+/**
+ * Strictly formats an amount as Indian Rupee (₹).
+ */
+export const formatCurrencyINR = (amount) => {
+  return formatCurrency(amount, "INR");
+};
+

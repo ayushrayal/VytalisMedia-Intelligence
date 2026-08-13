@@ -412,54 +412,6 @@ export const MetaOverview = () => {
               </button>
             </div>
 
-            {/* Refresh Icon Button */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <label style={{ fontSize: "12px", color: "transparent", userSelect: "none", lineHeight: 1 }}>
-                Refresh
-              </label>
-              <button
-                type="button"
-                onClick={() => fetchData(true)}
-                disabled={refreshing}
-                aria-label="Refresh data"
-                title="Refresh data"
-                style={{
-                  width: "44px",
-                  height: "44px",
-                  borderRadius: "9px",
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid #E2E8F0",
-                  color: "#334155",
-                  cursor: refreshing ? "wait" : "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "all 0.15s ease",
-                  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.03)",
-                  outline: "none",
-                }}
-                onMouseEnter={(e) => {
-                  if (!refreshing) {
-                    e.currentTarget.style.backgroundColor = "#F8FAFC";
-                    e.currentTarget.style.borderColor = "#CBD5E1";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!refreshing) {
-                    e.currentTarget.style.backgroundColor = "#FFFFFF";
-                    e.currentTarget.style.borderColor = "#E2E8F0";
-                  }
-                }}
-              >
-                <RefreshCw
-                  size={16}
-                  color="#334155"
-                  className={refreshing ? "spin" : ""}
-                  style={{ animation: refreshing ? "spin 1s linear infinite" : "none" }}
-                />
-              </button>
-            </div>
-
             {/* Cached Status Indicator */}
             <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
               <label style={{ fontSize: "12px", color: "transparent", userSelect: "none", lineHeight: 1 }}>

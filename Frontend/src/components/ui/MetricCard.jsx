@@ -61,7 +61,11 @@ export const MetricCard = ({
               flexShrink: 0,
             }}
           >
-            <IconComponent size={17} strokeWidth={2.2} />
+            {React.isValidElement(IconComponent) ? (
+              IconComponent
+            ) : (
+              <IconComponent size={17} strokeWidth={2.2} />
+            )}
           </div>
         )}
         <span style={{ fontSize: "13px", fontWeight: "600", color: "#64748B" }}>

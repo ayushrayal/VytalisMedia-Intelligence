@@ -1,0 +1,217 @@
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { getShopifyCustomers } from "../services/shopify.api.js";
+import MetricCard from "../../../components/ui/MetricCard.jsx";
+import Skeleton from "../../../components/ui/Skeleton.jsx";
+import EmptyState from "../../../components/ui/EmptyState.jsx";
+import ErrorState from "../../../components/ui/ErrorState.jsx";
+import Pagination from "../../../components/ui/Pagination.jsx";
+import DateFilter from "../../meta/components/DateFilter.jsx";
+import ShopifyAccountSwitcher from "../components/ShopifyAccountSwitcher.jsx";
+import ShopifyLockedState from "../components/ShopifyLockedState.jsx";
+import { formatCurrencyINR } from "../../../utils/formatCurrency.js";
+import { formatNumber } from "../../../utils/formatNumber.js";
+import { getErrorMessage } from "../../../utils/error.js";
+import { Users, UserPlus, UserCheck } from "lucide-react";
+
+export const ShopifyCustomers = () => {
+  const [customersData, setCustomersData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [dateParams, setDateParams] = useState({ datePreset: "last_7d" });
+
+  // Account & Lock state
+  const [isLocked, setIsLocked] = useState(false);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  const handleAccountsLoaded = useCallback(({ accounts }) => {
+    if (accounts.length === 0) {
+      setIsLocked(true);
+      setLoading(false);
+    } else {
+      setIsLocked(false);
+    }
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    if (isLocked) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await getShopifyCustomers(dateParams);
+      if (res.data) {
+        setCustomersData(Array.isArray(res.data) ? res.data : []);
+      }
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [dateParams, isLocked]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Reset page to 1 on date filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateParams]);
+
+  // Compute New vs Returning Customer Metrics using real API `customer_orders_count`
+  const customerMetrics = useMemo(() => {
+    let newCount = 0;
+    let returningCount = 0;
+
+    customersData.forEach((c) => {
+      const orderCount = Number(c.customer_orders_count || 1);
+      if (orderCount > 1) {
+        returningCount += 1;
+      } else {
+        newCount += 1;
+      }
+    });
+
+    return {
+      totalCustomers: customersData.length,
+      newCustomers: newCount,
+      returningCustomers: returningCount,
+    };
+  }, [customersData]);
+
+  // Paginated Customers List
+  const totalItems = customersData.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const paginatedCustomers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return customersData.slice(start, start + pageSize);
+  }, [customersData, currentPage, pageSize]);
+
+  if (isLocked) {
+    return <ShopifyLockedState />;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      {/* Header & Controls */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: "26px", fontWeight: "700", color: "#0F172A", letterSpacing: "-0.4px" }}>
+            Shopify Customers
+          </h1>
+          <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#64748B" }}>
+            Customer spending, lifetime value, and order history analytics.
+          </p>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <DateFilter onChange={(params) => setDateParams(params)} />
+          <ShopifyAccountSwitcher onAccountChanged={() => fetchData()} onAccountsLoaded={handleAccountsLoaded} />
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+            <Skeleton height="110px" />
+            <Skeleton height="110px" />
+            <Skeleton height="110px" />
+          </div>
+          <Skeleton height="350px" />
+        </div>
+      ) : error ? (
+        <ErrorState message={error} onRetry={fetchData} />
+      ) : customersData.length === 0 ? (
+        <EmptyState
+          title="No Customer Records Found"
+          description="No customer spending data was returned for the selected date range."
+        />
+      ) : (
+        <>
+          {/* Top KPI Cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+            <MetricCard
+              title="Total Customers"
+              value={formatNumber(customerMetrics.totalCustomers)}
+              icon={Users}
+              accentColor="#0F172A"
+            />
+            <MetricCard
+              title="New Customers"
+              value={formatNumber(customerMetrics.newCustomers)}
+              subtitle="Single order customers"
+              icon={UserPlus}
+              accentColor="#0A84FF"
+            />
+            <MetricCard
+              title="Returning Customers"
+              value={formatNumber(customerMetrics.returningCustomers)}
+              subtitle="Repeat buyers (2+ orders)"
+              icon={UserCheck}
+              accentColor="#16A34A"
+            />
+          </div>
+
+          {/* Customers Table with Pagination */}
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E2E8F0", overflow: "hidden", boxShadow: "0 1px 3px rgba(15,23,42,0.03)" }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #E2E8F0", backgroundColor: "#F8FAFC", color: "#64748B", fontSize: "11px", textTransform: "uppercase" }}>
+                    <th style={{ padding: "12px 16px", width: "40%" }}>Customer Name</th>
+                    <th style={{ padding: "12px 16px", width: "20%" }}>Orders Count</th>
+                    <th style={{ padding: "12px 16px", width: "20%" }}>Calculated AOV</th>
+                    <th style={{ padding: "12px 16px", width: "20%", textAlign: "right" }}>Total Spent</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedCustomers.map((c, idx) => {
+                    const name = `${c.customer_first_name || ""} ${c.customer_last_name || ""}`.trim() || "Customer";
+                    const ordersCount = Number(c.customer_orders_count || 1);
+                    const totalSpent = Number(c.customer_total_spent || 0);
+                    const aov = ordersCount > 0 ? totalSpent / ordersCount : 0;
+
+                    return (
+                      <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                        <td style={{ padding: "12px 16px", fontWeight: "600", color: "#0F172A" }}>
+                          {name}
+                        </td>
+                        <td style={{ padding: "12px 16px", fontWeight: "600" }}>
+                          {ordersCount}
+                        </td>
+                        <td style={{ padding: "12px 16px", color: "#475569" }}>
+                          {formatCurrencyINR(aov)}
+                        </td>
+                        <td style={{ padding: "12px 16px", fontWeight: "700", color: "#0A84FF", textAlign: "right" }}>
+                          {formatCurrencyINR(totalSpent)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Component */}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[10, 20, 50]}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+export default ShopifyCustomers;

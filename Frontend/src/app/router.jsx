@@ -20,6 +20,13 @@ import Creatives from "../features/meta/pages/Creatives.jsx";
 import Audience from "../features/meta/pages/Audience.jsx";
 import Places from "../features/meta/pages/Places.jsx";
 import MetaAccounts from "../features/meta/pages/MetaAccounts.jsx";
+import ShopifyOverview from "../features/shopify/pages/ShopifyOverview.jsx";
+import ShopifyOrders from "../features/shopify/pages/ShopifyOrders.jsx";
+import ShopifyProducts from "../features/shopify/pages/ShopifyProducts.jsx";
+import ShopifyCustomers from "../features/shopify/pages/ShopifyCustomers.jsx";
+import ShopifyLocation from "../features/shopify/pages/ShopifyLocation.jsx";
+import ShopifyAccounts from "../features/shopify/pages/ShopifyAccounts.jsx";
+import GoogleIntegration from "../features/integrations/pages/GoogleIntegration.jsx";
 import Input from "../components/ui/Input.jsx";
 import Button from "../components/ui/Button.jsx";
 
@@ -299,7 +306,10 @@ export const Router = () => {
 
         {/* Protected Dashboard Shell Routes */}
         <Route element={<ProtectedRoute user={user} setUser={setUser} authLoading={authLoading} />}>
+          {/* Global Analytics Overview */}
           <Route path="/overview" element={<DashboardOverview />} />
+
+          {/* Meta Analytics Routes */}
           <Route path="/meta/overview" element={<MetaOverview />} />
           <Route path="/meta/campaigns" element={<Campaigns />} />
           <Route path="/meta/adsets" element={<AdSets />} />
@@ -307,9 +317,24 @@ export const Router = () => {
           <Route path="/meta/audience" element={<Audience />} />
           <Route path="/meta/places" element={<Places />} />
           <Route path="/meta" element={<Navigate to="/meta/overview" replace />} />
-          <Route path="/settings/accounts" element={<MetaAccounts />} />
-          <Route path="/settings" element={<Navigate to="/settings/accounts" replace />} />
-          <Route path="/integrations" element={<Navigate to="/settings/accounts" replace />} />
+
+          {/* Shopify Analytics Routes */}
+          <Route path="/shopify/overview" element={<ShopifyOverview />} />
+          <Route path="/shopify/orders" element={<ShopifyOrders />} />
+          <Route path="/shopify/products" element={<ShopifyProducts />} />
+          <Route path="/shopify/customers" element={<ShopifyCustomers />} />
+          <Route path="/shopify/location" element={<ShopifyLocation />} />
+          <Route path="/shopify" element={<Navigate to="/shopify/overview" replace />} />
+
+          {/* Integrations Routes */}
+          <Route path="/integrations/meta" element={<MetaAccounts />} />
+          <Route path="/integrations/shopify" element={<ShopifyAccounts />} />
+          <Route path="/integrations/google" element={<GoogleIntegration />} />
+          <Route path="/integrations" element={<Navigate to="/integrations/meta" replace />} />
+
+          {/* Backwards Compatibility Redirects */}
+          <Route path="/settings/accounts" element={<Navigate to="/integrations/meta" replace />} />
+          <Route path="/settings" element={<Navigate to="/integrations/meta" replace />} />
         </Route>
 
         {/* Fallback Catch-all Route */}
