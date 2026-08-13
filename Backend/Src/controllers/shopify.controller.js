@@ -1,4 +1,5 @@
 const shopifyService = require("../services/shopify.service");
+const shopifyDataService = require("../services/shopify-data.service");
 const { sendSuccess } = require("../utils/api-response.util");
 
 /**
@@ -110,6 +111,126 @@ const setActiveAccount = async (req, res, next) => {
   }
 };
 
+/**
+ * Handles request for Shopify overview analytics data.
+ * Endpoint: GET /api/shopify/overview
+ */
+const getOverview = async (req, res, next) => {
+  try {
+    const result = await shopifyDataService.getShopifyData({
+      user: req.user,
+      endpoint: "overview",
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Shopify overview data retrieved successfully.",
+      result.data,
+      result.meta
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Handles request for Shopify orders analytics data.
+ * Endpoint: GET /api/shopify/orders
+ */
+const getOrders = async (req, res, next) => {
+  try {
+    const result = await shopifyDataService.getShopifyData({
+      user: req.user,
+      endpoint: "orders",
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Shopify orders data retrieved successfully.",
+      result.data,
+      result.meta
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Handles request for Shopify products analytics data.
+ * Endpoint: GET /api/shopify/products
+ */
+const getProducts = async (req, res, next) => {
+  try {
+    const result = await shopifyDataService.getShopifyData({
+      user: req.user,
+      endpoint: "products",
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Shopify products data retrieved successfully.",
+      result.data,
+      result.meta
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Handles request for Shopify customers analytics data.
+ * Endpoint: GET /api/shopify/customers
+ */
+const getCustomers = async (req, res, next) => {
+  try {
+    const result = await shopifyDataService.getShopifyData({
+      user: req.user,
+      endpoint: "customers",
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Shopify customers data retrieved successfully.",
+      result.data,
+      result.meta
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Handles request for Shopify location analytics data.
+ * Endpoint: GET /api/shopify/location
+ */
+const getLocation = async (req, res, next) => {
+  try {
+    const result = await shopifyDataService.getShopifyData({
+      user: req.user,
+      endpoint: "location",
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Shopify location data retrieved successfully.",
+      result.data,
+      result.meta
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   addAccount,
   getAllAccounts,
@@ -117,4 +238,9 @@ module.exports = {
   updateAccount,
   deleteAccount,
   setActiveAccount,
+  getOverview,
+  getOrders,
+  getProducts,
+  getCustomers,
+  getLocation,
 };

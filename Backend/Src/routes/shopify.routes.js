@@ -7,10 +7,46 @@ const {
   validateUpdateAccount,
   validateAccountIdParam,
 } = require("../validators/shopify.validator");
+const { validateShopifyDataRequest } = require("../validators/shopify-data.validator");
 const { protect } = require("../middleware/auth.middleware");
 
-// Protect all Shopify account routes with JWT authentication
+// Protect all Shopify account and data routes with JWT authentication
 router.use(protect);
+
+/**
+ * @route   GET /api/shopify/overview
+ * @desc    Fetch Shopify overview analytics data
+ * @access  Private
+ */
+router.get("/overview", validateShopifyDataRequest, shopifyController.getOverview);
+
+/**
+ * @route   GET /api/shopify/orders
+ * @desc    Fetch Shopify orders analytics data
+ * @access  Private
+ */
+router.get("/orders", validateShopifyDataRequest, shopifyController.getOrders);
+
+/**
+ * @route   GET /api/shopify/products
+ * @desc    Fetch Shopify products analytics data
+ * @access  Private
+ */
+router.get("/products", validateShopifyDataRequest, shopifyController.getProducts);
+
+/**
+ * @route   GET /api/shopify/customers
+ * @desc    Fetch Shopify customers analytics data
+ * @access  Private
+ */
+router.get("/customers", validateShopifyDataRequest, shopifyController.getCustomers);
+
+/**
+ * @route   GET /api/shopify/location
+ * @desc    Fetch Shopify location analytics data
+ * @access  Private
+ */
+router.get("/location", validateShopifyDataRequest, shopifyController.getLocation);
 
 /**
  * @route   POST /api/shopify/accounts
