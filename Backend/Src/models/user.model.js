@@ -7,15 +7,18 @@ const metaIntegrationSchema = new mongoose.Schema({
   connectedAt: { type: Date, default: Date.now },
 });
 
-const shopifyIntegrationSchema = new mongoose.Schema(
-  {
-    storeName: { type: String },
-    storeDomain: { type: String },
-    isActive: { type: Boolean, default: true },
-    connectedAt: { type: Date, default: Date.now },
+const shopifyIntegrationSchema = new mongoose.Schema({
+  accountName: { type: String, required: true, trim: true },
+  shopName: { type: String, required: true, trim: true },
+  timezone: { type: String, trim: true, default: "UTC" },
+  status: {
+    type: String,
+    enum: ["active", "inactive", "connected", "error"],
+    default: "active",
   },
-  { _id: false }
-);
+  connectedAt: { type: Date, default: Date.now },
+  lastSyncedAt: { type: Date, default: null },
+});
 
 const userSchema = new mongoose.Schema(
   {
@@ -48,7 +51,7 @@ const userSchema = new mongoose.Schema(
     },
     preferences: {
       activeMetaAccount: { type: String, default: null },
-      activeShopifyStore: { type: String, default: null },
+      activeShopifyAccount: { type: String, default: null },
     },
   },
   {
