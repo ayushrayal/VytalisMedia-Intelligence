@@ -262,7 +262,7 @@ export const DashboardWidget = ({
         </div>
 
         <div>
-          <div style={{ fontSize: "28px", fontWeight: "700", color: "#0F172A", letterSpacing: "-0.5px", lineHeight: 1.1 }}>
+          <div style={{ fontSize: "24px", fontWeight: "700", color: "#0F172A", letterSpacing: "-0.5px", lineHeight: 1.1 }}>
             {formattedVal}
           </div>
         </div>

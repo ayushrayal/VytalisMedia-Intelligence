@@ -77,7 +77,7 @@ export const MetricCard = ({
       <div>
         <div
           style={{
-            fontSize: "28px",
+            fontSize: "24px",
             fontWeight: "700",
             color: "#0F172A",
             letterSpacing: "-0.5px",

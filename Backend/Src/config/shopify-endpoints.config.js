@@ -3,7 +3,7 @@
  * SOLE OWNER of Shopify Windsor field lists and allowed date presets.
  */
 
-const ALLOWED_SHOPIFY_PRESETS = ["last_7d", "last_30d", "last_90d", "last_year"];
+const ALLOWED_SHOPIFY_PRESETS = ["last_7d", "last_30d", "last_90d", "last_year", "this_month"];
 
 const SHOPIFY_ENDPOINTS = {
   overview: {

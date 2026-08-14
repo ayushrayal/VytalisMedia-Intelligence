@@ -31,6 +31,9 @@ import {
   SlidersHorizontal,
   X,
   RotateCcw,
+  GripVertical,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 const DEFAULT_CARDS_CONFIG = [
@@ -43,6 +46,10 @@ const DEFAULT_CARDS_CONFIG = [
   { id: "cod", label: "COD Orders", visible: true, order: 7 },
   { id: "cancelled", label: "Cancelled Orders", visible: true, order: 8 },
 ];
+
+import {
+  calculateShopifyMetrics,
+} from "../utils/shopify-calculator.jsx";
 
 import rupeeImg from "../../../assets/rupee.png";
 
@@ -67,20 +74,45 @@ export const ShopifyOverview = () => {
 
   // Customization Drawer State
   const [isCustomizing, setIsCustomizing] = useState(false);
+  const [draggedIdx, setDraggedIdx] = useState(null);
   const [cardsConfig, setCardsConfig] = useState(() => {
     try {
       const saved = localStorage.getItem("vytalis_shopify_card_config");
-      return saved ? JSON.parse(saved) : DEFAULT_CARDS_CONFIG;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed
+            .map((item, idx) => ({
+              ...item,
+              order: typeof item.order === "number" ? item.order : idx + 1,
+            }))
+            .sort((a, b) => a.order - b.order);
+        }
+      }
+      return DEFAULT_CARDS_CONFIG;
     } catch {
       return DEFAULT_CARDS_CONFIG;
     }
   });
 
   const saveCardConfig = (newConfig) => {
-    setCardsConfig(newConfig);
+    const indexed = newConfig.map((item, idx) => ({
+      ...item,
+      order: idx + 1,
+    }));
+    setCardsConfig(indexed);
     try {
-      localStorage.setItem("vytalis_shopify_card_config", JSON.stringify(newConfig));
+      localStorage.setItem("vytalis_shopify_card_config", JSON.stringify(indexed));
+      window.dispatchEvent(new Event("storage"));
     } catch {}
+  };
+
+  const moveCard = (fromIdx, toIdx) => {
+    if (toIdx < 0 || toIdx >= cardsConfig.length) return;
+    const updated = [...cardsConfig];
+    const [moved] = updated.splice(fromIdx, 1);
+    updated.splice(toIdx, 0, moved);
+    saveCardConfig(updated);
   };
 
   const handleAccountsLoaded = useCallback(({ accounts }) => {
@@ -140,75 +172,18 @@ export const ShopifyOverview = () => {
     fetchData();
   }, [fetchData]);
 
-  // Aggregate Overview Totals
-  const totals = useMemo(() => {
-    return overviewData.reduce(
-      (acc, row) => {
-        acc.grossSales += Number(row.order_gross_sales || 0);
-        acc.netSales += Number(row.order_net_sales || 0);
-        acc.orders += Number(row.order_count || row.order_total_count || 0);
-        acc.quantity += Number(row.order_quantity || 0);
-        acc.discounts += Number(row.order_total_discounts || 0);
-        acc.tax += Number(row.order_total_tax_amount || 0);
-        return acc;
-      },
-      { grossSales: 0, netSales: 0, orders: 0, quantity: 0, discounts: 0, tax: 0 }
-    );
-  }, [overviewData]);
-
-  // Derive Prepaid, COD, Cancelled Metrics
-  const orderBreakdown = useMemo(() => {
-    let prepaidCount = 0;
-    let prepaidValue = 0;
-    let codCount = 0;
-    let codValue = 0;
-    let cancelledCount = 0;
-    let cancelledValue = 0;
-
-    const totalOrdersCount = ordersData.length || totals.orders || 1;
-
-    ordersData.forEach((order) => {
-      const finStatus = (order.order_financial_status || "").toUpperCase();
-      const orderPrice = Number(order.order_total_price || order.order_net_sales || 0);
-
-      if (order.order_cancelled_at !== null && order.order_cancelled_at !== undefined && String(order.order_cancelled_at).trim() !== "") {
-        cancelledCount += 1;
-        cancelledValue += orderPrice;
-      }
-
-      if (finStatus === "PAID" || order.order_fully_paid === true) {
-        prepaidCount += 1;
-        prepaidValue += orderPrice;
-      } else if (finStatus === "PENDING" || order.order_unpaid === true) {
-        codCount += 1;
-        codValue += orderPrice;
-      }
+  // Single Canonical Shopify Calculation Layer
+  const shopifyCalculated = useMemo(() => {
+    return calculateShopifyMetrics({
+      overviewData,
+      ordersData,
+      customersData,
     });
+  }, [overviewData, ordersData, customersData]);
 
-    return {
-      prepaidCount,
-      prepaidValue,
-      prepaidPct: ((prepaidCount / totalOrdersCount) * 100).toFixed(1),
-      codCount,
-      codValue,
-      codPct: ((codCount / totalOrdersCount) * 100).toFixed(1),
-      cancelledCount,
-      cancelledValue,
-      cancelledPct: ((cancelledCount / totalOrdersCount) * 100).toFixed(1),
-    };
-  }, [ordersData, totals.orders]);
-
-  // Unique Customers Count
-  const uniqueCustomerCount = useMemo(() => {
-    if (customersData.length > 0) {
-      const set = new Set();
-      customersData.forEach((c) => {
-        if (c.customer_id || c.customer_email) set.add(c.customer_id || c.customer_email);
-      });
-      return set.size;
-    }
-    return 0;
-  }, [customersData]);
+  const totals = shopifyCalculated.totals;
+  const orderBreakdown = shopifyCalculated.breakdown;
+  const uniqueCustomerCount = shopifyCalculated.uniqueCustomers;
 
   // Top Products
   const topProducts = useMemo(() => {
@@ -486,22 +461,95 @@ export const ShopifyOverview = () => {
               </button>
             </div>
 
-            <p style={{ margin: "0 0 16px 0", fontSize: "13px", color: "#64748B" }}>Toggle visibility to display your preferred Shopify KPI cards.</p>
+            <p style={{ margin: "0 0 16px 0", fontSize: "13px", color: "#64748B" }}>
+              Drag or use arrows to reorder, and toggle visibility for your preferred Shopify KPI cards.
+            </p>
 
             <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" }}>
-              {cardsConfig.map((item) => (
-                <label key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: "8px", border: "1px solid #E2E8F0", backgroundColor: "#F8FAFC", cursor: "pointer" }}>
-                  <span style={{ fontSize: "13px", fontWeight: "600", color: "#0F172A" }}>{item.label}</span>
-                  <input
-                    type="checkbox"
-                    checked={item.visible}
-                    onChange={(e) => {
-                      const updated = cardsConfig.map((c) => (c.id === item.id ? { ...c, visible: e.target.checked } : c));
-                      saveCardConfig(updated);
-                    }}
-                    style={{ width: "16px", height: "16px", cursor: "pointer" }}
-                  />
-                </label>
+              {cardsConfig.map((item, idx) => (
+                <div
+                  key={item.id}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggedIdx(idx);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggedIdx !== null && draggedIdx !== idx) {
+                      moveCard(draggedIdx, idx);
+                      setDraggedIdx(null);
+                    }
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    backgroundColor: draggedIdx === idx ? "#EFF6FF" : "#F8FAFC",
+                    gap: "10px",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <GripVertical size={16} style={{ color: "#94A3B8", cursor: "grab", flexShrink: 0 }} />
+                    <span style={{ fontSize: "13px", fontWeight: "600", color: "#0F172A" }}>{item.label}</span>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    {/* Up & Down Reorder Buttons */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => moveCard(idx, idx - 1)}
+                        title="Move Up"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: idx === 0 ? "not-allowed" : "pointer",
+                          color: idx === 0 ? "#CBD5E1" : "#64748B",
+                          padding: 0,
+                          lineHeight: 1,
+                        }}
+                      >
+                        <ChevronUp size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === cardsConfig.length - 1}
+                        onClick={() => moveCard(idx, idx + 1)}
+                        title="Move Down"
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: idx === cardsConfig.length - 1 ? "not-allowed" : "pointer",
+                          color: idx === cardsConfig.length - 1 ? "#CBD5E1" : "#64748B",
+                          padding: 0,
+                          lineHeight: 1,
+                        }}
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+                    </div>
+
+                    {/* Visibility Checkbox */}
+                    <input
+                      type="checkbox"
+                      checked={item.visible !== false}
+                      onChange={(e) => {
+                        const updated = cardsConfig.map((c) =>
+                          c.id === item.id ? { ...c, visible: e.target.checked } : c
+                        );
+                        saveCardConfig(updated);
+                      }}
+                      style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                    />
+                  </div>
+                </div>
               ))}
             </div>
 

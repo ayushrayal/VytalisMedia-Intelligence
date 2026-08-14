@@ -40,3 +40,17 @@ export const getShopifyLocation = (params = {}) => {
   const q = buildShopifyQueryString(params);
   return http.get(`/shopify/location${q}`);
 };
+
+export const getShopifyOverviewBundle = async (params = {}) => {
+  const [overviewRes, ordersRes, customersRes] = await Promise.allSettled([
+    getShopifyOverview(params),
+    getShopifyOrders(params),
+    getShopifyCustomers(params),
+  ]);
+
+  return {
+    overviewData: overviewRes.status === "fulfilled" && Array.isArray(overviewRes.value?.data) ? overviewRes.value.data : [],
+    ordersData: ordersRes.status === "fulfilled" && Array.isArray(ordersRes.value?.data) ? ordersRes.value.data : [],
+    customersData: customersRes.status === "fulfilled" && Array.isArray(customersRes.value?.data) ? customersRes.value.data : [],
+  };
+};

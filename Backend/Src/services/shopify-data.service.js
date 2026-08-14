@@ -57,7 +57,20 @@ const getShopifyData = async ({ user, endpoint, query = {} }) => {
   let dateTo = null;
   let dateRangeMeta = null;
 
-  if (rawPreset) {
+  if (rawPreset === "this_month") {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(now.getUTCDate()).padStart(2, "0");
+    const calculatedFrom = `${year}-${month}-01`;
+    const calculatedTo = `${year}-${month}-${day}`;
+
+    datePreset = "this_month";
+    dateFrom = calculatedFrom;
+    dateTo = calculatedTo;
+    dateRangeKey = `this_month_${calculatedFrom}_${calculatedTo}`;
+    dateRangeMeta = { type: "preset", value: "this_month", dateFrom: calculatedFrom, dateTo: calculatedTo };
+  } else if (rawPreset) {
     datePreset = rawPreset;
     dateRangeKey = rawPreset;
     dateRangeMeta = { type: "preset", value: rawPreset };

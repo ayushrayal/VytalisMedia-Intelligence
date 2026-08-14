@@ -5,6 +5,7 @@ const path = require("path");
 const authRoutes = require("./routes/auth.routes");
 const metaRoutes = require("./routes/meta.routes");
 const shopifyRoutes = require("./routes/shopify.routes");
+const attributionRoutes = require("./routes/attribution.routes");
 const errorHandler = require("./middleware/error.middleware");
 
 const app = express();
@@ -32,6 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/meta", metaRoutes);
 app.use("/api/shopify", shopifyRoutes);
+app.use("/api/attribution", attributionRoutes);
 
 
 // ==========================================

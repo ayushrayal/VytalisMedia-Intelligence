@@ -24,7 +24,7 @@ export const MetricCard = ({ label, value, subtitle, icon, style = {} }) => {
         <span style={{ fontSize: "0.85rem", fontWeight: "600", color: "var(--color-text-secondary, #64748B)" }}>{label}</span>
         {icon && <span style={{ fontSize: "1.25rem", color: "var(--color-primary, #0A84FF)" }}>{icon}</span>}
       </div>
-      <div style={{ fontSize: "2rem", fontWeight: "700", color: "var(--color-text-primary, #111827)", letterSpacing: "-0.6px" }}>
+      <div style={{ fontSize: "24px", fontWeight: "700", color: "var(--color-text-primary, #111827)", letterSpacing: "-0.6px" }}>
         {value !== undefined && value !== null ? value : "-"}
       </div>
       {subtitle && (

@@ -59,6 +59,7 @@ export const useDashboardLayout = () => {
         visibleWidgetIds: newVisible,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      window.dispatchEvent(new Event("storage"));
       setSavedBadge(true);
       setTimeout(() => setSavedBadge(false), 2000);
     } catch {

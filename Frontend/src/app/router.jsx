@@ -26,6 +26,7 @@ import ShopifyProducts from "../features/shopify/pages/ShopifyProducts.jsx";
 import ShopifyCustomers from "../features/shopify/pages/ShopifyCustomers.jsx";
 import ShopifyLocation from "../features/shopify/pages/ShopifyLocation.jsx";
 import ShopifyAccounts from "../features/shopify/pages/ShopifyAccounts.jsx";
+import AttributionOverview from "../features/attribution/pages/AttributionOverview.jsx";
 import GoogleIntegration from "../features/integrations/pages/GoogleIntegration.jsx";
 import Input from "../components/ui/Input.jsx";
 import Button from "../components/ui/Button.jsx";
@@ -308,6 +309,9 @@ export const Router = () => {
         <Route element={<ProtectedRoute user={user} setUser={setUser} authLoading={authLoading} />}>
           {/* Global Analytics Overview */}
           <Route path="/overview" element={<DashboardOverview />} />
+
+          {/* Attribution Route */}
+          <Route path="/attribution" element={<AttributionOverview />} />
 
           {/* Meta Analytics Routes */}
           <Route path="/meta/overview" element={<MetaOverview />} />
