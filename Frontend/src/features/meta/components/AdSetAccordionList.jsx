@@ -42,9 +42,8 @@ export const AdSetAccordionList = ({ adSets = [], currency = "INR" }) => {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
       {adSets.map((adset, idx) => {
-        // Guarantee unique stable string ID per row by appending index suffix
-        const baseId = adset.id || adset.adset_id || adset.name || adset.adset_name || "adset";
-        const adSetId = `${baseId}-${idx}`;
+        // Use canonical adset ID as stable unique identity
+        const adSetId = String(adset.id || adset.adset_id || adset.name || adset.adset_name || idx);
 
         const isExpanded = expandedAdSetId !== null && expandedAdSetId === adSetId;
 

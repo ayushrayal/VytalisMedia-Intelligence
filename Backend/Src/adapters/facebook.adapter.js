@@ -325,6 +325,149 @@ const fetchPlaces = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }) 
 };
 
 /**
+ * Normalizes and aggregates raw Windsor ad set records for a specific campaign.
+ * Groups records by canonical key `${campaign_id}_${adset_id}`, sums additive count/value metrics,
+ * recalculates derived metrics (CTR, CPC, CPM, ROAS, Cost Per Result, Frequency),
+ * handles reach as non-additive (using MAX non-null reach as a fallback estimate),
+ * and resolves effective status consistently.
+ *
+ * @param {Array<Object>} rawAdSets - Array of raw ad set rows from Windsor
+ * @param {string} targetCampaignId - Canonical ID of the campaign
+ * @param {string} [defaultCurrency="INR"] - Fallback currency if not specified on row
+ * @returns {Array<Object>} Array of normalized unique Ad Set objects
+ */
+const normalizeAndAggregateAdSets = (rawAdSets, targetCampaignId, defaultCurrency = "INR") => {
+  if (!Array.isArray(rawAdSets) || rawAdSets.length === 0) return [];
+
+  // Group records by canonical key `${campaign_id}_${adset_id}`
+  const groupedMap = new Map();
+
+  for (const row of rawAdSets) {
+    if (!row || typeof row !== "object") continue;
+    const adsetId = String(row.adset_id || row.id || "").trim();
+    if (!adsetId) continue;
+
+    const cId = String(row.campaign_id || targetCampaignId || "").trim();
+    const groupKey = `${cId}_${adsetId}`;
+
+    if (!groupedMap.has(groupKey)) {
+      groupedMap.set(groupKey, []);
+    }
+    groupedMap.get(groupKey).push(row);
+  }
+
+  const helperSum = (rows, extractor) => {
+    let hasVal = false;
+    let total = 0;
+    for (const r of rows) {
+      const v = extractor(r);
+      if (v !== null && v !== undefined && !isNaN(Number(v))) {
+        hasVal = true;
+        total += Number(v);
+      }
+    }
+    return hasVal ? total : null;
+  };
+
+  const aggregatedAdSets = [];
+
+  for (const [groupKey, rows] of groupedMap.entries()) {
+    const firstRow = rows[0];
+    const adsetId = String(firstRow.adset_id || firstRow.id || "");
+    const adsetName =
+      rows.find((r) => r.adset_name || r.name)?.adset_name ||
+      rows.find((r) => r.adset_name || r.name)?.name ||
+      "Unnamed Ad Set";
+
+    // Resolve Status: prioritize "ACTIVE" if present in any row, else first non-empty status, or fallback to "ACTIVE"
+    let status = "ACTIVE";
+    const statuses = rows
+      .map((r) => (r.adset_status || r.effective_status || r.status || "").toString().toUpperCase())
+      .filter(Boolean);
+    if (statuses.includes("ACTIVE")) {
+      status = "ACTIVE";
+    } else if (statuses.length > 0) {
+      status = statuses[0];
+    }
+
+    const currency = rows.find((r) => r.currency)?.currency || defaultCurrency || "INR";
+
+    // 1. Sum additive count and currency metrics
+    const spend = helperSum(rows, (r) => getNumericOrNull(r.spend));
+    const impressions = helperSum(rows, (r) => getNumericOrNull(r.impressions));
+    const clicks = helperSum(rows, (r) => getNumericOrNull(r.clicks));
+    const link_clicks = helperSum(rows, (r) => getNumericOrNull(r.link_clicks));
+    const purchases = helperSum(rows, (r) => getNumericOrNull(r.purchases ?? r.actions_omni_purchase));
+    const purchase_conversion_value = helperSum(
+      rows,
+      (r) => getNumericOrNull(r.purchase_conversion_value ?? r.action_values_omni_purchase)
+    );
+    const actions_add_to_cart = helperSum(
+      rows,
+      (r) => getNumericOrNull(r.actions_add_to_cart ?? r.add_to_cart)
+    );
+    const actions_initiate_checkout = helperSum(
+      rows,
+      (r) => getNumericOrNull(r.actions_initiate_checkout ?? r.initiate_checkout)
+    );
+
+    // Rate / CTR metrics - not additive
+    const unique_outbound_clicks_ctr_outbound_click =
+      rows
+        .map((r) =>
+          getNumericOrNull(
+            r.unique_outbound_clicks_ctr_outbound_click ?? r.unique_outbound_clicks_ctr
+          )
+        )
+        .find((v) => v !== null) ?? null;
+
+    // Reach is non-additive across breakdown/date records.
+    // MAX(reach) is used as a fallback estimate without claiming to be an exact aggregate across disjoint breakdown segments.
+    const reachVals = rows.map((r) => getNumericOrNull(r.reach)).filter((v) => v !== null);
+    const reach = reachVals.length > 0 ? Math.max(...reachVals) : null;
+
+    // 2. Recalculate derived metrics
+    const ctr =
+      impressions !== null && impressions > 0 && clicks !== null ? (clicks / impressions) * 100 : null;
+    const cpc = clicks !== null && clicks > 0 && spend !== null ? spend / clicks : null;
+    const cpm = impressions !== null && impressions > 0 && spend !== null ? (spend / impressions) * 1000 : null;
+    const purchase_roas =
+      spend !== null && spend > 0 && purchase_conversion_value !== null
+        ? purchase_conversion_value / spend
+        : null;
+    const cost_per_result =
+      purchases !== null && purchases > 0 && spend !== null ? spend / purchases : null;
+
+    // Frequency: Do not sum. If reach and impressions available, frequency = impressions / reach
+    const frequency = reach !== null && reach > 0 && impressions !== null ? impressions / reach : null;
+
+    aggregatedAdSets.push({
+      id: adsetId,
+      name: adsetName,
+      status,
+      spend,
+      impressions,
+      reach,
+      clicks,
+      ctr,
+      cpc,
+      cpm,
+      frequency,
+      actions_add_to_cart,
+      actions_initiate_checkout,
+      unique_outbound_clicks_ctr_outbound_click,
+      purchases,
+      purchase_conversion_value,
+      cost_per_result,
+      purchase_roas,
+      currency,
+    });
+  }
+
+  return aggregatedAdSets;
+};
+
+/**
  * Fetches comprehensive details for a single campaign belonging to activeMetaAccount.
  */
 const fetchCampaignDetails = async ({ activeMetaAccount, campaignId, datePreset, dateFrom, dateTo }) => {
@@ -369,27 +512,7 @@ const fetchCampaignDetails = async ({ activeMetaAccount, campaignId, datePreset,
     (cr) => String(cr.campaign_id) === actualCampaignId || (campaignName && String(cr.campaign) === String(campaignName))
   );
 
-  const adSets = filteredAdSets.map((a) => ({
-    id: String(a.adset_id || a.id || ""),
-    name: a.adset_name || a.name || "Unnamed Ad Set",
-    status: a.adset_status || a.effective_status || a.status || "ACTIVE",
-    spend: getNumericOrNull(a.spend),
-    impressions: getNumericOrNull(a.impressions),
-    reach: getNumericOrNull(a.reach),
-    clicks: getNumericOrNull(a.clicks),
-    ctr: getNumericOrNull(a.ctr),
-    cpc: getNumericOrNull(a.cpc),
-    cpm: getNumericOrNull(a.cpm),
-    frequency: getNumericOrNull(a.frequency),
-    actions_add_to_cart: getNumericOrNull(a.actions_add_to_cart ?? a.add_to_cart),
-    actions_initiate_checkout: getNumericOrNull(a.actions_initiate_checkout ?? a.initiate_checkout),
-    unique_outbound_clicks_ctr_outbound_click: getNumericOrNull(a.unique_outbound_clicks_ctr_outbound_click ?? a.unique_outbound_clicks_ctr),
-    purchases: getNumericOrNull(a.purchases ?? a.actions_omni_purchase),
-    purchase_conversion_value: getNumericOrNull(a.purchase_conversion_value ?? a.action_values_omni_purchase),
-    cost_per_result: getNumericOrNull(a.cost_per_result ?? a.cost_per_action_type_omni_purchase),
-    purchase_roas: getNumericOrNull(a.purchase_roas ?? a.purchase_roas_omni_purchase),
-    currency: a.currency || targetCampaign.currency || "INR",
-  }));
+  const adSets = normalizeAndAggregateAdSets(filteredAdSets, actualCampaignId, targetCampaign.currency || "INR");
 
   const creatives = filteredCreatives.map((cr) => ({
     id: String(cr.ad_id || cr.creative_id || cr.id || ""),
@@ -474,5 +597,6 @@ module.exports = {
   fetchAudience,
   fetchPlaces,
   fetchCampaignDetails,
+  normalizeAndAggregateAdSets,
 };
 
