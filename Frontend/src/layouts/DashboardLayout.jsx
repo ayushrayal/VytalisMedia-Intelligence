@@ -75,6 +75,20 @@ const analyticsNavigation = [
     icon: LayoutDashboard,
   },
   {
+    key: "meta",
+    label: "Meta",
+    icon: MetaIcon,
+    basePath: "/meta",
+    children: [
+      { route: "/meta/overview", label: "Overview", icon: BarChart3 },
+      { route: "/meta/campaigns", label: "Campaigns", icon: Megaphone },
+      { route: "/meta/adsets", label: "Ad Sets", icon: Layers },
+      { route: "/meta/creatives", label: "Creatives", icon: ImageIcon },
+      { route: "/meta/audience", label: "Audience", icon: Users },
+      { route: "/meta/places", label: "Places", icon: MapPin },
+    ],
+  },
+  {
     key: "shopify",
     label: "Shopify",
     icon: ShopifyIcon,
@@ -92,20 +106,6 @@ const analyticsNavigation = [
     label: "Attribution",
     route: "/attribution",
     icon: Target,
-  },
-  {
-    key: "meta",
-    label: "Meta",
-    icon: MetaIcon,
-    basePath: "/meta",
-    children: [
-      { route: "/meta/overview", label: "Overview", icon: BarChart3 },
-      { route: "/meta/campaigns", label: "Campaigns", icon: Megaphone },
-      { route: "/meta/adsets", label: "Ad Sets", icon: Layers },
-      { route: "/meta/creatives", label: "Creatives", icon: ImageIcon },
-      { route: "/meta/audience", label: "Audience", icon: Users },
-      { route: "/meta/places", label: "Places", icon: MapPin },
-    ],
   },
 ];
 
