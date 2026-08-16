@@ -275,14 +275,14 @@ export const ShopifyAccounts = () => {
             <form onSubmit={handleSubmitForm} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <Input
                 label="Shop Name"
-                placeholder="e.g. JSB Health & Fitness"
+                placeholder="e.g. My Store"
                 value={shopName}
                 onChange={(e) => setShopName(e.target.value)}
                 required
               />
               <Input
                 label="Store Domain (myshopify.com)"
-                placeholder="e.g. jsbhealthcare.myshopify.com"
+                placeholder="e.g. storename.myshopify.com"
                 value={accountName}
                 onChange={(e) => setAccountName(e.target.value)}
                 required
