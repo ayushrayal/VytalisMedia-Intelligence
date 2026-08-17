@@ -30,18 +30,48 @@ if (process.env.TRUST_PROXY) {
 // ==========================================
 
 // Strict credentialed CORS handling (never wildcard '*')
-const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(",").map((o) => o.trim())
-  : ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"];
+const defaultOrigins = [
+  "https://vytalismedia-intelligence.onrender.com",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:5000",
+];
+
+const envOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(",").map((o) => o.trim()).filter(Boolean)
+  : [];
+
+const allowedOriginsList = Array.from(new Set([...defaultOrigins, ...envOrigins]));
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, or same-origin static frontend)
-      if (!origin || allowedOrigins.includes(origin)) {
+      // 1. Allow requests with no origin header (same-origin GET, static assets, server calls)
+      if (!origin) {
         return callback(null, true);
       }
-      return callback(new Error("CORS policy violation: origin not allowed"), false);
+
+      // 2. Allow if origin is explicitly in allowedOriginsList
+      if (allowedOriginsList.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // 3. Allow same-origin or trusted domain matches (e.g. any *.onrender.com or localhost dev)
+      try {
+        const originUrl = new URL(origin);
+        if (
+          originUrl.hostname === "localhost" ||
+          originUrl.hostname === "127.0.0.1" ||
+          originUrl.hostname.endsWith(".onrender.com")
+        ) {
+          return callback(null, true);
+        }
+      } catch (e) {
+        // Invalid origin URL format
+      }
+
+      // 4. Safely reject disallowed origins without throwing an Express 500 error
+      return callback(null, false);
     },
     credentials: true,
   })

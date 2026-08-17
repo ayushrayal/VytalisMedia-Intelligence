@@ -318,17 +318,36 @@ describe("Phase 0 Security Hardening Tests (P0.2 & P0.3)", () => {
   });
 
   // ==================================================
-  // 5. CORS CREDENTIAL RESTRICTION
+  // 5. CORS CREDENTIAL RESTRICTION & STATIC ASSETS
   // ==================================================
-  describe("CORS Policy", () => {
-    test("CORS rejects untrusted origins and never uses wildcard with credentials", async () => {
+  describe("CORS Policy & Static Asset Serving", () => {
+    test("CORS approves production Render origin with credentials", async () => {
+      const res = await makeRequest("GET", "/api/health", null, {
+        Origin: "https://vytalismedia-intelligence.onrender.com",
+      });
+
+      assert.strictEqual(res.statusCode, 200);
+      assert.strictEqual(res.headers["access-control-allow-origin"], "https://vytalismedia-intelligence.onrender.com");
+      assert.strictEqual(res.headers["access-control-allow-credentials"], "true");
+    });
+
+    test("CORS rejects untrusted origins cleanly without throwing HTTP 500", async () => {
       const res = await makeRequest("GET", "/api/health", null, {
         Origin: "http://untrusted-malicious-domain.com",
       });
 
+      assert.strictEqual(res.statusCode, 200, "Should handle health check without throwing HTTP 500 server error");
       const allowOrigin = res.headers["access-control-allow-origin"];
       assert.notStrictEqual(allowOrigin, "*", "Credentialed CORS must never return wildcard '*'");
       assert.notStrictEqual(allowOrigin, "http://untrusted-malicious-domain.com");
+    });
+
+    test("Static asset requests do not fail with HTTP 500 CORS policy errors", async () => {
+      const res = await makeRequest("GET", "/favicon.ico", null, {
+        Origin: "https://vytalismedia-intelligence.onrender.com",
+      });
+
+      assert.notStrictEqual(res.statusCode, 500, "Static asset request must never fail with HTTP 500");
     });
   });
 });
