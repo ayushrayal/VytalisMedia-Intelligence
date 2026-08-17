@@ -22,31 +22,35 @@ const normalizeIp = (ip) => {
 };
 
 /**
- * Safely extracts real client IP address respecting Express trust proxy settings
- * and proxy headers on cloud platforms like Render.
+ * Safely extracts real client IP address prioritizing Cloudflare and proxy headers
+ * before falling back to local socket IP address for local development.
  *
  * @param {Object} req - Express request object
  * @returns {string} Cleaned client IP address
  */
 const getClientIp = (req) => {
-   console.log("[IP DIAGNOSTIC]", {
-    reqIp: req.ip,
-    reqIps: req.ips,
-    xForwardedFor: req.headers["x-forwarded-for"],
-    cfConnectingIp: req.headers["cf-connecting-ip"],
-    socketIp: req.socket?.remoteAddress,
-  });
-  let rawIp = req.ip;
+  let rawIp = null;
 
-  // Fallback if req.ip is unpopulated or resolves to loopback when proxy headers exist
-  if (!rawIp || rawIp === "127.0.0.1" || rawIp === "::1" || rawIp === "::ffff:127.0.0.1") {
+  // 1. Check Cloudflare connecting IP header
+  const cfIp = req.headers?.["cf-connecting-ip"];
+  if (cfIp) {
+    rawIp = String(cfIp).split(",")[0].trim();
+  }
+
+  // 2. Check X-Forwarded-For header (first element is the original client IP)
+  if (!rawIp) {
+    const forwardedFor = req.headers?.["x-forwarded-for"];
+    if (forwardedFor) {
+      rawIp = String(forwardedFor).split(",")[0].trim();
+    }
+  }
+
+  // 3. Fallback to Express req.ips / req.socket / req.ip for local development
+  if (!rawIp) {
     if (req.ips && req.ips.length > 0) {
       rawIp = req.ips[0];
-    } else if (req.headers && req.headers["x-forwarded-for"]) {
-      const forwarded = String(req.headers["x-forwarded-for"]).split(",");
-      rawIp = forwarded[0].trim();
-    } else if (req.socket?.remoteAddress) {
-      rawIp = req.socket.remoteAddress;
+    } else {
+      rawIp = req.socket?.remoteAddress || req.ip;
     }
   }
 
