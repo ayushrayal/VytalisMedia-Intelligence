@@ -8,6 +8,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { http } from "../lib/http.js";
+import { useRateLimitState } from "../hooks/useRateLimitState.js";
 import AuthLayout from "../layouts/AuthLayout.jsx";
 import DashboardLayout from "../layouts/DashboardLayout.jsx";
 import Welcome from "../features/onboarding/pages/Welcome.jsx";
@@ -41,8 +42,12 @@ const LoginPage = ({ setUser }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const { rateLimit, isLocked, countdownStr, handleApiError } = useRateLimitState();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLocked) return;
+
     if (!email || !password) {
       setError("Email and password are required.");
       return;
@@ -62,7 +67,12 @@ const LoginPage = ({ setUser }) => {
         }
       }
     } catch (err) {
-      setError(err.message || "Invalid email or password.");
+      handleApiError(err);
+      if (err.status === 429 || err.rateLimit?.retryAfter) {
+        setError("Too many login attempts.");
+      } else {
+        setError(err.message || "Invalid email or password.");
+      }
     } finally {
       setLoading(false);
     }
@@ -77,15 +87,27 @@ const LoginPage = ({ setUser }) => {
 
       {error && (
         <div style={{ padding: "10px 14px", backgroundColor: "var(--color-error-light, rgba(229, 72, 77, 0.10))", border: "1px solid rgba(229, 72, 77, 0.25)", borderRadius: "var(--radius-input, 8px)", color: "var(--color-error, #E5484D)", fontSize: "0.85rem", marginBottom: "16px" }}>
-          {error}
+          <div>{error}</div>
+          {isLocked && countdownStr && (
+            <div style={{ marginTop: "6px", fontWeight: "600", fontSize: "0.85rem" }}>
+              Try again in {countdownStr}
+            </div>
+          )}
         </div>
       )}
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        <Input label="Email Address" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <Input label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        <Button type="submit" isLoading={loading} style={{ marginTop: "8px" }}>
-          Sign In →
+        <Input label="Email Address" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLocked || loading} />
+        <Input label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLocked || loading} />
+
+        {rateLimit && rateLimit.remaining !== null && !isLocked && (
+          <div style={{ fontSize: "0.8rem", color: "var(--color-text-secondary, #64748B)", textAlign: "center", marginTop: "-4px" }}>
+            {rateLimit.remaining} {rateLimit.remaining === 1 ? "attempt" : "attempts"} remaining
+          </div>
+        )}
+
+        <Button type="submit" isLoading={loading} disabled={isLocked || loading} style={{ marginTop: "8px" }}>
+          {isLocked ? `Locked · ${countdownStr}` : "Sign In →"}
         </Button>
       </form>
 
@@ -111,8 +133,12 @@ const SignupPage = ({ setUser }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const { rateLimit, isLocked, countdownStr, handleApiError } = useRateLimitState();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLocked) return;
+
     if (!name || !email || !password || !accessCode) {
       setError("All fields are required.");
       return;
@@ -127,7 +153,12 @@ const SignupPage = ({ setUser }) => {
         navigate("/welcome");
       }
     } catch (err) {
-      setError(err.message || "Registration failed.");
+      handleApiError(err);
+      if (err.status === 429 || err.rateLimit?.retryAfter) {
+        setError("Too many signup attempts.");
+      } else {
+        setError(err.message || "Registration failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -142,17 +173,29 @@ const SignupPage = ({ setUser }) => {
 
       {error && (
         <div style={{ padding: "10px 14px", backgroundColor: "var(--color-error-light, rgba(229, 72, 77, 0.10))", border: "1px solid rgba(229, 72, 77, 0.25)", borderRadius: "var(--radius-input, 8px)", color: "var(--color-error, #E5484D)", fontSize: "0.85rem", marginBottom: "16px" }}>
-          {error}
+          <div>{error}</div>
+          {isLocked && countdownStr && (
+            <div style={{ marginTop: "6px", fontWeight: "600", fontSize: "0.85rem" }}>
+              Try again in {countdownStr}
+            </div>
+          )}
         </div>
       )}
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-        <Input label="Full Name" placeholder="Jane Doe" value={name} onChange={(e) => setName(e.target.value)} required />
-        <Input label="Email Address" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <Input label="Password" type="password" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        <Input label="System Access Code" placeholder="System access verification code" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} required />
-        <Button type="submit" isLoading={loading} style={{ marginTop: "8px" }}>
-          Create Account →
+        <Input label="Full Name" placeholder="Jane Doe" value={name} onChange={(e) => setName(e.target.value)} required disabled={isLocked || loading} />
+        <Input label="Email Address" type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLocked || loading} />
+        <Input label="Password" type="password" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLocked || loading} />
+        <Input label="System Access Code" placeholder="System access verification code" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} required disabled={isLocked || loading} />
+
+        {rateLimit && rateLimit.remaining !== null && !isLocked && (
+          <div style={{ fontSize: "0.8rem", color: "var(--color-text-secondary, #64748B)", textAlign: "center", marginTop: "-4px" }}>
+            {rateLimit.remaining} {rateLimit.remaining === 1 ? "attempt" : "attempts"} remaining
+          </div>
+        )}
+
+        <Button type="submit" isLoading={loading} disabled={isLocked || loading} style={{ marginTop: "8px" }}>
+          {isLocked ? `Locked · ${countdownStr}` : "Create Account →"}
         </Button>
       </form>
 

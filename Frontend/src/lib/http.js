@@ -1,10 +1,11 @@
 /**
  * HTTP Client abstraction for Vytalis Intelligence frontend.
- * Built using native browser fetch API with HttpOnly cookie support and automatic token refresh.
+ * Built using native browser fetch API with HttpOnly cookie support, automatic token refresh,
+ * and rate-limit header parsing.
  * 
  * - Credentials mode: 'same-origin' (or 'include') so cookies are automatically transmitted.
  * - Single-flight refresh lock prevents multiple simultaneous refresh calls on concurrent 401s.
- * - Automatically retries failed requests ONCE following a successful token refresh.
+ * - Parses RateLimit headers (RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After).
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -12,6 +13,37 @@ const CREDENTIALS_MODE = import.meta.env.VITE_API_CREDENTIALS || "same-origin";
 
 // Module-level single-flight refresh lock promise
 let refreshPromise = null;
+
+/**
+ * Extracts and normalizes rate-limit headers from response.
+ *
+ * @param {Headers} headers - Fetch Response headers
+ * @returns {Object|null} Rate limit info object or null
+ */
+const parseRateLimitHeaders = (headers) => {
+  if (!headers) return null;
+
+  const rawLimit = headers.get("RateLimit-Limit") || headers.get("ratelimit-limit");
+  const rawRemaining = headers.get("RateLimit-Remaining") || headers.get("ratelimit-remaining");
+  const rawReset = headers.get("RateLimit-Reset") || headers.get("ratelimit-reset");
+  const rawRetryAfter = headers.get("Retry-After") || headers.get("retry-after");
+
+  const limit = rawLimit !== null ? parseInt(rawLimit, 10) : null;
+  const remaining = rawRemaining !== null ? parseInt(rawRemaining, 10) : null;
+  const reset = rawReset !== null ? parseInt(rawReset, 10) : null;
+  const retryAfter = rawRetryAfter !== null ? parseInt(rawRetryAfter, 10) : null;
+
+  if (limit === null && remaining === null && reset === null && retryAfter === null) {
+    return null;
+  }
+
+  return {
+    limit,
+    remaining,
+    reset,
+    retryAfter,
+  };
+};
 
 /**
  * Performs a single token refresh request with in-flight deduplication.
@@ -71,6 +103,7 @@ const request = async (endpoint, options = {}) => {
   try {
     const response = await fetch(url, config);
     const contentType = response.headers.get("content-type");
+    const rateLimit = parseRateLimitHeaders(response.headers);
 
     let result = null;
     if (contentType && contentType.includes("application/json")) {
@@ -109,6 +142,7 @@ const request = async (endpoint, options = {}) => {
       const error = new Error(errorMessage);
       error.status = 401;
       error.errors = result?.errors || null;
+      error.rateLimit = rateLimit;
       throw error;
     }
 
@@ -117,6 +151,7 @@ const request = async (endpoint, options = {}) => {
       const error = new Error(errorMessage);
       error.status = response.status;
       error.errors = result?.errors || null;
+      error.rateLimit = rateLimit;
       throw error;
     }
 
@@ -126,6 +161,7 @@ const request = async (endpoint, options = {}) => {
       data: result?.data !== undefined ? result.data : result,
       meta: result?.meta || null,
       status: response.status,
+      rateLimit: rateLimit,
     };
   } catch (error) {
     if (!error.status) {

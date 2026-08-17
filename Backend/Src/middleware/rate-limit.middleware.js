@@ -3,6 +3,25 @@ const { sendError } = require("../utils/api-response.util");
 const logger = require("../utils/logger.util");
 
 /**
+ * Normalizes client IP address string to ensure loopback IPv4/IPv6 variants
+ * (::1, ::ffff:127.0.0.1) map to a consistent rate-limiting key.
+ *
+ * @param {string} ip - Raw IP string from req.ip
+ * @returns {string} Cleaned IP address
+ */
+const normalizeIp = (ip) => {
+  if (!ip) return "127.0.0.1";
+  let cleaned = String(ip).trim();
+  if (cleaned.startsWith("::ffff:")) {
+    cleaned = cleaned.substring(7);
+  }
+  if (cleaned === "::1") {
+    cleaned = "127.0.0.1";
+  }
+  return cleaned;
+};
+
+/**
  * Creates an Express rate-limiting middleware backed strictly by Redis.
  * Enforces production requirement: Redis is the single authoritative rate-limit store.
  *
@@ -23,7 +42,8 @@ const createRateLimiter = ({
 
   return async (req, res, next) => {
     // Resolve client IP cleanly (app trust proxy setting must be respected)
-    const clientIp = req.ip || req.socket?.remoteAddress || "127.0.0.1";
+    const rawIp = req.ip || req.socket?.remoteAddress || "127.0.0.1";
+    const clientIp = normalizeIp(rawIp);
     const redisKey = `ratelimit:${keyPrefix}:${clientIp}`;
 
     const rateLimitData = await cacheUtil.incrWithTtl(redisKey, windowSeconds);
@@ -47,10 +67,11 @@ const createRateLimiter = ({
     }
 
     const { current, ttl } = rateLimitData;
+    const remaining = Math.max(0, maxRequests - current);
 
     // Set standard RateLimit headers
     res.setHeader("RateLimit-Limit", maxRequests);
-    res.setHeader("RateLimit-Remaining", Math.max(0, maxRequests - current));
+    res.setHeader("RateLimit-Remaining", remaining);
     res.setHeader("RateLimit-Reset", ttl);
 
     if (current > maxRequests) {
@@ -93,4 +114,5 @@ module.exports = {
   signupRateLimiter,
   loginRateLimiter,
   apiRateLimiter,
+  normalizeIp,
 };

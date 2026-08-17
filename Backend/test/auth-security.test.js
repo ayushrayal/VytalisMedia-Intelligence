@@ -184,6 +184,66 @@ describe("Phase 0 Security Hardening Tests (P0.2 & P0.3)", () => {
       assert.strictEqual(res.body.data.status, "healthy");
     });
 
+    test("Rate limiter allows exactly 5 attempts in a fresh window and returns 429 on 6th attempt", async () => {
+      const { createRateLimiter } = require("../Src/middleware/rate-limit.middleware");
+      const fiveAttemptLimiter = createRateLimiter({
+        windowMs: 900000,
+        maxRequests: 5,
+        keyPrefix: "test:fresh5",
+        errorMessage: "Too many login attempts.",
+      });
+
+      const mockReq = { ip: "192.168.1.200", socket: {} };
+      let count = 0;
+      const origIncr = cacheUtil.incrWithTtl;
+      cacheUtil.incrWithTtl = async () => {
+        count++;
+        return { current: count, ttl: 900 };
+      };
+
+      try {
+        for (let i = 1; i <= 5; i++) {
+          let responseStatusCode = 200;
+          let headers = {};
+          const mockRes = {
+            setHeader: (k, v) => { headers[k] = v; },
+            status: (code) => {
+              responseStatusCode = code;
+              return { json: (p) => p };
+            }
+          };
+
+          await fiveAttemptLimiter(mockReq, mockRes, () => {});
+          assert.strictEqual(responseStatusCode, 200, `Attempt ${i} must be allowed`);
+          assert.strictEqual(headers["RateLimit-Limit"], 5);
+          assert.strictEqual(headers["RateLimit-Remaining"], 5 - i, `Attempt ${i} remaining count must be ${5 - i}`);
+        }
+
+        // 6th Attempt
+        let responseStatusCode = 200;
+        let responseBody = null;
+        let headers = {};
+        const mockRes = {
+          setHeader: (k, v) => { headers[k] = v; },
+          status: (code) => {
+            responseStatusCode = code;
+            return {
+              json: (payload) => { responseBody = payload; return payload; }
+            };
+          }
+        };
+
+        await fiveAttemptLimiter(mockReq, mockRes, () => {});
+        assert.strictEqual(responseStatusCode, 429, "6th attempt must return HTTP 429");
+        assert.strictEqual(responseBody.success, false);
+        assert.strictEqual(responseBody.message, "Too many login attempts.");
+        assert.strictEqual(headers["RateLimit-Remaining"], 0);
+        assert.strictEqual(headers["Retry-After"], 900);
+      } finally {
+        cacheUtil.incrWithTtl = origIncr;
+      }
+    });
+
     test("Rate limiter returns 429 with standard error contract when max requests exceeded", async () => {
       const { createRateLimiter } = require("../Src/middleware/rate-limit.middleware");
       const customLimiter = createRateLimiter({
