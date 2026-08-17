@@ -1,36 +1,18 @@
 /**
  * Storage utility for Vytalis Intelligence frontend.
- * Manages JWT access token storage strictly via localStorage["accessToken"].
  * 
- * SECURITY:
- * - Never stores passwords, WINDSOR_API_KEY, REDIS_URI, or backend secrets.
- * - Never logs access tokens.
+ * SECURITY COMPLIANCE (P0.3):
+ * Authentication tokens are managed strictly via HttpOnly cookies by the browser.
+ * Tokens MUST NOT be stored in localStorage, sessionStorage, or JavaScript state.
  */
 
-const TOKEN_KEY = "accessToken";
-
-export const getAccessToken = () => {
-  try {
-    return localStorage.getItem(TOKEN_KEY) || null;
-  } catch (error) {
-    return null;
-  }
-};
-
-export const setAccessToken = (token) => {
-  try {
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-    }
-  } catch (error) {
-    // Silent fail on storage error
-  }
-};
-
+// Legacy helper functions maintained as safe no-ops to prevent import breakage
+export const getAccessToken = () => null;
+export const setAccessToken = () => {};
 export const removeAccessToken = () => {
   try {
-    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem("accessToken");
   } catch (error) {
-    // Silent fail on storage error
+    // Ignore storage errors
   }
 };

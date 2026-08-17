@@ -1,0 +1,96 @@
+const cacheUtil = require("../utils/cache.util");
+const { sendError } = require("../utils/api-response.util");
+const logger = require("../utils/logger.util");
+
+/**
+ * Creates an Express rate-limiting middleware backed strictly by Redis.
+ * Enforces production requirement: Redis is the single authoritative rate-limit store.
+ *
+ * @param {Object} options Configuration options
+ * @param {number} options.windowMs Window size in milliseconds
+ * @param {number} options.maxRequests Maximum allowed requests per window
+ * @param {string} options.keyPrefix Redis key prefix (e.g. 'auth:login')
+ * @param {string} [options.errorMessage] Custom non-sensitive error message
+ * @returns {Function} Express middleware handler
+ */
+const createRateLimiter = ({
+  windowMs = 15 * 60 * 1000,
+  maxRequests = 5,
+  keyPrefix = "general",
+  errorMessage = "Too many requests, please try again later.",
+}) => {
+  const windowSeconds = Math.ceil(windowMs / 1000);
+
+  return async (req, res, next) => {
+    // Resolve client IP cleanly (app trust proxy setting must be respected)
+    const clientIp = req.ip || req.socket?.remoteAddress || "127.0.0.1";
+    const redisKey = `ratelimit:${keyPrefix}:${clientIp}`;
+
+    const rateLimitData = await cacheUtil.incrWithTtl(redisKey, windowSeconds);
+
+    // Redis authoritative check: If Redis is unavailable
+    if (!rateLimitData) {
+      const isProd = process.env.NODE_ENV === "production";
+      logger.error(`[Rate Limiter] Redis storage unavailable for key: ${redisKey}`);
+
+      if (isProd) {
+        // Fail-secure in production: Redis is mandatory for rate limiting
+        return sendError(
+          res,
+          500,
+          "Security configuration error: Rate limiting storage unavailable."
+        );
+      } else {
+        // In dev/testing, warn but allow execution if Redis is not running
+        return next();
+      }
+    }
+
+    const { current, ttl } = rateLimitData;
+
+    // Set standard RateLimit headers
+    res.setHeader("RateLimit-Limit", maxRequests);
+    res.setHeader("RateLimit-Remaining", Math.max(0, maxRequests - current));
+    res.setHeader("RateLimit-Reset", ttl);
+
+    if (current > maxRequests) {
+      logger.warn(
+        `[Rate Limiter Exceeded] IP: ${clientIp} Prefix: ${keyPrefix} Count: ${current}/${maxRequests}`
+      );
+      res.setHeader("Retry-After", ttl);
+      return sendError(res, 429, errorMessage);
+    }
+
+    next();
+  };
+};
+
+// Preset rate limiters with configurable environment fallbacks
+
+const signupRateLimiter = createRateLimiter({
+  windowMs: parseInt(process.env.SIGNUP_RATE_LIMIT_WINDOW_MS || "900000", 10), // 15 min
+  maxRequests: parseInt(process.env.SIGNUP_RATE_LIMIT_MAX || "5", 10), // 5 requests
+  keyPrefix: "auth:signup",
+  errorMessage: "Too many signup attempts from this IP address. Please try again after 15 minutes.",
+});
+
+const loginRateLimiter = createRateLimiter({
+  windowMs: parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || "900000", 10), // 15 min
+  maxRequests: parseInt(process.env.LOGIN_RATE_LIMIT_MAX || "5", 10), // 5 requests
+  keyPrefix: "auth:login",
+  errorMessage: "Too many login attempts from this IP address. Please try again after 15 minutes.",
+});
+
+const apiRateLimiter = createRateLimiter({
+  windowMs: parseInt(process.env.API_RATE_LIMIT_WINDOW_MS || "900000", 10), // 15 min
+  maxRequests: parseInt(process.env.API_RATE_LIMIT_MAX || "300", 10), // 300 requests (configurable)
+  keyPrefix: "api:general",
+  errorMessage: "General API rate limit exceeded. Please lower request frequency.",
+});
+
+module.exports = {
+  createRateLimiter,
+  signupRateLimiter,
+  loginRateLimiter,
+  apiRateLimiter,
+};

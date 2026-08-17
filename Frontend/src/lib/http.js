@@ -1,33 +1,66 @@
 /**
  * HTTP Client abstraction for Vytalis Intelligence frontend.
- * Built using native browser fetch API.
+ * Built using native browser fetch API with HttpOnly cookie support and automatic token refresh.
  * 
- * - Reads VITE_API_BASE_URL environment variable.
- * - Automatically attaches Authorization: Bearer <accessToken> header when token exists.
- * - Parses JSON responses cleanly into { success, data, meta, message, status }.
- * - Never logs access tokens.
+ * - Credentials mode: 'same-origin' (or 'include') so cookies are automatically transmitted.
+ * - Single-flight refresh lock prevents multiple simultaneous refresh calls on concurrent 401s.
+ * - Automatically retries failed requests ONCE following a successful token refresh.
  */
 
-import { getAccessToken } from "./storage.js";
-
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+const CREDENTIALS_MODE = import.meta.env.VITE_API_CREDENTIALS || "same-origin";
+
+// Module-level single-flight refresh lock promise
+let refreshPromise = null;
+
+/**
+ * Performs a single token refresh request with in-flight deduplication.
+ *
+ * @returns {Promise<boolean>} True if token refresh succeeded
+ */
+const executeTokenRefresh = async () => {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const refreshUrl = `${BASE_URL}/auth/refresh`;
+        const res = await fetch(refreshUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: CREDENTIALS_MODE,
+        });
+
+        if (!res.ok) {
+          return false;
+        }
+
+        const data = await res.json();
+        return data?.success === true;
+      } catch (err) {
+        return false;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+
+  return refreshPromise;
+};
 
 const request = async (endpoint, options = {}) => {
-  const url = `${BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const url = `${BASE_URL}${cleanEndpoint}`;
 
   const headers = {
     "Content-Type": "application/json",
     ...options.headers,
   };
 
-  const token = getAccessToken();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
   const config = {
     method: options.method || "GET",
     headers,
+    credentials: CREDENTIALS_MODE,
     ...options,
   };
 
@@ -45,6 +78,38 @@ const request = async (endpoint, options = {}) => {
     } else {
       const text = await response.text();
       result = { message: text };
+    }
+
+    // Handle 401 Unauthorized & Attempt Automatic Token Refresh
+    if (response.status === 401) {
+      const isAuthEndpoint =
+        cleanEndpoint.startsWith("/auth/login") ||
+        cleanEndpoint.startsWith("/auth/signup") ||
+        cleanEndpoint.startsWith("/auth/refresh");
+
+      // If not an auth route and has not been retried yet, attempt single refresh
+      if (!isAuthEndpoint && !options._retry) {
+        const refreshSuccess = await executeTokenRefresh();
+
+        if (refreshSuccess) {
+          // Retry the original request ONCE with new HttpOnly cookies
+          return request(endpoint, {
+            ...options,
+            _retry: true,
+          });
+        } else {
+          // Refresh failed: dispatch event so AuthContext/Router can handle logout/redirection
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("vytalis:auth-expired"));
+          }
+        }
+      }
+
+      const errorMessage = result?.message || "Authentication required";
+      const error = new Error(errorMessage);
+      error.status = 401;
+      error.errors = result?.errors || null;
+      throw error;
     }
 
     if (!response.ok) {

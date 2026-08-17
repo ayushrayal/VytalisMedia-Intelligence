@@ -4,12 +4,21 @@ const { sendError } = require("../utils/api-response.util");
 const logger = require("../utils/logger.util");
 
 /**
- * Express middleware to protect routes with JWT authentication.
+ * Express middleware to protect routes using JWT authentication.
+ * Primary token mechanism: HttpOnly cookies ('access_token').
  */
 const protect = async (req, res, next) => {
-  let token;
+  let token = null;
 
+  // 1. Primary mechanism: HttpOnly Cookie
+  if (req.cookies && req.cookies.access_token) {
+    token = req.cookies.access_token;
+  }
+  
+  // 2. Temporary migration fallback: Bearer Authorization Header
+  // DEPRECATED / TEMPORARY MIGRATION FALLBACK FOR TESTING & API TOOLS
   if (
+    !token &&
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer ")
   ) {
@@ -17,7 +26,7 @@ const protect = async (req, res, next) => {
   }
 
   if (!token) {
-    logger.warn("Authentication failed: Authorization token missing");
+    logger.warn("Authentication failed: Access token missing");
     return sendError(res, 401, "Not authorized, token missing");
   }
 
@@ -33,7 +42,7 @@ const protect = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    logger.warn(`Authentication failed: Invalid token - ${error.message}`);
+    logger.warn(`Authentication failed: Invalid access token - ${error.message}`);
     return sendError(res, 401, "Not authorized, token failed");
   }
 };

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import AppLogo from "../components/shared/AppLogo.jsx";
 import LogoutConfirmationModal from "../components/shared/LogoutConfirmationModal.jsx";
-import { removeAccessToken } from "../lib/storage.js";
+import { http } from "../lib/http.js";
 import {
   LayoutDashboard,
   BarChart3,
@@ -153,16 +153,21 @@ export const DashboardLayout = ({ user, setUser }) => {
     }));
   };
 
-  const handleLogout = () => {
-    removeAccessToken();
-    if (setUser) setUser(null);
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await http.post("/auth/logout");
+    } catch (err) {
+      // Ignore API logout error, proceed with client cleanup
+    } finally {
+      if (setUser) setUser(null);
+      navigate("/login");
+    }
   };
 
-  const handleConfirmLogout = () => {
+  const handleConfirmLogout = async () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
-    handleLogout();
+    await handleLogout();
   };
 
   return (

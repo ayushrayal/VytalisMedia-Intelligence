@@ -1,6 +1,6 @@
 /**
  * Sole Redis Cache Utility abstraction for Vytalis Intelligence.
- * Exposes connect(), disconnect(), get(), set(), delete() methods.
+ * Exposes connect(), disconnect(), get(), set(), delete(), getDel(), and incrWithTtl() methods.
  * Integrated with logger.util.js.
  */
 
@@ -22,10 +22,18 @@ const connect = async () => {
   try {
     client = createClient({
       url: REDIS_CONFIG.url,
+      socket: {
+        reconnectStrategy: (retries) => {
+          if (retries > 2) {
+            return false; // Stop retrying after 3 failed connection attempts
+          }
+          return Math.min(retries * 50, 200);
+        },
+      },
     });
 
     client.on("error", (err) => {
-      logger.error("Redis Client Error", err.message);
+      logger.error("Redis Client Error:", err.message);
     });
 
     client.on("ready", () => {
@@ -40,7 +48,8 @@ const connect = async () => {
     return client;
   } catch (error) {
     logger.error("Failed to connect to Redis server:", error.message);
-    // Client remains null or disconnected; methods handle fallback safely
+    client = null;
+    isConnected = false;
   }
 };
 
@@ -48,15 +57,22 @@ const connect = async () => {
  * Cleanly disconnects the Redis client.
  */
 const disconnect = async () => {
-  if (client && isConnected) {
+  if (client) {
     try {
       await client.disconnect();
-      isConnected = false;
     } catch (error) {
-      logger.error("Error disconnecting Redis client:", error.message);
+      // Suppress disconnect errors during cleanup
+    } finally {
+      client = null;
+      isConnected = false;
     }
   }
 };
+
+/**
+ * Checks whether the Redis client is connected and ready.
+ */
+const isReady = () => isConnected && client !== null;
 
 /**
  * Fetches and parses a cached JSON object from Redis.
@@ -131,10 +147,76 @@ const del = async (key) => {
   }
 };
 
+/**
+ * Atomically retrieves and deletes a JSON object key from Redis.
+ * Guaranteed to be race-safe across concurrent refresh requests.
+ *
+ * @param {string} key - Unique Redis key
+ * @returns {Promise<Object|null>} Stored object or null if not found/already consumed
+ */
+const getDel = async (key) => {
+  if (!client || !isConnected) {
+    return null;
+  }
+
+  try {
+    if (typeof client.getDel === "function") {
+      const raw = await client.getDel(key);
+      return raw ? JSON.parse(raw) : null;
+    }
+
+    const luaScript = `
+      local val = redis.call('GET', KEYS[1])
+      if val then
+        redis.call('DEL', KEYS[1])
+      end
+      return val
+    `;
+    const raw = await client.eval(luaScript, { keys: [key] });
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    logger.error(`Error atomically reading and deleting key ${key} from Redis:`, error.message);
+    return null;
+  }
+};
+
+/**
+ * Atomically increments a key in Redis and sets TTL if key is newly created.
+ * Returns current request count and remaining TTL in seconds.
+ *
+ * @param {string} key - Redis rate limit key
+ * @param {number} ttlSeconds - Time-to-live window in seconds
+ * @returns {Promise<{ current: number, ttl: number }|null>} Incremented counter info
+ */
+const incrWithTtl = async (key, ttlSeconds) => {
+  if (!client || !isConnected) {
+    return null;
+  }
+
+  try {
+    const current = await client.incr(key);
+    if (current === 1 && ttlSeconds > 0) {
+      await client.expire(key, ttlSeconds);
+    }
+    let ttl = await client.ttl(key);
+    if (ttl < 0) {
+      await client.expire(key, ttlSeconds);
+      ttl = ttlSeconds;
+    }
+    return { current, ttl };
+  } catch (error) {
+    logger.error(`Error incrementing rate limit key ${key} in Redis:`, error.message);
+    return null;
+  }
+};
+
 module.exports = {
   connect,
   disconnect,
+  isReady,
   get,
   set,
   delete: del,
+  getDel,
+  incrWithTtl,
 };

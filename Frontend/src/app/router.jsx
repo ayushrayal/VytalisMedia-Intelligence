@@ -7,7 +7,6 @@ import {
   Outlet,
   useNavigate,
 } from "react-router-dom";
-import { getAccessToken, removeAccessToken, setAccessToken } from "../lib/storage.js";
 import { http } from "../lib/http.js";
 import AuthLayout from "../layouts/AuthLayout.jsx";
 import DashboardLayout from "../layouts/DashboardLayout.jsx";
@@ -53,8 +52,7 @@ const LoginPage = ({ setUser }) => {
       setLoading(true);
       setError("");
       const res = await http.post("/auth/login", { email, password });
-      if (res.data && res.data.accessToken) {
-        setAccessToken(res.data.accessToken);
+      if (res.data && res.data.user) {
         setUser(res.data.user);
 
         if (res.data.user?.preferences?.activeMetaAccount) {
@@ -124,8 +122,7 @@ const SignupPage = ({ setUser }) => {
       setLoading(true);
       setError("");
       const res = await http.post("/auth/signup", { name, email, password, accessCode });
-      if (res.data && res.data.accessToken) {
-        setAccessToken(res.data.accessToken);
+      if (res.data && res.data.user) {
         setUser(res.data.user);
         navigate("/welcome");
       }
@@ -185,8 +182,7 @@ const LoadingScreen = () => (
 const PublicRoute = ({ user, authLoading }) => {
   if (authLoading) return <LoadingScreen />;
 
-  const token = getAccessToken();
-  if (token && user) {
+  if (user) {
     if (user.preferences?.activeMetaAccount) {
       return <Navigate to="/overview" replace />;
     }
@@ -201,8 +197,7 @@ const WelcomeRoute = ({ user, authLoading, restoreSession }) => {
 
   if (authLoading) return <LoadingScreen />;
 
-  const token = getAccessToken();
-  if (!token || !user) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
@@ -223,8 +218,7 @@ const WelcomeRoute = ({ user, authLoading, restoreSession }) => {
 const ProtectedRoute = ({ user, setUser, authLoading }) => {
   if (authLoading) return <LoadingScreen />;
 
-  const token = getAccessToken();
-  if (!token || !user) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
@@ -237,8 +231,7 @@ const ProtectedRoute = ({ user, setUser, authLoading }) => {
 
 const FallbackRoute = ({ user, authLoading }) => {
   if (authLoading) return null;
-  const token = getAccessToken();
-  if (token && user) {
+  if (user) {
     if (user.preferences?.activeMetaAccount) {
       return <Navigate to="/overview" replace />;
     }
@@ -256,24 +249,15 @@ export const Router = () => {
   const [authLoading, setAuthLoading] = useState(true);
 
   const restoreSession = useCallback(async () => {
-    const token = getAccessToken();
-    if (!token) {
-      setAuthLoading(false);
-      setUser(null);
-      return;
-    }
-
     try {
       setAuthLoading(true);
       const res = await http.get("/auth/me");
       if (res.data && res.data.user) {
         setUser(res.data.user);
       } else {
-        removeAccessToken();
         setUser(null);
       }
     } catch (err) {
-      removeAccessToken();
       setUser(null);
     } finally {
       setAuthLoading(false);
@@ -282,6 +266,15 @@ export const Router = () => {
 
   useEffect(() => {
     restoreSession();
+
+    const handleAuthExpired = () => {
+      setUser(null);
+    };
+
+    window.addEventListener("vytalis:auth-expired", handleAuthExpired);
+    return () => {
+      window.removeEventListener("vytalis:auth-expired", handleAuthExpired);
+    };
   }, [restoreSession]);
 
   return (
