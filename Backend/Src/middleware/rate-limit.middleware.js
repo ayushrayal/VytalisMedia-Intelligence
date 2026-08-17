@@ -29,6 +29,13 @@ const normalizeIp = (ip) => {
  * @returns {string} Cleaned client IP address
  */
 const getClientIp = (req) => {
+   console.log("[IP DIAGNOSTIC]", {
+    reqIp: req.ip,
+    reqIps: req.ips,
+    xForwardedFor: req.headers["x-forwarded-for"],
+    cfConnectingIp: req.headers["cf-connecting-ip"],
+    socketIp: req.socket?.remoteAddress,
+  });
   let rawIp = req.ip;
 
   // Fallback if req.ip is unpopulated or resolves to loopback when proxy headers exist
