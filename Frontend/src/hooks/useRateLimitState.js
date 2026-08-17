@@ -47,9 +47,23 @@ export const useRateLimitState = () => {
    * @param {Error} err - Error object thrown by http client
    */
   const handleApiError = (err) => {
+    const prevState = rateLimit ? rateLimit.remaining : null;
+    let nextState = prevState;
+
     if (err?.rateLimit) {
       setRateLimit(err.rateLimit);
+      nextState = err.rateLimit.remaining;
     }
+
+    console.log("[RateLimit Diagnostic]", {
+      requestId: err?.requestId || "unknown",
+      endpoint: err?.endpoint || "unknown",
+      timestamp: err?.timestamp || new Date().toISOString(),
+      rateLimitRemainingHeader: err?.rateLimit?.remaining ?? null,
+      rateLimitResetHeader: err?.rateLimit?.reset ?? null,
+      clientStateBeforeUpdate: prevState,
+      clientStateAfterUpdate: nextState,
+    });
 
     if (err?.status === 429 || err?.rateLimit?.retryAfter) {
       const secondsToWait =

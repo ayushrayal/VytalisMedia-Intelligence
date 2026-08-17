@@ -97,6 +97,11 @@ const createRateLimiter = ({
     res.setHeader("RateLimit-Remaining", remaining);
     res.setHeader("RateLimit-Reset", ttl);
 
+    const reqId = req.headers?.["x-request-id"] || `srv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    logger.info(
+      `[RateLimiter Diagnostic] reqId: ${reqId} | endpoint: ${req.originalUrl} | IP: ${clientIp} | Redis key: ${redisKey} | count: ${current} | remaining: ${remaining} | reset: ${ttl}`
+    );
+
     if (current > maxRequests) {
       logger.warn(
         `[Rate Limiter Exceeded] IP: ${clientIp} Prefix: ${keyPrefix} Count: ${current}/${maxRequests}`

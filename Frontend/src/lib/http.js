@@ -81,11 +81,13 @@ const executeTokenRefresh = async () => {
 };
 
 const request = async (endpoint, options = {}) => {
+  const requestId = options.requestId || `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const url = `${BASE_URL}${cleanEndpoint}`;
 
   const headers = {
     "Content-Type": "application/json",
+    "X-Request-ID": requestId,
     ...options.headers,
   };
 
@@ -143,6 +145,9 @@ const request = async (endpoint, options = {}) => {
       error.status = 401;
       error.errors = result?.errors || null;
       error.rateLimit = rateLimit;
+      error.requestId = requestId;
+      error.endpoint = cleanEndpoint;
+      error.timestamp = new Date().toISOString();
       throw error;
     }
 
@@ -152,6 +157,9 @@ const request = async (endpoint, options = {}) => {
       error.status = response.status;
       error.errors = result?.errors || null;
       error.rateLimit = rateLimit;
+      error.requestId = requestId;
+      error.endpoint = cleanEndpoint;
+      error.timestamp = new Date().toISOString();
       throw error;
     }
 
@@ -162,6 +170,9 @@ const request = async (endpoint, options = {}) => {
       meta: result?.meta || null,
       status: response.status,
       rateLimit: rateLimit,
+      requestId: requestId,
+      endpoint: cleanEndpoint,
+      timestamp: new Date().toISOString(),
     };
   } catch (error) {
     if (!error.status) {
