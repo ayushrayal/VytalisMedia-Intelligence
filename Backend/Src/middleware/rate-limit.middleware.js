@@ -6,7 +6,7 @@ const logger = require("../utils/logger.util");
  * Normalizes client IP address string to ensure loopback IPv4/IPv6 variants
  * (::1, ::ffff:127.0.0.1) map to a consistent rate-limiting key.
  *
- * @param {string} ip - Raw IP string from req.ip
+ * @param {string} ip - Raw IP string
  * @returns {string} Cleaned IP address
  */
 const normalizeIp = (ip) => {
@@ -19,6 +19,31 @@ const normalizeIp = (ip) => {
     cleaned = "127.0.0.1";
   }
   return cleaned;
+};
+
+/**
+ * Safely extracts real client IP address respecting Express trust proxy settings
+ * and proxy headers on cloud platforms like Render.
+ *
+ * @param {Object} req - Express request object
+ * @returns {string} Cleaned client IP address
+ */
+const getClientIp = (req) => {
+  let rawIp = req.ip;
+
+  // Fallback if req.ip is unpopulated or resolves to loopback when proxy headers exist
+  if (!rawIp || rawIp === "127.0.0.1" || rawIp === "::1" || rawIp === "::ffff:127.0.0.1") {
+    if (req.ips && req.ips.length > 0) {
+      rawIp = req.ips[0];
+    } else if (req.headers && req.headers["x-forwarded-for"]) {
+      const forwarded = String(req.headers["x-forwarded-for"]).split(",");
+      rawIp = forwarded[0].trim();
+    } else if (req.socket?.remoteAddress) {
+      rawIp = req.socket.remoteAddress;
+    }
+  }
+
+  return normalizeIp(rawIp);
 };
 
 /**
@@ -41,9 +66,7 @@ const createRateLimiter = ({
   const windowSeconds = Math.ceil(windowMs / 1000);
 
   return async (req, res, next) => {
-    // Resolve client IP cleanly (app trust proxy setting must be respected)
-    const rawIp = req.ip || req.socket?.remoteAddress || "127.0.0.1";
-    const clientIp = normalizeIp(rawIp);
+    const clientIp = getClientIp(req);
     const redisKey = `ratelimit:${keyPrefix}:${clientIp}`;
 
     const rateLimitData = await cacheUtil.incrWithTtl(redisKey, windowSeconds);
@@ -115,4 +138,5 @@ module.exports = {
   loginRateLimiter,
   apiRateLimiter,
   normalizeIp,
+  getClientIp,
 };

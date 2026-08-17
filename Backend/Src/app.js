@@ -13,16 +13,18 @@ const { sendSuccess } = require("./utils/api-response.util");
 
 const app = express();
 
-// Set Trust Proxy safely based on environment configuration
-// (e.g. false, 1, or loopback) to ensure req.ip cannot be spoofed
-if (process.env.TRUST_PROXY) {
+// Set Trust Proxy safely based on environment configuration.
+// Defaults to 1 (trust 1 proxy hop e.g. Render / Cloud reverse proxy) in production.
+if (process.env.TRUST_PROXY !== undefined) {
   const trustProxyVal = process.env.TRUST_PROXY;
   if (trustProxyVal === "true") app.set("trust proxy", true);
   else if (trustProxyVal === "false") app.set("trust proxy", false);
   else if (!isNaN(Number(trustProxyVal))) app.set("trust proxy", Number(trustProxyVal));
   else app.set("trust proxy", trustProxyVal);
 } else {
-  app.set("trust proxy", false);
+  // Production default: Trust 1 proxy hop (Render reverse proxy)
+  const isProd = process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
+  app.set("trust proxy", isProd ? 1 : false);
 }
 
 // ==========================================

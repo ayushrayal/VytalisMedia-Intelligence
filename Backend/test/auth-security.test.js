@@ -244,6 +244,56 @@ describe("Phase 0 Security Hardening Tests (P0.2 & P0.3)", () => {
       }
     });
 
+    test("Different client IPs receive isolated rate-limit buckets", async () => {
+      const { createRateLimiter } = require("../Src/middleware/rate-limit.middleware");
+      const ipLimiter = createRateLimiter({
+        windowMs: 900000,
+        maxRequests: 5,
+        keyPrefix: "test:ipsep",
+      });
+
+      const store = new Map();
+      const origIncr = cacheUtil.incrWithTtl;
+      cacheUtil.incrWithTtl = async (key) => {
+        const current = (store.get(key) || 0) + 1;
+        store.set(key, current);
+        return { current, ttl: 900 };
+      };
+
+      try {
+        const userAReq = { ip: "203.0.113.10", socket: {} };
+        const userBReq = { ip: "198.51.100.20", socket: {} };
+
+        // User A uses all 5 attempts
+        for (let i = 0; i < 5; i++) {
+          const res = { setHeader: () => {}, status: () => ({ json: (p) => p }) };
+          await ipLimiter(userAReq, res, () => {});
+        }
+
+        // 6th attempt for User A gets 429
+        let userAStatus = 200;
+        const resA = {
+          setHeader: () => {},
+          status: (code) => { userAStatus = code; return { json: (p) => p }; }
+        };
+        await ipLimiter(userAReq, resA, () => {});
+        assert.strictEqual(userAStatus, 429, "User A must be rate limited on 6th attempt");
+
+        // User B attempt 1 MUST be allowed with full remaining count
+        let userBStatus = 200;
+        let userBHeaders = {};
+        const resB = {
+          setHeader: (k, v) => { userBHeaders[k] = v; },
+          status: (code) => { userBStatus = code; return { json: (p) => p }; }
+        };
+        await ipLimiter(userBReq, resB, () => {});
+        assert.strictEqual(userBStatus, 200, "User B must NOT be affected by User A's rate limit");
+        assert.strictEqual(userBHeaders["RateLimit-Remaining"], 4, "User B must have 4 attempts remaining");
+      } finally {
+        cacheUtil.incrWithTtl = origIncr;
+      }
+    });
+
     test("Rate limiter returns 429 with standard error contract when max requests exceeded", async () => {
       const { createRateLimiter } = require("../Src/middleware/rate-limit.middleware");
       const customLimiter = createRateLimiter({
