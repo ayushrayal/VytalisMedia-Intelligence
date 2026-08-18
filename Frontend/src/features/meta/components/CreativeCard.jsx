@@ -1,65 +1,79 @@
 import React from "react";
+import StatusBadge from "./StatusBadge.jsx";
+import { formatNumber } from "../../../utils/formatNumber.js";
+import { formatCurrency } from "../../../utils/formatCurrency.js";
+import { getActionValue } from "../utils/actionParser.js";
 import {
   Wallet,
-  Target,
   ShoppingCart,
   TrendingUp,
-  Play,
   Clock,
   ArrowRight,
+  Video,
   Image as ImageIcon,
+  Play,
+  ExternalLink,
 } from "lucide-react";
-import StatusBadge from "./StatusBadge.jsx";
-import { formatCurrency } from "../../../utils/formatCurrency.js";
-import { getHookRate, getHoldRate } from "./VideoPerformanceSection.jsx";
 
 /**
  * Helper to accurately detect whether a creative object is a video or an image.
+ * Uses explicit media_type, video_id (top-level or nested in object_story_spec), video_url, or spec structure.
  */
 export const isCreativeVideo = (row) => {
   if (!row) return false;
 
   // 1. Explicit type/media_type field if provided by API/adapter
-  const typeStr = String(row.media_type || row.creative_type || row.type || "").toLowerCase();
-  if (typeStr === "video") return true;
-  if (typeStr === "image" || typeStr === "photo") return false;
+  const typeStr = String(row.media_type || row.creative_type || row.type || "").toUpperCase();
+  if (typeStr === "VIDEO" || typeStr === "VIDEO_INLINE") return true;
+  if (typeStr === "IMAGE" || typeStr === "PHOTO" || typeStr === "STATIC") return false;
 
-  // 2. Presence of video_id or video_url
-  if (row.video_id && String(row.video_id).trim() !== "") return true;
-  if (row.video_url && String(row.video_url).trim() !== "") return true;
-
-  // 3. Presence of video action metrics (video_play_actions, etc.)
-  const hasVideoActions = (actionVal) => {
-    if (!actionVal) return false;
-    if (typeof actionVal === "number" && actionVal > 0) return true;
-    if (typeof actionVal === "string" && !isNaN(Number(actionVal)) && Number(actionVal) > 0) return true;
-    if (Array.isArray(actionVal) && actionVal.length > 0) return true;
-    if (typeof actionVal === "object" && Object.keys(actionVal).length > 0) return true;
-    return false;
-  };
-
+  // 2. Top-level video_id metadata
+  const vId = row.video_id || row.videoId;
   if (
-    hasVideoActions(row.video_play_actions) ||
-    hasVideoActions(row.video_avg_time_watched_actions) ||
-    hasVideoActions(row.video_p25_watched_actions) ||
-    hasVideoActions(row.video_p50_watched_actions) ||
-    hasVideoActions(row.video_p75_watched_actions) ||
-    hasVideoActions(row.video_p95_watched_actions) ||
-    hasVideoActions(row.video_p100_watched_actions)
+    vId !== null &&
+    vId !== undefined &&
+    String(vId).trim() !== "" &&
+    String(vId) !== "null" &&
+    String(vId) !== "undefined" &&
+    String(vId) !== "0"
   ) {
     return true;
   }
 
-  // 4. Inspect object_story_spec if available
-  if (row.object_story_spec) {
-    const specStr = typeof row.object_story_spec === "string" 
-      ? row.object_story_spec 
-      : JSON.stringify(row.object_story_spec);
-    if (specStr.toLowerCase().includes("video")) return true;
+  // 3. Nested video_id in object_story_spec.video_data.video_id
+  const spec = row.object_story_spec;
+  if (spec) {
+    if (typeof spec === "object") {
+      const specVideoId = spec.video_data?.video_id || spec.video_id;
+      if (
+        specVideoId !== null &&
+        specVideoId !== undefined &&
+        String(specVideoId).trim() !== "" &&
+        String(specVideoId) !== "null" &&
+        String(specVideoId) !== "undefined" &&
+        String(specVideoId) !== "0"
+      ) {
+        return true;
+      }
+    } else if (typeof spec === "string") {
+      if (spec.includes('"video_data"') || spec.includes('"video_id"')) {
+        return true;
+      }
+    }
   }
 
-  // 5. Ad name or creative name fallback keywords
+  // 4. Presence of video_url
+  const vUrl = row.video_url || row.videoUrl;
+  if (vUrl !== null && vUrl !== undefined && String(vUrl).trim() !== "" && String(vUrl) !== "null" && String(vUrl) !== "undefined") {
+    return true;
+  }
+
+  // 5. Explicit title/name keywords
   const nameStr = String(row.ad_name || row.creative_name || row.name || "").toLowerCase();
+  if (nameStr.includes("static") || nameStr.includes("image") || nameStr.includes("photo") || nameStr.includes("banner")) {
+    return false;
+  }
+
   if (
     nameStr.includes("video") ||
     nameStr.includes(".mp4") ||
@@ -73,35 +87,88 @@ export const isCreativeVideo = (row) => {
   return false;
 };
 
+export const getCreativeType = (creative) => {
+  return isCreativeVideo(creative) ? "Video Creative" : "Image Creative";
+};
+
+export const getHookRate = (creative) => {
+  if (!creative) return null;
+  if (creative.hook_rate !== undefined && creative.hook_rate !== null) {
+    const num = Number(creative.hook_rate);
+    return isNaN(num) ? null : num;
+  }
+  const v3sec = getActionValue(
+    creative.actions_video_view ?? creative.video_3_sec_watched_actions ?? creative.video_3_sec_views
+  );
+  const imp = getActionValue(creative.impressions);
+  if (v3sec > 0 && imp > 0) {
+    return (v3sec / imp) * 100;
+  }
+  return null;
+};
+
+export const getHoldRate = (creative) => {
+  if (!creative) return null;
+  if (creative.hold_rate !== undefined && creative.hold_rate !== null) {
+    const num = Number(creative.hold_rate);
+    return isNaN(num) ? null : num;
+  }
+  const v3sec = getActionValue(
+    creative.actions_video_view ?? creative.video_3_sec_watched_actions ?? creative.video_3_sec_views
+  );
+  const thruplay = getActionValue(
+    creative.video_thruplay_watched_actions_video_view ?? creative.video_thruplay_watched_actions ?? creative.thruplay
+  );
+
+  if (thruplay > 0 && v3sec > 0) {
+    return (thruplay / v3sec) * 100;
+  }
+  return null;
+};
+
+const isValidUrl = (url) => {
+  if (!url || typeof url !== "string") return false;
+  const str = url.trim();
+  return str !== "" && str !== "null" && str !== "undefined" && (str.startsWith("http://") || str.startsWith("https://") || str.startsWith("fb://") || str.startsWith("instagram://"));
+};
+
 /**
  * CreativeCard Component.
- * Premium B2B SaaS metric card matching Linear / Stripe / Ramp design language.
  */
 export const CreativeCard = ({ creative, onClick }) => {
   if (!creative) return null;
 
-  const currency = creative.currency || "INR";
-  const imageUrl = creative.thumbnail_url || creative.image_url;
-  const rawStatus = creative.effective_status || creative.ad_effective_status || creative.ad_status || creative.status || creative.adset_status || creative.campaign_status || "ACTIVE";
   const isVideo = isCreativeVideo(creative);
-
+  const imageUrl = creative.thumbnail_url || creative.image_url;
   const adTitle = creative.ad_name || creative.creative_name || creative.name || "Unnamed Creative";
-  const campaignName = creative.campaign || creative.campaign_name || "—";
+  const campaignName = creative.campaign || creative.campaign_name || "Campaign";
 
-  const spend = creative.spend;
-  const costPerResult = creative.cost_per_result;
-  const purchaseValue = creative.purchase_conversion_value;
-  const purchaseRoas = creative.purchase_roas;
+  const rawStatus =
+    creative.effective_status || creative.ad_status || creative.status || "ACTIVE";
 
-  const formatMetricValue = (val, type) => {
-    if (val === null || val === undefined || val === "" || isNaN(Number(val))) {
-      return "—";
-    }
-    const num = Number(val);
-    if (type === "currency") return formatCurrency(num, currency);
-    if (type === "roas") return `${num.toFixed(2)}x`;
-    return num.toLocaleString();
-  };
+  const currency = creative.currency || "INR";
+  const spend = getActionValue(creative.spend || creative.amount_spent);
+  const purchases = getActionValue(creative.purchases || creative.actions_omni_purchase);
+
+  const purchaseRoas = getActionValue(
+    creative.purchase_roas || creative.purchase_roas_omni_purchase
+  );
+  const costPerResult = getActionValue(
+    creative.cost_per_result || creative.cost_per_action_type_omni_purchase
+  );
+
+  const formattedCostPerResult =
+    costPerResult !== null && costPerResult !== undefined && !isNaN(Number(costPerResult)) && Number(costPerResult) > 0
+      ? formatCurrency(costPerResult, currency)
+      : "--";
+
+  const formattedPurchaseRoas =
+    purchaseRoas !== null && purchaseRoas !== undefined && !isNaN(Number(purchaseRoas)) && Number(purchaseRoas) > 0
+      ? `${Number(purchaseRoas).toFixed(2).replace(/\.00$/, "")}x`
+      : "--";
+
+  const fbUrl = isValidUrl(creative.facebook_permalink_url) ? creative.facebook_permalink_url.trim() : null;
+  const igUrl = isValidUrl(creative.instagram_permalink_url) ? creative.instagram_permalink_url.trim() : null;
 
   return (
     <div
@@ -133,7 +200,7 @@ export const CreativeCard = ({ creative, onClick }) => {
         if (img) img.style.transform = "scale(1)";
       }}
     >
-      {/* 1. CREATIVE MEDIA HEADER */}
+      {/* 1. CREATIVE MEDIA HEADER WITH TYPE BADGE */}
       <div
         style={{
           position: "relative",
@@ -174,6 +241,61 @@ export const CreativeCard = ({ creative, onClick }) => {
           >
             <ImageIcon size={20} color="#94A3B8" />
             <span>Creative Asset</span>
+          </div>
+        )}
+
+        {/* Media Type Badge Overlay */}
+        <div
+          style={{
+            position: "absolute",
+            top: "10px",
+            right: "10px",
+            fontSize: "0.68rem",
+            fontWeight: "600",
+            padding: "3px 8px",
+            borderRadius: "999px",
+            backgroundColor: isVideo ? "rgba(10, 132, 255, 0.9)" : "rgba(15, 23, 42, 0.75)",
+            color: "#FFFFFF",
+            backdropFilter: "blur(4px)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+          }}
+        >
+          {isVideo ? (
+            <>
+              <Video size={11} color="#FFFFFF" /> Video Creative
+            </>
+          ) : (
+            <>
+              <ImageIcon size={11} color="#FFFFFF" /> Image Creative
+            </>
+          )}
+        </div>
+
+        {/* Play Icon Overlay for Videos */}
+        {isVideo && (
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: "42px",
+              height: "42px",
+              borderRadius: "50%",
+              backgroundColor: "rgba(10, 132, 255, 0.9)",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.25)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#FFFFFF",
+              pointerEvents: "none",
+              backdropFilter: "blur(4px)",
+            }}
+          >
+            <Play size={18} fill="#FFFFFF" style={{ marginLeft: "2px" }} />
           </div>
         )}
       </div>
@@ -266,12 +388,45 @@ export const CreativeCard = ({ creative, onClick }) => {
               >
                 <Wallet size={11} strokeWidth={2.2} />
               </div>
-              <span style={{ fontSize: "10.5px", fontWeight: "500", color: "#64748B" }}>
-                Amount Spent
-              </span>
+              <span style={{ fontSize: "11px", color: "#64748B", fontWeight: "500" }}>Spend</span>
             </div>
-            <div style={{ fontSize: "15px", fontWeight: "700", color: "#0F172A", letterSpacing: "-0.2px", lineHeight: "1.1" }}>
-              {formatMetricValue(spend, "currency")}
+            <div style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A" }}>
+              {formatCurrency(spend, currency)}
+            </div>
+          </div>
+
+          {/* Purchases / Results */}
+          <div
+            style={{
+              backgroundColor: "#F8FAFC",
+              border: "1px solid #F1F5F9",
+              borderRadius: "8px",
+              padding: "8px 10px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "3px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              <div
+                style={{
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(16, 185, 129, 0.08)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#10B981",
+                  flexShrink: 0,
+                }}
+              >
+                <ShoppingCart size={11} strokeWidth={2.2} />
+              </div>
+              <span style={{ fontSize: "11px", color: "#64748B", fontWeight: "500" }}>Purchases</span>
+            </div>
+            <div style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A" }}>
+              {formatNumber(purchases)}
             </div>
           </div>
 
@@ -287,65 +442,9 @@ export const CreativeCard = ({ creative, onClick }) => {
               gap: "3px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <div
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "50%",
-                  backgroundColor: "rgba(22, 163, 74, 0.08)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#16A34A",
-                  flexShrink: 0,
-                }}
-              >
-                <Target size={11} strokeWidth={2.2} />
-              </div>
-              <span style={{ fontSize: "10.5px", fontWeight: "500", color: "#64748B" }}>
-                Cost / Result
-              </span>
-            </div>
-            <div style={{ fontSize: "15px", fontWeight: "700", color: "#0F172A", letterSpacing: "-0.2px", lineHeight: "1.1" }}>
-              {formatMetricValue(costPerResult, "currency")}
-            </div>
-          </div>
-
-          {/* Purchase Value */}
-          <div
-            style={{
-              backgroundColor: "#F8FAFC",
-              border: "1px solid #F1F5F9",
-              borderRadius: "8px",
-              padding: "8px 10px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "3px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <div
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "50%",
-                  backgroundColor: "rgba(245, 158, 11, 0.10)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#D97706",
-                  flexShrink: 0,
-                }}
-              >
-                <ShoppingCart size={11} strokeWidth={2.2} />
-              </div>
-              <span style={{ fontSize: "10.5px", fontWeight: "500", color: "#64748B" }}>
-                Purchase Value
-              </span>
-            </div>
-            <div style={{ fontSize: "15px", fontWeight: "700", color: "#0F172A", letterSpacing: "-0.2px", lineHeight: "1.1" }}>
-              {formatMetricValue(purchaseValue, "currency")}
+            <span style={{ fontSize: "11px", color: "#64748B", fontWeight: "500" }}>Cost / Result</span>
+            <div style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A" }}>
+              {formattedCostPerResult}
             </div>
           </div>
 
@@ -361,33 +460,14 @@ export const CreativeCard = ({ creative, onClick }) => {
               gap: "3px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <div
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "50%",
-                  backgroundColor: "rgba(124, 58, 237, 0.08)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#7C3AED",
-                  flexShrink: 0,
-                }}
-              >
-                <TrendingUp size={11} strokeWidth={2.2} />
-              </div>
-              <span style={{ fontSize: "10.5px", fontWeight: "500", color: "#64748B" }}>
-                Purchase ROAS
-              </span>
-            </div>
-            <div style={{ fontSize: "15px", fontWeight: "700", color: "#16A34A", letterSpacing: "-0.2px", lineHeight: "1.1" }}>
-              {formatMetricValue(purchaseRoas, "roas")}
+            <span style={{ fontSize: "11px", color: "#64748B", fontWeight: "500" }}>ROAS</span>
+            <div style={{ fontSize: "13px", fontWeight: "700", color: "#10B981" }}>
+              {formattedPurchaseRoas}
             </div>
           </div>
         </div>
 
-        {/* Video Hook & Hold Rate Row */}
+        {/* Video Hook & Hold Rate Row (ONLY for Video Creatives) */}
         {isVideo && (
           <div
             style={{
@@ -417,6 +497,65 @@ export const CreativeCard = ({ creative, onClick }) => {
                   : "--"}
               </strong>
             </div>
+          </div>
+        )}
+
+        {/* Platform Social Links Row (View on Facebook / View on Instagram) */}
+        {(fbUrl || igUrl) && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              paddingTop: "2px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {fbUrl && (
+              <a
+                href={fbUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "600",
+                  color: "#0A84FF",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "3px",
+                  padding: "3px 8px",
+                  borderRadius: "6px",
+                  backgroundColor: "rgba(10, 132, 255, 0.08)",
+                }}
+              >
+                View on Facebook
+                <ExternalLink size={10} />
+              </a>
+            )}
+
+            {igUrl && (
+              <a
+                href={igUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "600",
+                  color: "#EC4899",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "3px",
+                  padding: "3px 8px",
+                  borderRadius: "6px",
+                  backgroundColor: "rgba(236, 72, 153, 0.08)",
+                }}
+              >
+                View on Instagram
+                <ExternalLink size={10} />
+              </a>
+            )}
           </div>
         )}
 

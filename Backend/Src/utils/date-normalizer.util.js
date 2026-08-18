@@ -42,8 +42,21 @@ const formatCanonicalDate = (dateStr) => {
  */
 const normalizeDateParams = ({ datePreset, dateFrom, dateTo } = {}) => {
   const normPreset = datePreset && typeof datePreset === "string" ? datePreset.trim() : null;
-  const normFrom = formatCanonicalDate(dateFrom);
-  const normTo = formatCanonicalDate(dateTo);
+  let normFrom = formatCanonicalDate(dateFrom);
+  let normTo = formatCanonicalDate(dateTo);
+
+  // If datePreset is "today" or "yesterday", compute explicit YYYY-MM-DD bounds to prevent Windsor API 400 errors
+  if (normPreset === "today") {
+    const todayStr = new Date().toISOString().split("T")[0];
+    normFrom = todayStr;
+    normTo = todayStr;
+  } else if (normPreset === "yesterday") {
+    const yest = new Date();
+    yest.setDate(yest.getDate() - 1);
+    const yestStr = yest.toISOString().split("T")[0];
+    normFrom = yestStr;
+    normTo = yestStr;
+  }
 
   let dateRangeKey = "";
 

@@ -521,6 +521,12 @@ const fetchCampaignDetails = async ({ activeMetaAccount, campaignId, datePreset,
     ad_name: cr.ad_name || cr.creative_name || "Unnamed Creative",
     ad_id: String(cr.ad_id || cr.creative_id || cr.id || ""),
     effective_status: cr.effective_status || cr.ad_status || cr.status || "ACTIVE",
+    media_type: cr.media_type || cr.creative_type || ((
+      (cr.video_id && String(cr.video_id).trim() !== "" && String(cr.video_id) !== "null" && String(cr.video_id) !== "0") ||
+      (cr.video_url && String(cr.video_url).trim() !== "" && String(cr.video_url) !== "null") ||
+      (cr.object_story_spec && typeof cr.object_story_spec === "object" && cr.object_story_spec.video_data) ||
+      (cr.object_story_spec && typeof cr.object_story_spec === "string" && cr.object_story_spec.includes('"video_data"'))
+    ) ? "VIDEO" : "IMAGE"),
     thumbnail_url: cr.thumbnail_url || null,
     image_url: cr.image_url || null,
     facebook_permalink_url: cr.facebook_permalink_url || null,

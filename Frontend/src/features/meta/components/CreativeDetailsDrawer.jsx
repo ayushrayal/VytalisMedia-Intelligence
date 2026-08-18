@@ -5,8 +5,9 @@ import PerformanceSection from "./PerformanceSection.jsx";
 import VideoPerformanceSection from "./VideoPerformanceSection.jsx";
 import CreativePreviewSection from "./CreativePreviewSection.jsx";
 import CampaignAdSetSection from "./CampaignAdSetSection.jsx";
-import CreativeLinksSection from "./CreativeLinksSection.jsx";
-import { X } from "lucide-react";
+import CreativeLinksSection, { hasValidCreativeLinks } from "./CreativeLinksSection.jsx";
+import { isCreativeVideo, getCreativeType } from "./CreativeCard.jsx";
+import { X, Video, Image as ImageIcon } from "lucide-react";
 
 /**
  * CreativeDetailsDrawer Component.
@@ -16,6 +17,9 @@ import { X } from "lucide-react";
 export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState("performance");
   const contentRef = useRef(null);
+
+  const isVideo = isCreativeVideo(creative);
+  const hasLinks = hasValidCreativeLinks(creative);
 
   // Reset tab to "performance" and scroll content to top whenever a new creative opens
   useEffect(() => {
@@ -57,10 +61,6 @@ export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
 
   const rawStatus =
     creative.effective_status || creative.ad_status || creative.status || "ACTIVE";
-
-  const hasLinks = Boolean(
-    creative.facebook_permalink_url || creative.instagram_permalink_url
-  );
 
   return (
     <div
@@ -124,11 +124,35 @@ export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
           }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginBottom: "6px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "6px" }}>
               <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {creative.ad_name || creative.creative_name || "Creative Details"}
               </h3>
               <StatusBadge status={rawStatus} />
+              <span
+                style={{
+                  fontSize: "0.725rem",
+                  padding: "2px 8px",
+                  borderRadius: "999px",
+                  backgroundColor: isVideo ? "rgba(10, 132, 255, 0.1)" : "var(--color-surface-subtle, #F1F5F9)",
+                  border: isVideo ? "1px solid rgba(10, 132, 255, 0.25)" : "1px solid var(--color-border, #E5E7EB)",
+                  color: isVideo ? "var(--color-primary, #0A84FF)" : "var(--color-text-secondary, #64748B)",
+                  fontWeight: "600",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                {isVideo ? (
+                  <>
+                    <Video size={12} color="#0A84FF" /> Video Creative
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon size={12} color="#64748B" /> Image Creative
+                  </>
+                )}
+              </span>
             </div>
 
             {creative.campaign && (
@@ -178,6 +202,7 @@ export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
         <CreativeTabs
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          isVideo={isVideo}
           hasLinks={hasLinks}
         />
 
@@ -196,7 +221,7 @@ export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
             <PerformanceSection creative={creative} />
           )}
 
-          {activeTab === "video" && (
+          {activeTab === "video" && isVideo && (
             <VideoPerformanceSection creative={creative} />
           )}
 

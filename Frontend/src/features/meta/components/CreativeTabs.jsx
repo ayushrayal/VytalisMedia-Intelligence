@@ -4,13 +4,19 @@ import React from "react";
  * Tab Navigation Bar for Creative Details Drawer.
  * Horizontal scrolling on mobile without wrapping, underline active indicator.
  */
-export const CreativeTabs = ({ activeTab, setActiveTab, hasLinks }) => {
+export const CreativeTabs = ({ activeTab, setActiveTab, isVideo, hasLinks }) => {
   const tabs = [
     { id: "performance", label: "Performance" },
-    { id: "video", label: "Video Performance" },
-    { id: "creative", label: "Creative Preview" },
-    { id: "campaign", label: "Campaign & Ad Set" },
   ];
+
+  if (isVideo) {
+    tabs.push({ id: "video", label: "Video Performance" });
+  }
+
+  tabs.push(
+    { id: "creative", label: "Creative Preview" },
+    { id: "campaign", label: "Campaign & Ad Set" }
+  );
 
   if (hasLinks) {
     tabs.push({ id: "links", label: "Links" });

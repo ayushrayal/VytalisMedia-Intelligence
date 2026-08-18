@@ -1,30 +1,36 @@
 import React from "react";
 import { Video, Image as ImageIcon, Play, ExternalLink } from "lucide-react";
+import { isCreativeVideo } from "./CreativeCard.jsx";
 
 /**
  * CreativePreviewSection component for Creative Preview tab.
  * Renders thumbnail_url / image_url as the primary visual preview poster.
  * Overlays a centered play icon for video creatives.
- * Renders clean 'Watch on Facebook' and 'Watch on Instagram' permalink actions.
+ * Renders platform-specific links (Facebook, Instagram, Destination URL) below preview.
  */
 export const CreativePreviewSection = ({ creative }) => {
-  const fbPermalink = creative.facebook_permalink_url;
-  const igPermalink = creative.instagram_permalink_url;
+  if (!creative) return null;
+
+  const isVideo = isCreativeVideo(creative);
+
+  const fbUrl = creative.facebook_permalink_url;
+  const igUrl = creative.instagram_permalink_url;
+  const rawWebUrl = creative.website_url || creative.link_url || creative.destination_url || creative.call_to_action_url || creative.url;
+
+  const isValidUrl = (url) => {
+    if (!url || typeof url !== "string") return false;
+    const str = url.trim();
+    return str !== "" && str !== "null" && str !== "undefined" && (str.startsWith("http://") || str.startsWith("https://") || str.startsWith("fb://") || str.startsWith("instagram://"));
+  };
+
+  const validFb = isValidUrl(fbUrl) ? fbUrl.trim() : null;
+  const validIg = isValidUrl(igUrl) ? igUrl.trim() : null;
+  const validWeb = isValidUrl(rawWebUrl) ? rawWebUrl.trim() : null;
+
+  const hasAnyLink = Boolean(validFb || validIg || validWeb);
+
   const imageUrl = creative.image_url;
   const thumbnailUrl = creative.thumbnail_url;
-
-  // Video creative detection based on video analytics actions
-  const isVideoCreative = Boolean(
-    creative.video_play_actions ||
-      creative.video_p25_watched_actions ||
-      creative.video_p50_watched_actions ||
-      creative.video_p75_watched_actions ||
-      creative.video_p95_watched_actions ||
-      creative.video_p100_watched_actions ||
-      creative.video_avg_time_watched_actions ||
-      creative.video_views
-  );
-
   const displayImage = imageUrl || thumbnailUrl;
 
   return (
@@ -39,16 +45,16 @@ export const CreativePreviewSection = ({ creative }) => {
             fontSize: "0.75rem",
             padding: "3px 10px",
             borderRadius: "999px",
-            backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
-            border: "1px solid var(--color-border, #E5E7EB)",
-            color: "var(--color-text-secondary, #64748B)",
+            backgroundColor: isVideo ? "rgba(10, 132, 255, 0.1)" : "var(--color-surface-subtle, #F1F5F9)",
+            border: isVideo ? "1px solid rgba(10, 132, 255, 0.25)" : "1px solid var(--color-border, #E5E7EB)",
+            color: isVideo ? "var(--color-primary, #0A84FF)" : "var(--color-text-secondary, #64748B)",
             fontWeight: "600",
             display: "inline-flex",
             alignItems: "center",
             gap: "5px",
           }}
         >
-          {isVideoCreative ? (
+          {isVideo ? (
             <>
               <Video size={13} color="#0A84FF" /> Video Creative
             </>
@@ -93,7 +99,7 @@ export const CreativePreviewSection = ({ creative }) => {
               />
 
               {/* Large Centered Play Icon Overlay for Video Creatives */}
-              {isVideoCreative && (
+              {isVideo && (
                 <div
                   style={{
                     position: "absolute",
@@ -139,8 +145,8 @@ export const CreativePreviewSection = ({ creative }) => {
           )}
         </div>
 
-        {/* Video Creative Action Buttons */}
-        {isVideoCreative && (fbPermalink || igPermalink) && (
+        {/* Available Action Links Below Preview */}
+        {hasAnyLink && (
           <div
             style={{
               width: "100%",
@@ -154,9 +160,9 @@ export const CreativePreviewSection = ({ creative }) => {
               flexWrap: "wrap",
             }}
           >
-            {fbPermalink && (
+            {validFb && (
               <a
-                href={fbPermalink}
+                href={validFb}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -174,14 +180,14 @@ export const CreativePreviewSection = ({ creative }) => {
                   transition: "all 0.15s ease",
                 }}
               >
-                Watch on Facebook
+                View on Facebook
                 <ExternalLink size={13} />
               </a>
             )}
 
-            {igPermalink && (
+            {validIg && (
               <a
-                href={igPermalink}
+                href={validIg}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -199,7 +205,32 @@ export const CreativePreviewSection = ({ creative }) => {
                   transition: "all 0.15s ease",
                 }}
               >
-                Watch on Instagram
+                View on Instagram
+                <ExternalLink size={13} />
+              </a>
+            )}
+
+            {validWeb && (
+              <a
+                href={validWeb}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
+                  color: "var(--color-text-primary, #0F172A)",
+                  border: "1px solid var(--color-border, #E5E7EB)",
+                  fontSize: "0.825rem",
+                  fontWeight: "600",
+                  textDecoration: "none",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                Destination URL
                 <ExternalLink size={13} />
               </a>
             )}
