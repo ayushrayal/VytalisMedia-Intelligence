@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import CreativeCard from "./CreativeCard.jsx";
-import { Trophy, Filter, Check, ArrowUpRight } from "lucide-react";
+import Pagination from "../../../components/ui/Pagination.jsx";
+import { Trophy, Filter, Check } from "lucide-react";
 
 export const extractCreativeRoas = (creative) => {
   if (!creative) return null;
@@ -29,6 +30,10 @@ export const WinningCreativesSection = ({ creatives, preferences, onCardClick, o
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customInputValue, setCustomInputValue] = useState(String(thresholdVal));
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
+
   // Determine current dropdown select value
   const matchedOption = PREDEFINED_WINNING_OPTIONS.find(
     (opt) => opt.value !== "custom" && Number(opt.value) === thresholdVal
@@ -46,6 +51,24 @@ export const WinningCreativesSection = ({ creatives, preferences, onCardClick, o
       })
       .sort((a, b) => (extractCreativeRoas(b) || 0) - (extractCreativeRoas(a) || 0));
   }, [creatives, thresholdVal]);
+
+  // Reset pagination to page 1 whenever filter, threshold, or underlying dataset changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [creatives, thresholdVal]);
+
+  const totalPages = Math.ceil(winningCreatives.length / pageSize) || 1;
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
+  // Slice paginated subset ONLY AFTER filtering and sorting
+  const paginatedWinningCreatives = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return winningCreatives.slice(start, start + pageSize);
+  }, [winningCreatives, currentPage, pageSize]);
 
   const handleDropdownChange = (e) => {
     const val = e.target.value;
@@ -231,19 +254,45 @@ export const WinningCreativesSection = ({ creatives, preferences, onCardClick, o
           </p>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
-          {winningCreatives.map((row, idx) => {
-            const creativeKey = `winning-${row.ad_id || row.id || "creative"}-${row.date || ""}-${idx}`;
-            return (
-              <CreativeCard
-                key={creativeKey}
-                creative={row}
-                preferences={preferences}
-                variant="winning"
-                onClick={() => onCardClick(row)}
-              />
-            );
-          })}
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
+            {paginatedWinningCreatives.map((row, idx) => {
+              const creativeKey = `winning-${row.ad_id || row.id || "creative"}-${row.date || ""}-${idx}`;
+              return (
+                <CreativeCard
+                  key={creativeKey}
+                  creative={row}
+                  preferences={preferences}
+                  variant="winning"
+                  onClick={() => onCardClick(row)}
+                />
+              );
+            })}
+          </div>
+
+          {/* Reusable Pagination Controls Container */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "var(--radius-card, 12px)",
+              border: "1px solid var(--color-border, #E5E7EB)",
+              overflow: "hidden",
+              boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
+            }}
+          >
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={winningCreatives.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[12, 24, 36, 48]}
+            />
+          </div>
         </div>
       )}
     </div>

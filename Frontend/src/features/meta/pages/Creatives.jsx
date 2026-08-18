@@ -173,7 +173,7 @@ export const Creatives = () => {
   return (
     <div>
       <PageHeader
-        title="Meta Ad Creatives"
+        title="Meta Ad All Creatives"
         subtitle="Visual ad creative performance & engagement metrics"
         actions={
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>

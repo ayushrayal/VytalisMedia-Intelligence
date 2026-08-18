@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import CreativeCard from "./CreativeCard.jsx";
+import Pagination from "../../../components/ui/Pagination.jsx";
 import { extractCreativeRoas } from "./WinningCreativesSection.jsx";
 import { TrendingDown, Filter, Check, AlertTriangle } from "lucide-react";
 
@@ -21,6 +22,10 @@ export const PoorPerformersSection = ({ creatives, preferences, onCardClick, onT
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customInputValue, setCustomInputValue] = useState(String(thresholdVal));
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
+
   // Determine current dropdown select value
   const matchedOption = PREDEFINED_POOR_OPTIONS.find(
     (opt) => opt.value !== "custom" && Number(opt.value) === thresholdVal
@@ -36,8 +41,26 @@ export const PoorPerformersSection = ({ creatives, preferences, onCardClick, onT
         const roas = extractCreativeRoas(item);
         return roas !== null && roas < thresholdVal;
       })
-      .sort((a, b) => (extractCreativeRoas(a) || 0) - (extractCreativeRoas(b) || 0));
+      .sort((a, b) => (extractCreativeRoas(a) || 0) - (extractCreativeRoas(a) || 0));
   }, [creatives, thresholdVal]);
+
+  // Reset pagination to page 1 whenever filter, threshold, or underlying dataset changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [creatives, thresholdVal]);
+
+  const totalPages = Math.ceil(poorCreatives.length / pageSize) || 1;
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
+  // Slice paginated subset ONLY AFTER filtering and sorting
+  const paginatedPoorCreatives = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return poorCreatives.slice(start, start + pageSize);
+  }, [poorCreatives, currentPage, pageSize]);
 
   const handleDropdownChange = (e) => {
     const val = e.target.value;
@@ -223,19 +246,45 @@ export const PoorPerformersSection = ({ creatives, preferences, onCardClick, onT
           </p>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
-          {poorCreatives.map((row, idx) => {
-            const creativeKey = `poor-${row.ad_id || row.id || "creative"}-${row.date || ""}-${idx}`;
-            return (
-              <CreativeCard
-                key={creativeKey}
-                creative={row}
-                preferences={preferences}
-                variant="poor"
-                onClick={() => onCardClick(row)}
-              />
-            );
-          })}
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
+            {paginatedPoorCreatives.map((row, idx) => {
+              const creativeKey = `poor-${row.ad_id || row.id || "creative"}-${row.date || ""}-${idx}`;
+              return (
+                <CreativeCard
+                  key={creativeKey}
+                  creative={row}
+                  preferences={preferences}
+                  variant="poor"
+                  onClick={() => onCardClick(row)}
+                />
+              );
+            })}
+          </div>
+
+          {/* Reusable Pagination Controls Container */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "var(--radius-card, 12px)",
+              border: "1px solid var(--color-border, #E5E7EB)",
+              overflow: "hidden",
+              boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
+            }}
+          >
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={poorCreatives.length}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[12, 24, 36, 48]}
+            />
+          </div>
         </div>
       )}
     </div>
