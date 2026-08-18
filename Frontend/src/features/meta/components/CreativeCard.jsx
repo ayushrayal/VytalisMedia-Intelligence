@@ -138,7 +138,7 @@ const isValidUrl = (url) => {
 /**
  * CreativeCard Component.
  */
-export const CreativeCard = ({ creative, onClick, preferences }) => {
+export const CreativeCard = ({ creative, onClick, preferences, variant = "default" }) => {
   if (!creative) return null;
 
   const isVideo = isCreativeVideo(creative);
@@ -175,6 +175,26 @@ export const CreativeCard = ({ creative, onClick, preferences }) => {
   const fbUrl = showFbPref && isValidUrl(creative.facebook_permalink_url) ? creative.facebook_permalink_url.trim() : null;
   const igUrl = showIgPref && isValidUrl(creative.instagram_permalink_url) ? creative.instagram_permalink_url.trim() : null;
 
+  // Contextual hover styles based on page variant
+  const getHoverStyles = () => {
+    if (variant === "winning") {
+      return {
+        borderColor: "rgba(34, 197, 94, 0.4)",
+        boxShadow: "0 8px 28px rgba(34, 197, 94, 0.20), 0 0 0 1px rgba(34, 197, 94, 0.18)",
+      };
+    }
+    if (variant === "poor") {
+      return {
+        borderColor: "rgba(239, 68, 68, 0.4)",
+        boxShadow: "0 8px 28px rgba(239, 68, 68, 0.20), 0 0 0 1px rgba(239, 68, 68, 0.18)",
+      };
+    }
+    return {
+      borderColor: "#0A84FF",
+      boxShadow: "0 6px 12px rgba(15, 23, 42, 0.06)",
+    };
+  };
+
   return (
     <div
       onClick={onClick}
@@ -188,12 +208,13 @@ export const CreativeCard = ({ creative, onClick, preferences }) => {
         flexDirection: "column",
         height: "100%",
         cursor: "pointer",
-        transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+        transition: "box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease",
       }}
       onMouseEnter={(e) => {
+        const hoverStyles = getHoverStyles();
         e.currentTarget.style.transform = "translateY(-2px)";
-        e.currentTarget.style.borderColor = "#0A84FF";
-        e.currentTarget.style.boxShadow = "0 6px 12px rgba(15, 23, 42, 0.06)";
+        e.currentTarget.style.borderColor = hoverStyles.borderColor;
+        e.currentTarget.style.boxShadow = hoverStyles.boxShadow;
         const img = e.currentTarget.querySelector(".creative-media-img");
         if (img) img.style.transform = "scale(1.02)";
       }}

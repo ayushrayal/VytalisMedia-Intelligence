@@ -352,13 +352,15 @@ const getCreativeCardPreferences = async (userId) => {
     showFacebookLink: prefs.showFacebookLink !== undefined ? Boolean(prefs.showFacebookLink) : true,
     showInstagramLink: prefs.showInstagramLink !== undefined ? Boolean(prefs.showInstagramLink) : true,
     showHookHoldRates: prefs.showHookHoldRates !== undefined ? Boolean(prefs.showHookHoldRates) : true,
+    winningRoasThreshold: prefs.winningRoasThreshold !== undefined && !isNaN(Number(prefs.winningRoasThreshold)) ? Number(prefs.winningRoasThreshold) : 1.0,
+    poorRoasThreshold: prefs.poorRoasThreshold !== undefined && !isNaN(Number(prefs.poorRoasThreshold)) ? Number(prefs.poorRoasThreshold) : 1.0,
   };
 };
 
 /**
  * Updates customizable creative card KPI preferences for authenticated user.
  */
-const updateCreativeCardPreferences = async (userId, { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates }) => {
+const updateCreativeCardPreferences = async (userId, { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates, winningRoasThreshold, poorRoasThreshold }) => {
   const user = await User.findById(userId);
   if (!user) {
     const err = new Error("User not found");
@@ -383,6 +385,8 @@ const updateCreativeCardPreferences = async (userId, { primaryMetrics, videoMetr
     showFacebookLink: showFacebookLink !== undefined ? Boolean(showFacebookLink) : true,
     showInstagramLink: showInstagramLink !== undefined ? Boolean(showInstagramLink) : true,
     showHookHoldRates: showHookHoldRates !== undefined ? Boolean(showHookHoldRates) : true,
+    winningRoasThreshold: winningRoasThreshold !== undefined && !isNaN(Number(winningRoasThreshold)) ? Number(winningRoasThreshold) : 1.0,
+    poorRoasThreshold: poorRoasThreshold !== undefined && !isNaN(Number(poorRoasThreshold)) ? Number(poorRoasThreshold) : 1.0,
   };
 
   await user.save();

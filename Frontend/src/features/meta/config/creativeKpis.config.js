@@ -9,6 +9,8 @@ export const DEFAULT_CREATIVE_CARD_PREFERENCES = {
   showFacebookLink: true,
   showInstagramLink: true,
   showHookHoldRates: true,
+  winningRoasThreshold: 1.0,
+  poorRoasThreshold: 1.0,
 };
 
 export const PRIMARY_KPI_LIMIT = 4;

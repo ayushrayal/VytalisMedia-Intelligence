@@ -19,6 +19,8 @@ import {
   ChevronDown,
   ChevronRight,
   Target,
+  Trophy,
+  TrendingDown,
 } from "lucide-react";
 
 import metaLogoImg from "../assets/mobile.png";
@@ -84,6 +86,8 @@ const analyticsNavigation = [
       { route: "/meta/campaigns", label: "Campaigns", icon: Megaphone },
       { route: "/meta/adsets", label: "Ad Sets", icon: Layers },
       { route: "/meta/creatives", label: "Creatives", icon: ImageIcon },
+      { route: "/meta/winning-creatives", label: "Winning Creatives", icon: Trophy },
+      { route: "/meta/poor-performers", label: "Poor Performers", icon: TrendingDown },
       { route: "/meta/audience", label: "Audience", icon: Users },
       { route: "/meta/places", label: "Places", icon: MapPin },
     ],

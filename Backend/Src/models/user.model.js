@@ -64,6 +64,8 @@ const userSchema = new mongoose.Schema(
         showFacebookLink: { type: Boolean, default: true },
         showInstagramLink: { type: Boolean, default: true },
         showHookHoldRates: { type: Boolean, default: true },
+        winningRoasThreshold: { type: Number, default: 1.0 },
+        poorRoasThreshold: { type: Number, default: 1.0 },
       },
     },
   },

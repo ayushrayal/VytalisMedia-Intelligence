@@ -44,12 +44,22 @@ const parseAndNormalizePreferences = (jsonStr) => {
       ? Boolean(parsed.showHookHoldRates)
       : DEFAULT_CREATIVE_CARD_PREFERENCES.showHookHoldRates;
 
+    const winningRoasThreshold = parsed.winningRoasThreshold !== undefined && !isNaN(Number(parsed.winningRoasThreshold))
+      ? Number(parsed.winningRoasThreshold)
+      : DEFAULT_CREATIVE_CARD_PREFERENCES.winningRoasThreshold;
+
+    const poorRoasThreshold = parsed.poorRoasThreshold !== undefined && !isNaN(Number(parsed.poorRoasThreshold))
+      ? Number(parsed.poorRoasThreshold)
+      : DEFAULT_CREATIVE_CARD_PREFERENCES.poorRoasThreshold;
+
     return {
       primaryMetrics,
       videoMetrics,
       showFacebookLink,
       showInstagramLink,
       showHookHoldRates,
+      winningRoasThreshold,
+      poorRoasThreshold,
     };
   } catch (e) {
     return DEFAULT_CREATIVE_CARD_PREFERENCES;
@@ -95,6 +105,12 @@ export const saveCreativePreferences = (preferences, scopeId = null) => {
       showFacebookLink: preferences.showFacebookLink !== undefined ? Boolean(preferences.showFacebookLink) : true,
       showInstagramLink: preferences.showInstagramLink !== undefined ? Boolean(preferences.showInstagramLink) : true,
       showHookHoldRates: preferences.showHookHoldRates !== undefined ? Boolean(preferences.showHookHoldRates) : true,
+      winningRoasThreshold: preferences.winningRoasThreshold !== undefined && !isNaN(Number(preferences.winningRoasThreshold))
+        ? Number(preferences.winningRoasThreshold)
+        : DEFAULT_CREATIVE_CARD_PREFERENCES.winningRoasThreshold,
+      poorRoasThreshold: preferences.poorRoasThreshold !== undefined && !isNaN(Number(preferences.poorRoasThreshold))
+        ? Number(preferences.poorRoasThreshold)
+        : DEFAULT_CREATIVE_CARD_PREFERENCES.poorRoasThreshold,
     };
 
     const key = getStorageKey(scopeId);

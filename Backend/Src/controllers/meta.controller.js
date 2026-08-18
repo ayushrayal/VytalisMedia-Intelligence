@@ -204,10 +204,10 @@ const getCreativeCardPreferences = async (req, res, next) => {
  */
 const updateCreativeCardPreferences = async (req, res, next) => {
   try {
-    const { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates } = req.body;
+    const { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates, winningRoasThreshold, poorRoasThreshold } = req.body;
     const updatedPreferences = await metaService.updateCreativeCardPreferences(
       req.user._id,
-      { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates }
+      { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates, winningRoasThreshold, poorRoasThreshold }
     );
     return sendSuccess(
       res,

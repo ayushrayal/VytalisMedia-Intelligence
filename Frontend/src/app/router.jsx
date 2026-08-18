@@ -17,6 +17,8 @@ import MetaOverview from "../features/meta/pages/MetaOverview.jsx";
 import Campaigns from "../features/meta/pages/Campaigns.jsx";
 import AdSets from "../features/meta/pages/AdSets.jsx";
 import Creatives from "../features/meta/pages/Creatives.jsx";
+import WinningCreatives from "../features/meta/pages/WinningCreatives.jsx";
+import PoorPerformers from "../features/meta/pages/PoorPerformers.jsx";
 import Audience from "../features/meta/pages/Audience.jsx";
 import Places from "../features/meta/pages/Places.jsx";
 import MetaAccounts from "../features/meta/pages/MetaAccounts.jsx";
@@ -354,6 +356,8 @@ export const Router = () => {
           <Route path="/meta/campaigns" element={<Campaigns />} />
           <Route path="/meta/adsets" element={<AdSets />} />
           <Route path="/meta/creatives" element={<Creatives />} />
+          <Route path="/meta/winning-creatives" element={<WinningCreatives />} />
+          <Route path="/meta/poor-performers" element={<PoorPerformers />} />
           <Route path="/meta/audience" element={<Audience />} />
           <Route path="/meta/places" element={<Places />} />
           <Route path="/meta" element={<Navigate to="/meta/overview" replace />} />
