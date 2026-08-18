@@ -15,6 +15,8 @@ import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Button from "../../../components/ui/Button.jsx";
 import { getErrorMessage } from "../../../utils/error.js";
 
+import { checkIsSingleDay, aggregateCreativesData } from "../utils/creativeAggregator.js";
+
 /**
  * Creatives Page Component.
  * Features:
@@ -23,6 +25,7 @@ import { getErrorMessage } from "../../../utils/error.js";
  * - Segmented Control filter for All / Images / Videos
  * - Client-side pagination (Default: 12 per page, options: 12, 24, 48)
  * - Persistent pagination state across CreativeDetailsDrawer open/close actions
+ * - Single-day vs Multi-day aggregation (Multi-day aggregates 1 card per creative: Spend=SUM, other metrics=AVERAGE)
  */
 export const Creatives = () => {
   const [data, setData] = useState([]);
@@ -61,9 +64,19 @@ export const Creatives = () => {
     fetchData();
   }, [fetchData]);
 
+  // Determine if selected date range represents a single calendar day
+  const isSingleDay = useMemo(() => {
+    return checkIsSingleDay(dateParams, data);
+  }, [dateParams, data]);
+
+  // Aggregate raw dataset based on date range (multi-day aggregates to 1 card per creative)
+  const aggregatedData = useMemo(() => {
+    return aggregateCreativesData(data, isSingleDay);
+  }, [data, isSingleDay]);
+
   // Combined Single Filtered Dataset
   const filteredData = useMemo(() => {
-    return data.filter((row) => {
+    return aggregatedData.filter((row) => {
       // 1. Status Filter
       const rawStatus = row.effective_status || row.ad_effective_status || row.ad_status || row.status || row.adset_status || row.campaign_status;
       let matchesStatus = true;
@@ -78,7 +91,7 @@ export const Creatives = () => {
 
       return matchesStatus && matchesSpend;
     });
-  }, [data, statusFilter, spendFilter]);
+  }, [aggregatedData, statusFilter, spendFilter]);
 
   // Reset pagination to page 1 whenever ANY filter or underlying dataset changes
   useEffect(() => {

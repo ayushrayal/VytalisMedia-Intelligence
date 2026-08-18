@@ -401,7 +401,7 @@ export const CreativeCard = ({ creative, onClick }) => {
         >
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
             <Clock size={11} color="#94A3B8" />
-            <span>{creative.date ? `Updated ${creative.date}` : "Updated"}</span>
+            <span>{creative.date ? (creative.date.includes("–") || creative.date.includes("- ") ? creative.date : `Updated ${creative.date}`) : "Updated"}</span>
           </div>
 
           <div
