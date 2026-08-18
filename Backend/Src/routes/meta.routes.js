@@ -17,6 +17,20 @@ const { protect } = require("../middleware/auth.middleware");
 router.use(protect);
 
 /**
+ * @route   GET /api/meta/preferences/creative-card
+ * @desc    Fetch customizable creative card KPI preferences
+ * @access  Private
+ */
+router.get("/preferences/creative-card", metaController.getCreativeCardPreferences);
+
+/**
+ * @route   PUT /api/meta/preferences/creative-card
+ * @desc    Update customizable creative card KPI preferences
+ * @access  Private
+ */
+router.put("/preferences/creative-card", metaController.updateCreativeCardPreferences);
+
+/**
  * @route   GET /api/meta/campaigns/:campaignId/details
  * @desc    Fetch Meta campaign details, ad sets, creatives, and performance breakdown
  * @access  Private

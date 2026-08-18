@@ -180,6 +180,46 @@ const setActiveAccount = async (req, res, next) => {
   }
 };
 
+/**
+ * Handles request to retrieve customizable creative card KPI preferences.
+ * Endpoint: GET /api/meta/preferences/creative-card
+ */
+const getCreativeCardPreferences = async (req, res, next) => {
+  try {
+    const preferences = await metaService.getCreativeCardPreferences(req.user._id);
+    return sendSuccess(
+      res,
+      200,
+      "Creative card preferences retrieved successfully.",
+      preferences
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Handles request to update customizable creative card KPI preferences.
+ * Endpoint: PUT /api/meta/preferences/creative-card
+ */
+const updateCreativeCardPreferences = async (req, res, next) => {
+  try {
+    const { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates } = req.body;
+    const updatedPreferences = await metaService.updateCreativeCardPreferences(
+      req.user._id,
+      { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates }
+    );
+    return sendSuccess(
+      res,
+      200,
+      "Creative card preferences updated successfully.",
+      updatedPreferences
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   addAccount,
   getAllAccounts,
@@ -190,6 +230,8 @@ module.exports = {
   getAnalyticsData,
   getCampaignDetails,
   setActiveAccount,
+  getCreativeCardPreferences,
+  updateCreativeCardPreferences,
 };
 
 

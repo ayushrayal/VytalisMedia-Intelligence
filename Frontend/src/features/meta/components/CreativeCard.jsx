@@ -1,7 +1,10 @@
 import React from "react";
 import StatusBadge from "./StatusBadge.jsx";
-import { formatNumber } from "../../../utils/formatNumber.js";
-import { formatCurrency } from "../../../utils/formatCurrency.js";
+import {
+  ALL_CREATIVE_KPIS_MAP,
+  DEFAULT_CREATIVE_CARD_PREFERENCES,
+  formatKpiDisplayValue,
+} from "../config/creativeKpis.config.js";
 import { getActionValue } from "../utils/actionParser.js";
 import {
   Wallet,
@@ -135,7 +138,7 @@ const isValidUrl = (url) => {
 /**
  * CreativeCard Component.
  */
-export const CreativeCard = ({ creative, onClick }) => {
+export const CreativeCard = ({ creative, onClick, preferences }) => {
   if (!creative) return null;
 
   const isVideo = isCreativeVideo(creative);
@@ -147,28 +150,30 @@ export const CreativeCard = ({ creative, onClick }) => {
     creative.effective_status || creative.ad_status || creative.status || "ACTIVE";
 
   const currency = creative.currency || "INR";
-  const spend = getActionValue(creative.spend || creative.amount_spent);
-  const purchases = getActionValue(creative.purchases || creative.actions_omni_purchase);
 
-  const purchaseRoas = getActionValue(
-    creative.purchase_roas || creative.purchase_roas_omni_purchase
-  );
-  const costPerResult = getActionValue(
-    creative.cost_per_result || creative.cost_per_action_type_omni_purchase
-  );
+  // Selected KPI definitions
+  const activePrimaryKeys = preferences?.primaryMetrics && preferences.primaryMetrics.length > 0
+    ? preferences.primaryMetrics
+    : DEFAULT_CREATIVE_CARD_PREFERENCES.primaryMetrics;
 
-  const formattedCostPerResult =
-    costPerResult !== null && costPerResult !== undefined && !isNaN(Number(costPerResult)) && Number(costPerResult) > 0
-      ? formatCurrency(costPerResult, currency)
-      : "--";
+  const activeVideoKeys = preferences?.videoMetrics && preferences.videoMetrics.length > 0
+    ? preferences.videoMetrics
+    : DEFAULT_CREATIVE_CARD_PREFERENCES.videoMetrics;
 
-  const formattedPurchaseRoas =
-    purchaseRoas !== null && purchaseRoas !== undefined && !isNaN(Number(purchaseRoas)) && Number(purchaseRoas) > 0
-      ? `${Number(purchaseRoas).toFixed(2).replace(/\.00$/, "")}x`
-      : "--";
+  const primaryKpiDefs = activePrimaryKeys
+    .map((key) => ALL_CREATIVE_KPIS_MAP[key])
+    .filter(Boolean);
 
-  const fbUrl = isValidUrl(creative.facebook_permalink_url) ? creative.facebook_permalink_url.trim() : null;
-  const igUrl = isValidUrl(creative.instagram_permalink_url) ? creative.instagram_permalink_url.trim() : null;
+  const videoKpiDefs = activeVideoKeys
+    .map((key) => ALL_CREATIVE_KPIS_MAP[key])
+    .filter(Boolean);
+
+  const showFbPref = preferences?.showFacebookLink !== undefined ? Boolean(preferences.showFacebookLink) : DEFAULT_CREATIVE_CARD_PREFERENCES.showFacebookLink;
+  const showIgPref = preferences?.showInstagramLink !== undefined ? Boolean(preferences.showInstagramLink) : DEFAULT_CREATIVE_CARD_PREFERENCES.showInstagramLink;
+  const showHookHoldPref = preferences?.showHookHoldRates !== undefined ? Boolean(preferences.showHookHoldRates) : DEFAULT_CREATIVE_CARD_PREFERENCES.showHookHoldRates;
+
+  const fbUrl = showFbPref && isValidUrl(creative.facebook_permalink_url) ? creative.facebook_permalink_url.trim() : null;
+  const igUrl = showIgPref && isValidUrl(creative.instagram_permalink_url) ? creative.instagram_permalink_url.trim() : null;
 
   return (
     <div
@@ -352,123 +357,44 @@ export const CreativeCard = ({ creative, onClick }) => {
           </div>
         </div>
 
-        {/* 3. FOUR PRIMARY PERFORMANCE METRICS (2 x 2 GRID) */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "8px",
-          }}
-        >
-          {/* Amount Spent */}
+        {/* 3. DYNAMIC PRIMARY PERFORMANCE METRICS (2-COLUMN GRID) */}
+        {primaryKpiDefs.length > 0 && (
           <div
             style={{
-              backgroundColor: "#F8FAFC",
-              border: "1px solid #F1F5F9",
-              borderRadius: "8px",
-              padding: "8px 10px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "3px",
+              display: "grid",
+              gridTemplateColumns: primaryKpiDefs.length === 1 ? "1fr" : "1fr 1fr",
+              gap: "8px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <div
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "50%",
-                  backgroundColor: "rgba(10, 132, 255, 0.08)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#0A84FF",
-                  flexShrink: 0,
-                }}
-              >
-                <Wallet size={11} strokeWidth={2.2} />
-              </div>
-              <span style={{ fontSize: "11px", color: "#64748B", fontWeight: "500" }}>Spend</span>
-            </div>
-            <div style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A" }}>
-              {formatCurrency(spend, currency)}
-            </div>
+            {primaryKpiDefs.map((kpiDef) => {
+              const formattedVal = formatKpiDisplayValue(kpiDef, creative, currency);
+              return (
+                <div
+                  key={kpiDef.id}
+                  style={{
+                    backgroundColor: "#F8FAFC",
+                    border: "1px solid #F1F5F9",
+                    borderRadius: "8px",
+                    padding: "8px 10px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "3px",
+                  }}
+                >
+                  <span style={{ fontSize: "11px", color: "#64748B", fontWeight: "500" }}>
+                    {kpiDef.label}
+                  </span>
+                  <div style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A" }}>
+                    {formattedVal}
+                  </div>
+                </div>
+              );
+            })}
           </div>
+        )}
 
-          {/* Purchases / Results */}
-          <div
-            style={{
-              backgroundColor: "#F8FAFC",
-              border: "1px solid #F1F5F9",
-              borderRadius: "8px",
-              padding: "8px 10px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "3px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <div
-                style={{
-                  width: "20px",
-                  height: "20px",
-                  borderRadius: "50%",
-                  backgroundColor: "rgba(16, 185, 129, 0.08)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#10B981",
-                  flexShrink: 0,
-                }}
-              >
-                <ShoppingCart size={11} strokeWidth={2.2} />
-              </div>
-              <span style={{ fontSize: "11px", color: "#64748B", fontWeight: "500" }}>Purchases</span>
-            </div>
-            <div style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A" }}>
-              {formatNumber(purchases)}
-            </div>
-          </div>
-
-          {/* Cost per Result */}
-          <div
-            style={{
-              backgroundColor: "#F8FAFC",
-              border: "1px solid #F1F5F9",
-              borderRadius: "8px",
-              padding: "8px 10px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "3px",
-            }}
-          >
-            <span style={{ fontSize: "11px", color: "#64748B", fontWeight: "500" }}>Cost / Result</span>
-            <div style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A" }}>
-              {formattedCostPerResult}
-            </div>
-          </div>
-
-          {/* Purchase ROAS */}
-          <div
-            style={{
-              backgroundColor: "#F8FAFC",
-              border: "1px solid #F1F5F9",
-              borderRadius: "8px",
-              padding: "8px 10px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "3px",
-            }}
-          >
-            <span style={{ fontSize: "11px", color: "#64748B", fontWeight: "500" }}>ROAS</span>
-            <div style={{ fontSize: "13px", fontWeight: "700", color: "#10B981" }}>
-              {formattedPurchaseRoas}
-            </div>
-          </div>
-        </div>
-
-        {/* Video Hook & Hold Rate Row (ONLY for Video Creatives) */}
-        {isVideo && (
+        {/* 4. DYNAMIC VIDEO METRICS ROW (ONLY for Video Creatives & when enabled) */}
+        {isVideo && showHookHoldPref && videoKpiDefs.length > 0 && (
           <div
             style={{
               backgroundColor: "#F8FAFC",
@@ -481,22 +407,17 @@ export const CreativeCard = ({ creative, onClick }) => {
               fontSize: "11px",
             }}
           >
-            <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-              <span style={{ color: "#64748B", fontWeight: "500" }}>Hook:</span>
-              <strong style={{ color: "#8B5CF6", fontWeight: "700" }}>
-                {getHookRate(creative) !== null && getHookRate(creative) !== undefined
-                  ? `${Number(getHookRate(creative)).toFixed(2).replace(/\.00$/, "")}%`
-                  : "--"}
-              </strong>
-            </div>
-            <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
-              <span style={{ color: "#64748B", fontWeight: "500" }}>Hold:</span>
-              <strong style={{ color: "#EC4899", fontWeight: "700" }}>
-                {getHoldRate(creative) !== null && getHoldRate(creative) !== undefined
-                  ? `${Number(getHoldRate(creative)).toFixed(2).replace(/\.00$/, "")}%`
-                  : "--"}
-              </strong>
-            </div>
+            {videoKpiDefs.map((kpiDef) => {
+              const formattedVal = formatKpiDisplayValue(kpiDef, creative, currency);
+              return (
+                <div key={kpiDef.id} style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                  <span style={{ color: "#64748B", fontWeight: "500" }}>{kpiDef.label}:</span>
+                  <strong style={{ color: "#8B5CF6", fontWeight: "700" }}>
+                    {formattedVal}
+                  </strong>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -559,7 +480,7 @@ export const CreativeCard = ({ creative, onClick }) => {
           </div>
         )}
 
-        {/* 4. CARD FOOTER */}
+        {/* 5. CARD FOOTER */}
         <div
           style={{
             borderTop: "1px solid #F1F5F9",

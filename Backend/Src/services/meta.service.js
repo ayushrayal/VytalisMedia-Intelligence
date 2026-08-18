@@ -326,6 +326,70 @@ const setActiveMetaAccount = async (userId, accountId) => {
   };
 };
 
+/**
+ * Retrieves customizable creative card KPI preferences for authenticated user.
+ */
+const getCreativeCardPreferences = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    const err = new Error("User not found");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const defaultPrimary = ["spend", "purchases", "cost_per_result", "purchase_roas"];
+  const defaultVideo = ["hook_rate", "hold_rate"];
+
+  const prefs = user.preferences?.creativeCardPreferences || {};
+
+  return {
+    primaryMetrics: Array.isArray(prefs.primaryMetrics) && prefs.primaryMetrics.length > 0
+      ? prefs.primaryMetrics
+      : defaultPrimary,
+    videoMetrics: Array.isArray(prefs.videoMetrics) && prefs.videoMetrics.length > 0
+      ? prefs.videoMetrics
+      : defaultVideo,
+    showFacebookLink: prefs.showFacebookLink !== undefined ? Boolean(prefs.showFacebookLink) : true,
+    showInstagramLink: prefs.showInstagramLink !== undefined ? Boolean(prefs.showInstagramLink) : true,
+    showHookHoldRates: prefs.showHookHoldRates !== undefined ? Boolean(prefs.showHookHoldRates) : true,
+  };
+};
+
+/**
+ * Updates customizable creative card KPI preferences for authenticated user.
+ */
+const updateCreativeCardPreferences = async (userId, { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates }) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    const err = new Error("User not found");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const defaultPrimary = ["spend", "purchases", "cost_per_result", "purchase_roas"];
+  const defaultVideo = ["hook_rate", "hold_rate"];
+
+  if (!user.preferences) {
+    user.preferences = {};
+  }
+
+  user.preferences.creativeCardPreferences = {
+    primaryMetrics: Array.isArray(primaryMetrics) && primaryMetrics.length > 0
+      ? primaryMetrics.slice(0, 4)
+      : defaultPrimary,
+    videoMetrics: Array.isArray(videoMetrics) && videoMetrics.length > 0
+      ? videoMetrics.slice(0, 2)
+      : defaultVideo,
+    showFacebookLink: showFacebookLink !== undefined ? Boolean(showFacebookLink) : true,
+    showInstagramLink: showInstagramLink !== undefined ? Boolean(showInstagramLink) : true,
+    showHookHoldRates: showHookHoldRates !== undefined ? Boolean(showHookHoldRates) : true,
+  };
+
+  await user.save();
+
+  return user.preferences.creativeCardPreferences;
+};
+
 module.exports = {
   addMetaAccount,
   getAllMetaAccounts,
@@ -334,4 +398,6 @@ module.exports = {
   deleteMetaAccount,
   deleteAllMetaAccounts,
   setActiveMetaAccount,
+  getCreativeCardPreferences,
+  updateCreativeCardPreferences,
 };

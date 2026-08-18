@@ -52,6 +52,19 @@ const userSchema = new mongoose.Schema(
     preferences: {
       activeMetaAccount: { type: String, default: null },
       activeShopifyAccount: { type: String, default: null },
+      creativeCardPreferences: {
+        primaryMetrics: {
+          type: [String],
+          default: ["spend", "purchases", "cost_per_result", "purchase_roas"],
+        },
+        videoMetrics: {
+          type: [String],
+          default: ["hook_rate", "hold_rate"],
+        },
+        showFacebookLink: { type: Boolean, default: true },
+        showInstagramLink: { type: Boolean, default: true },
+        showHookHoldRates: { type: Boolean, default: true },
+      },
     },
   },
   {
