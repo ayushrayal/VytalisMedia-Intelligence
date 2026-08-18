@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import StatusBadge from "./StatusBadge.jsx";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
+import { getHookRate, getHoldRate } from "./VideoPerformanceSection.jsx";
 
 /**
  * Helper to accurately detect whether a creative object is a video or an image.
@@ -385,6 +386,39 @@ export const CreativeCard = ({ creative, onClick }) => {
             </div>
           </div>
         </div>
+
+        {/* Video Hook & Hold Rate Row */}
+        {isVideo && (
+          <div
+            style={{
+              backgroundColor: "#F8FAFC",
+              border: "1px solid #F1F5F9",
+              borderRadius: "8px",
+              padding: "6px 10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontSize: "11px",
+            }}
+          >
+            <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+              <span style={{ color: "#64748B", fontWeight: "500" }}>Hook:</span>
+              <strong style={{ color: "#8B5CF6", fontWeight: "700" }}>
+                {getHookRate(creative) !== null && getHookRate(creative) !== undefined
+                  ? `${Number(getHookRate(creative)).toFixed(2).replace(/\.00$/, "")}%`
+                  : "--"}
+              </strong>
+            </div>
+            <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+              <span style={{ color: "#64748B", fontWeight: "500" }}>Hold:</span>
+              <strong style={{ color: "#EC4899", fontWeight: "700" }}>
+                {getHoldRate(creative) !== null && getHoldRate(creative) !== undefined
+                  ? `${Number(getHoldRate(creative)).toFixed(2).replace(/\.00$/, "")}%`
+                  : "--"}
+              </strong>
+            </div>
+          </div>
+        )}
 
         {/* 4. CARD FOOTER */}
         <div

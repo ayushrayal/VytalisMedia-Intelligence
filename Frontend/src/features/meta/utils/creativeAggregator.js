@@ -6,11 +6,12 @@
  *   Returns records exactly as received (no aggregation, no averaging).
  * 
  * - MULTI-DAY DATE RANGE ("last_7d", "last_30d", "this_month", custom multi-day range):
- *   Groups records belonging to the same creative/ad ID into ONE card.
- *   - Amount Spent / Spend: SUM
- *   - All other performance metrics: AVERAGE across available daily records (ignoring null/missing values)
+ *   Groups records belonging to the same creative using Creative ID -> video_id -> ad_id hierarchy.
+ *   - Cumulative Count / Monetary metrics: SUM
+ *   - Average Watch Time: WEIGHTED AVERAGE based on Video Plays
+ *   - Derived Rates (Hook Rate, Hold Rate, CTR, CPC, CPM, ROAS, Cost per Result): Calculated from aggregated totals
  *   - Non-numeric metadata: Preserved from primary record
- *   - Date: Formatted as "YYYY-MM-DD – YYYY-MM-DD"
+ *   - Date: Formatted as "minDate – maxDate"
  */
 
 /**
@@ -60,21 +61,18 @@ export const extractNumericValue = (val) => {
  */
 export const checkIsSingleDay = (dateParams, records) => {
   if (dateParams) {
-    // Custom range: single day if dateFrom === dateTo
     if (dateParams.dateFrom && dateParams.dateTo) {
       return dateParams.dateFrom === dateParams.dateTo;
     }
 
-    // Presets
     if (dateParams.datePreset) {
       if (dateParams.datePreset === "today" || dateParams.datePreset === "yesterday") {
         return true;
       }
-      return false; // "last_7d", "last_30d", "this_month", etc. are multi-day
+      return false;
     }
   }
 
-  // Fallback check on dataset dates if dateParams is unpopulated
   if (Array.isArray(records) && records.length > 0) {
     const uniqueDates = new Set(records.map((r) => r.date).filter(Boolean));
     return uniqueDates.size <= 1;
@@ -84,52 +82,134 @@ export const checkIsSingleDay = (dateParams, records) => {
 };
 
 /**
- * Aggregates creative records by unique creative/ad ID for multi-day date ranges.
+ * Extracts unique identity grouping key based on strict fallback hierarchy:
+ * 1. creativeId (creative_id / creativeId)
+ * 2. videoId (video_id / videoId)
+ * 3. adId (ad_id / adId / id)
+ */
+export const getCreativeGroupKey = (record) => {
+  if (!record) return "creative";
+
+  const creativeId = record.creative_id || record.creativeId;
+  if (
+    creativeId !== null &&
+    creativeId !== undefined &&
+    String(creativeId).trim() !== "" &&
+    String(creativeId) !== "null" &&
+    String(creativeId) !== "undefined"
+  ) {
+    return `creative_${String(creativeId).trim()}`;
+  }
+
+  const videoId = record.video_id || record.videoId;
+  if (
+    videoId !== null &&
+    videoId !== undefined &&
+    String(videoId).trim() !== "" &&
+    String(videoId) !== "null" &&
+    String(videoId) !== "undefined"
+  ) {
+    return `video_${String(videoId).trim()}`;
+  }
+
+  const adId = record.ad_id || record.adId || record.id;
+  if (
+    adId !== null &&
+    adId !== undefined &&
+    String(adId).trim() !== "" &&
+    String(adId) !== "null" &&
+    String(adId) !== "undefined"
+  ) {
+    return `ad_${String(adId).trim()}`;
+  }
+
+  return "creative_fallback";
+};
+
+/**
+ * Aggregates creative records by unique creative identity for multi-day date ranges.
  * 
  * @param {Array} records - Array of raw creative performance records
  * @param {boolean} isSingleDay - Whether the date range is a single calendar day
- * @returns {Array} Array of aggregated creative objects (1 per unique creative/ad)
+ * @returns {Array} Array of aggregated creative objects (1 per unique creative)
  */
 export const aggregateCreativesData = (records, isSingleDay) => {
   if (!Array.isArray(records) || records.length === 0) {
     return [];
   }
 
-  // 1. Single-day range: return records directly without aggregation or averaging
+  // 1. Single-day range: return raw records directly without aggregation
   if (isSingleDay) {
     return records;
   }
 
-  // 2. Multi-day range: group records by unique creative/ad ID using O(N) Map
+  // 2. Multi-day range: group records by unique creative identity using O(N) Map
   const grouped = new Map();
 
   for (const record of records) {
     if (!record) continue;
-
-    // Unique identity key: ad_id -> creative_id -> id -> ad_name -> creative_name -> name
-    const key = String(
-      record.ad_id ||
-      record.creative_id ||
-      record.id ||
-      record.ad_name ||
-      record.creative_name ||
-      record.name ||
-      "creative"
-    ).trim();
-
+    const key = getCreativeGroupKey(record);
     if (!grouped.has(key)) {
       grouped.set(key, []);
     }
     grouped.get(key).push(record);
   }
 
-  // 3. Aggregate each group into a single creative card object
   const aggregatedResult = [];
 
-  // Keys that naturally sum (monetary spend totals)
-  const sumKeys = new Set(["spend", "amount_spent"]);
+  // Metrics that must be SUMMED across days (including verified Windsor field names)
+  const sumKeys = new Set([
+    "spend",
+    "amount_spent",
+    "purchases",
+    "actions_omni_purchase",
+    "purchase_conversion_value",
+    "action_values_omni_purchase",
+    "reach",
+    "impressions",
+    "clicks",
+    "link_clicks",
+    "link_click_actions",
+    "inline_link_clicks",
+    "actions_add_to_cart",
+    "add_to_cart",
+    "actions_initiate_checkout",
+    "initiate_checkout",
+    "video_play_actions_video_view",
+    "video_play_actions",
+    "video_views",
+    "video_plays",
+    "actions_video_view",
+    "video_3_sec_watched_actions",
+    "video_3_sec_views",
+    "video_3_sec_watched",
+    "video_thruplay_watched_actions_video_view",
+    "video_thruplay_watched_actions",
+    "video_thruplay_watched",
+    "thruplay",
+    "video_p25_watched_actions_video_view",
+    "video_p25_watched_actions",
+    "video_p25_watched",
+    "p25",
+    "video_p50_watched_actions_video_view",
+    "video_p50_watched_actions",
+    "video_p50_watched",
+    "p50",
+    "video_p75_watched_actions_video_view",
+    "video_p75_watched_actions",
+    "video_p75_watched",
+    "p75",
+    "video_p95_watched_actions_video_view",
+    "video_p95_watched_actions",
+    "video_p95_watched",
+    "p95",
+    "video_p100_watched_actions_video_view",
+    "video_p100_watched_actions",
+    "video_p100_watched",
+    "p100",
+  ]);
 
-  // Metadata / Identity / URL keys to preserve without numeric averaging
+  // Keys that are metadata/identity and should be preserved from primary record
   const metadataKeys = new Set([
     "ad_id",
     "creative_id",
@@ -162,16 +242,31 @@ export const aggregateCreativesData = (records, isSingleDay) => {
     "date",
   ]);
 
+  // Special rate keys that will be recalculated from aggregated totals
+  const derivedRateKeys = new Set([
+    "ctr",
+    "cpc",
+    "cpm",
+    "purchase_roas",
+    "cost_per_result",
+    "frequency",
+    "hook_rate",
+    "hold_rate",
+    "unique_outbound_clicks_ctr_outbound_click",
+    "unique_outbound_clicks_ctr",
+  ]);
+
+  // Watch time keys (handled via weighted average)
+  const watchTimeKeys = new Set([
+    "video_avg_time_watched_actions_video_view",
+    "video_avg_time_watched_actions",
+    "video_avg_time_watched",
+    "avg_watch_time",
+  ]);
+
   grouped.forEach((groupRecords) => {
     if (groupRecords.length === 0) return;
 
-    // Single record in multi-day group: no aggregation needed
-    if (groupRecords.length === 1) {
-      aggregatedResult.push(groupRecords[0]);
-      return;
-    }
-
-    // Base object built from primary record
     const primaryRecord = groupRecords[0];
     const aggregated = { ...primaryRecord };
 
@@ -191,32 +286,142 @@ export const aggregateCreativesData = (records, isSingleDay) => {
     const allKeys = new Set();
     groupRecords.forEach((r) => Object.keys(r).forEach((k) => allKeys.add(k)));
 
+    // 1. Sum additive count metrics
     allKeys.forEach((keyName) => {
-      if (metadataKeys.has(keyName)) return;
+      if (metadataKeys.has(keyName) || derivedRateKeys.has(keyName) || watchTimeKeys.has(keyName)) {
+        return;
+      }
 
-      const isSumMetric = sumKeys.has(keyName);
+      if (sumKeys.has(keyName)) {
+        const validValues = groupRecords
+          .map((r) => extractNumericValue(r[keyName]))
+          .filter((val) => val !== null && !isNaN(val));
 
-      // Extract valid numeric values across available daily records
+        if (validValues.length > 0) {
+          aggregated[keyName] = validValues.reduce((a, b) => a + b, 0);
+        } else if (!(keyName in primaryRecord)) {
+          aggregated[keyName] = null;
+        }
+      }
+    });
+
+    // Explicitly SUM all standard sum metric keys if present in any record
+    sumKeys.forEach((keyName) => {
       const validValues = groupRecords
         .map((r) => extractNumericValue(r[keyName]))
         .filter((val) => val !== null && !isNaN(val));
 
       if (validValues.length > 0) {
-        if (isSumMetric) {
-          // SUM for monetary spend
-          aggregated[keyName] = validValues.reduce((a, b) => a + b, 0);
-        } else {
-          // AVERAGE for all other performance metrics (ignoring missing/null records in denominator)
-          const sum = validValues.reduce((a, b) => a + b, 0);
-          aggregated[keyName] = sum / validValues.length;
-        }
-      } else {
-        // If no record had valid numeric data for this field, preserve null/original
-        if (!(keyName in primaryRecord)) {
-          aggregated[keyName] = null;
-        }
+        aggregated[keyName] = validValues.reduce((a, b) => a + b, 0);
       }
     });
+
+    // 2. Calculate Weighted Average Watch Time: SUM(avgWatchTime * videoPlays) / SUM(videoPlays)
+    let weightedWatchTimeSum = 0;
+    let watchTimePlaysSum = 0;
+    let hasValidWatchRecord = false;
+
+    for (const r of groupRecords) {
+      const plays = extractNumericValue(
+        r.video_play_actions_video_view || r.video_play_actions || r.video_views || r.video_plays
+      );
+      const watchTime = extractNumericValue(
+        r.video_avg_time_watched_actions_video_view ||
+        r.video_avg_time_watched_actions ||
+        r.video_avg_time_watched ||
+        r.avg_watch_time
+      );
+
+      if (plays !== null && plays > 0 && watchTime !== null && watchTime >= 0) {
+        hasValidWatchRecord = true;
+        weightedWatchTimeSum += plays * watchTime;
+        watchTimePlaysSum += plays;
+      }
+    }
+
+    if (hasValidWatchRecord && watchTimePlaysSum > 0) {
+      const rawAvg = weightedWatchTimeSum / watchTimePlaysSum;
+      const formattedAvg = Math.round(rawAvg * 100) / 100;
+      aggregated.video_avg_time_watched_actions_video_view = formattedAvg;
+      aggregated.video_avg_time_watched_actions = formattedAvg;
+      if ("video_avg_time_watched" in primaryRecord || "video_avg_time_watched" in aggregated) {
+        aggregated.video_avg_time_watched = formattedAvg;
+      }
+      if ("avg_watch_time" in primaryRecord || "avg_watch_time" in aggregated) {
+        aggregated.avg_watch_time = formattedAvg;
+      }
+    } else {
+      aggregated.video_avg_time_watched_actions_video_view = primaryRecord.video_avg_time_watched_actions_video_view ?? null;
+      aggregated.video_avg_time_watched_actions = primaryRecord.video_avg_time_watched_actions ?? null;
+    }
+
+    // 3. Recalculate derived rates from aggregated totals
+    const totalSpend = extractNumericValue(aggregated.spend || aggregated.amount_spent);
+    const totalImpressions = extractNumericValue(aggregated.impressions);
+    const totalClicks = extractNumericValue(aggregated.clicks);
+    const totalPurchases = extractNumericValue(aggregated.purchases || aggregated.actions_omni_purchase);
+    const totalPurchaseValue = extractNumericValue(aggregated.purchase_conversion_value || aggregated.action_values_omni_purchase);
+    const totalReach = extractNumericValue(aggregated.reach);
+
+    // Verified Windsor 3-sec plays (actions_video_view)
+    const total3SecPlays = extractNumericValue(
+      aggregated.actions_video_view || aggregated.video_3_sec_watched_actions || aggregated.video_3_sec_views
+    );
+
+    // Verified Windsor ThruPlay (video_thruplay_watched_actions_video_view)
+    const totalThruplay = extractNumericValue(
+      aggregated.video_thruplay_watched_actions_video_view || aggregated.video_thruplay_watched_actions || aggregated.thruplay
+    );
+
+    // CTR
+    aggregated.ctr =
+      totalImpressions !== null && totalImpressions > 0 && totalClicks !== null
+        ? (totalClicks / totalImpressions) * 100
+        : null;
+
+    // CPC
+    aggregated.cpc =
+      totalClicks !== null && totalClicks > 0 && totalSpend !== null
+        ? totalSpend / totalClicks
+        : null;
+
+    // CPM
+    aggregated.cpm =
+      totalImpressions !== null && totalImpressions > 0 && totalSpend !== null
+        ? (totalSpend / totalImpressions) * 1000
+        : null;
+
+    // Purchase ROAS
+    aggregated.purchase_roas =
+      totalSpend !== null && totalSpend > 0 && totalPurchaseValue !== null
+        ? totalPurchaseValue / totalSpend
+        : null;
+
+    // Cost per Result
+    aggregated.cost_per_result =
+      totalPurchases !== null && totalPurchases > 0 && totalSpend !== null
+        ? totalSpend / totalPurchases
+        : null;
+
+    // Frequency
+    aggregated.frequency =
+      totalReach !== null && totalReach > 0 && totalImpressions !== null
+        ? totalImpressions / totalReach
+        : null;
+
+    // Hook Rate = (3-Second Video Plays / Impressions) * 100
+    if (total3SecPlays !== null && total3SecPlays > 0 && totalImpressions !== null && totalImpressions > 0) {
+      aggregated.hook_rate = Math.round(((total3SecPlays / totalImpressions) * 100) * 100) / 100;
+    } else {
+      aggregated.hook_rate = null;
+    }
+
+    // Hold Rate = (ThruPlay / 3-Second Video Plays) * 100
+    if (totalThruplay !== null && totalThruplay > 0 && total3SecPlays !== null && total3SecPlays > 0) {
+      aggregated.hold_rate = Math.round(((totalThruplay / total3SecPlays) * 100) * 100) / 100;
+    } else {
+      aggregated.hold_rate = null;
+    }
 
     aggregatedResult.push(aggregated);
   });
