@@ -15,6 +15,27 @@ router.use(requireAdmin);
 router.get("/users", adminController.getAllUsers);
 
 /**
+ * @route   POST /api/admin/users
+ * @desc    Admin creates a new Client user with assigned Meta account
+ * @access  Private (Admin Only)
+ */
+router.post("/users", adminController.createUser);
+
+/**
+ * @route   DELETE /api/admin/users/:userId
+ * @desc    Permanently delete a user account
+ * @access  Private (Admin Only)
+ */
+router.delete("/users/:userId", adminController.deleteUser);
+
+/**
+ * @route   PATCH /api/admin/users/:userId/role
+ * @desc    Promote client to Admin or demote Admin to Client (Root Admin only)
+ * @access  Private (Root Admin Only)
+ */
+router.patch("/users/:userId/role", adminController.updateUserRole);
+
+/**
  * @route   PATCH /api/admin/users/:userId/features
  * @desc    Toggle Shopify and Attribution feature access for a specific user
  * @access  Private (Admin Only)

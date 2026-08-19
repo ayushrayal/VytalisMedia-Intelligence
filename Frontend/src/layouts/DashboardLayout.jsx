@@ -527,7 +527,7 @@ export const DashboardLayout = ({ user, setUser }) => {
 
       {/* Main Content Area */}
       <main style={{ flex: 1, padding: "28px 32px", overflowY: "auto", minWidth: 0 }}>
-        <Outlet />
+        <Outlet context={{ user, setUser }} />
       </main>
 
       {/* Logout Confirmation Modal */}

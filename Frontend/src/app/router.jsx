@@ -280,7 +280,7 @@ const AdminRouteGuard = ({ user }) => {
   if (!user || user.role !== "admin") {
     return <Navigate to="/overview" replace />;
   }
-  return <UserManagement />;
+  return <UserManagement currentUser={user} />;
 };
 
 const ShopifyRouteGuard = ({ user }) => {

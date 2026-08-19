@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { http } from "../../../lib/http.js";
 import { Input } from "../../../components/ui/Input.jsx";
 import { Button } from "../../../components/ui/Button.jsx";
-import { User, CheckCircle2, Shield, Sparkles, X, KeyRound } from "lucide-react";
+import { User, CheckCircle2, Shield, Crown, Sparkles, X, KeyRound } from "lucide-react";
 
 /**
  * Profile Page Component.
@@ -52,7 +52,10 @@ export const Profile = ({ user, setUser }) => {
 
         setIsModalOpen(false);
         setUpgradeKey("");
-        setSuccessMessage("Account role upgraded to Administrator successfully!");
+        const msg = res.data.user?.isRootAdmin
+          ? "Account successfully designated as Root Administrator!"
+          : "Account role upgraded to Administrator successfully!";
+        setSuccessMessage(msg);
         setTimeout(() => setSuccessMessage(""), 5000);
       }
     } catch (err) {
@@ -159,7 +162,25 @@ export const Profile = ({ user, setUser }) => {
               >
                 {user?.name || "Vytalis User"}
               </span>
-              {isAdmin ? (
+              {user?.isRootAdmin ? (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "3px 9px",
+                    backgroundColor: "rgba(124, 58, 237, 0.12)",
+                    color: "#7C3AED",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    borderRadius: "6px",
+                    border: "1px solid rgba(124, 58, 237, 0.25)",
+                  }}
+                >
+                  <Crown size={13} />
+                  Root Administrator
+                </span>
+              ) : isAdmin ? (
                 <span
                   style={{
                     display: "inline-flex",
@@ -273,8 +294,8 @@ export const Profile = ({ user, setUser }) => {
         </div>
       </div>
 
-      {/* CARD 2: UPGRADE YOUR ROLE (CLIENT ONLY) */}
-      {!isAdmin && (
+      {/* CARD 2: UPGRADE YOUR ROLE */}
+      {!user?.isRootAdmin && (
         <div
           style={{
             backgroundColor: "#FFFFFF",

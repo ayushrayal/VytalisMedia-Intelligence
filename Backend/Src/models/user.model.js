@@ -52,6 +52,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isRootAdmin: {
+      type: Boolean,
+      default: false,
+    },
+    lastActiveAt: {
+      type: Date,
+      default: null,
+    },
     rbacMigrated: {
       type: Boolean,
       default: true,
@@ -124,6 +132,8 @@ userSchema.set("toJSON", {
     ret.role = ret.role || "client";
     ret.shopifyEnabled = Boolean(ret.shopifyEnabled);
     ret.attributionEnabled = Boolean(ret.attributionEnabled);
+    ret.isRootAdmin = Boolean(ret.isRootAdmin);
+    ret.lastActiveAt = ret.lastActiveAt || null;
     return ret;
   },
 });

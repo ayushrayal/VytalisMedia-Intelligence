@@ -1,3 +1,4 @@
+const User = require("../models/user.model");
 const { sendSuccess, sendError } = require("../utils/api-response.util");
 const logger = require("../utils/logger.util");
 
@@ -8,7 +9,7 @@ const logger = require("../utils/logger.util");
 const getProfile = async (req, res, next) => {
   try {
     return sendSuccess(res, 200, "Profile retrieved successfully", {
-      user: req.user,
+      user: req.user.toJSON ? req.user.toJSON() : req.user,
       attributionEnabled: Boolean(req.user.attributionEnabled),
     });
   } catch (error) {
@@ -35,13 +36,20 @@ const upgradeRole = async (req, res, next) => {
       return sendError(res, 401, "Invalid administrator access key.");
     }
 
+    const hasExistingRootAdmin = await User.exists({ isRootAdmin: true });
+
     req.user.role = "admin";
+    if (!hasExistingRootAdmin) {
+      req.user.isRootAdmin = true;
+      logger.info(`User ${req.user._id} (${req.user.email}) designated as Root Administrator`);
+    }
+
     await req.user.save();
 
     logger.info(`User ${req.user._id} (${req.user.email}) successfully upgraded to admin role`);
 
     return sendSuccess(res, 200, "Account role successfully upgraded to Administrator", {
-      user: req.user,
+      user: req.user.toJSON(),
     });
   } catch (error) {
     next(error);

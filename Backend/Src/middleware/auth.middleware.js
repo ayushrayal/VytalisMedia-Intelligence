@@ -40,6 +40,16 @@ const protect = async (req, res, next) => {
     }
 
     req.user = user;
+
+    // Throttled lastActiveAt update (updates once every 5 minutes during active API usage)
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    if (!user.lastActiveAt || Date.now() - new Date(user.lastActiveAt).getTime() > FIVE_MINUTES_MS) {
+      user.lastActiveAt = new Date();
+      user.save().catch((err) => {
+        logger.warn(`Failed to update lastActiveAt for user ${user._id}: ${err.message}`);
+      });
+    }
+
     next();
   } catch (error) {
     logger.warn(`Authentication failed: Invalid access token - ${error.message}`);
