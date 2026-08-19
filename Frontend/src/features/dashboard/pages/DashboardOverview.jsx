@@ -435,6 +435,7 @@ export const DashboardOverview = () => {
                       key={cardId}
                       title={cardLabel || m.title}
                       value={shopifyCalculated.hasData ? m.value : "—"}
+                      subtitle={shopifyCalculated.hasData ? m.subtitle : undefined}
                       icon={m.icon}
                       accentColor={m.accentColor}
                     />

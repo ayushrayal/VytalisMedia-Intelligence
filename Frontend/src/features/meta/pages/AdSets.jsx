@@ -9,6 +9,8 @@ import DateFilter from "../components/DateFilter.jsx";
 import SpendFilter from "../components/SpendFilter.jsx";
 import StatusFilter from "../components/StatusFilter.jsx";
 import StatusBadge, { getNormalizedStatus } from "../components/StatusBadge.jsx";
+import AdSetDetailsDrawer from "../components/AdSetDetailsDrawer.jsx";
+import CreativeDetailsDrawer from "../components/CreativeDetailsDrawer.jsx";
 import Pagination from "../../../components/ui/Pagination.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
@@ -18,6 +20,7 @@ import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
 import { getErrorMessage } from "../../../utils/error.js";
+import { aggregateAdSetsData } from "../utils/adsetAggregator.js";
 
 /**
  * AdSets Page Component.
@@ -59,6 +62,23 @@ export const AdSets = () => {
   // Hover state for sticky cell background styling
   const [hoveredIndex, setHoveredIndex] = useState(null);
 
+  // Drawer States
+  const [selectedAdSet, setSelectedAdSet] = useState(null);
+  const [isAdSetDrawerOpen, setIsAdSetDrawerOpen] = useState(false);
+
+  const [selectedCreative, setSelectedCreative] = useState(null);
+  const [isCreativeDrawerOpen, setIsCreativeDrawerOpen] = useState(false);
+
+  const handleRowClick = (row) => {
+    setSelectedAdSet(row);
+    setIsAdSetDrawerOpen(true);
+  };
+
+  const handleSelectCreative = (creative) => {
+    setSelectedCreative(creative);
+    setIsCreativeDrawerOpen(true);
+  };
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -78,9 +98,14 @@ export const AdSets = () => {
     fetchData();
   }, [fetchData]);
 
+  // Aggregated Unique Ad Sets Dataset (grouped by adset_id)
+  const aggregatedData = useMemo(() => {
+    return aggregateAdSetsData(data);
+  }, [data]);
+
   // Derived Filtered Array
   const filteredData = useMemo(() => {
-    return data.filter((row) => {
+    return aggregatedData.filter((row) => {
       const numericSpend = Number(row.spend || 0);
       const matchesSpend = spendFilter === "all" || numericSpend >= Number(spendFilter);
 
@@ -90,7 +115,7 @@ export const AdSets = () => {
 
       return matchesSpend && matchesStatus;
     });
-  }, [data, spendFilter, statusFilter]);
+  }, [aggregatedData, spendFilter, statusFilter]);
 
   // 1. Sort complete dataset FIRST before pagination
   const sortedData = useMemo(() => {
@@ -321,11 +346,13 @@ export const AdSets = () => {
                   return (
                     <tr
                       key={idx}
+                      onClick={() => handleRowClick(row)}
                       onMouseEnter={() => setHoveredIndex(idx)}
                       onMouseLeave={() => setHoveredIndex(null)}
                       style={{
                         borderBottom: "1px solid #E5E7EB",
                         transition: "background-color 0.15s ease",
+                        cursor: "pointer",
                         whiteSpace: "nowrap",
                         backgroundColor: isHovered ? "#F8FAFC" : "transparent",
                       }}
@@ -373,6 +400,24 @@ export const AdSets = () => {
           />
         </div>
       )}
+
+      {/* Ad Set Details Drawer */}
+      <AdSetDetailsDrawer
+        adset={selectedAdSet}
+        isOpen={isAdSetDrawerOpen}
+        onClose={() => setIsAdSetDrawerOpen(false)}
+        dateParams={dateParams}
+        onSelectCreative={handleSelectCreative}
+        spendFilter={spendFilter}
+        statusFilter={statusFilter}
+      />
+
+      {/* Nested Creative Details Drawer */}
+      <CreativeDetailsDrawer
+        creative={selectedCreative}
+        isOpen={isCreativeDrawerOpen}
+        onClose={() => setIsCreativeDrawerOpen(false)}
+      />
     </div>
   );
 };

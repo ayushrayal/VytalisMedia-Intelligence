@@ -68,6 +68,13 @@ const normalizeRowMetrics = (row) => {
   normalized.unique_outbound_clicks_ctr_outbound_click = getNumericOrNull(rawUniqueOutboundCtr);
   normalized.cpm = getNumericOrNull(row.cpm);
 
+  normalized.adset_id = row.adset_id ? String(row.adset_id) : row.adsetId ? String(row.adsetId) : null;
+  normalized.adset_name = row.adset_name || row.adsetName || row.adset || null;
+  normalized.campaign_id = row.campaign_id ? String(row.campaign_id) : row.campaignId ? String(row.campaignId) : null;
+  normalized.campaign_name = row.campaign_name || row.campaign || null;
+  normalized.creative_id = row.creative_id ? String(row.creative_id) : row.creativeId ? String(row.creativeId) : row.ad_id ? String(row.ad_id) : row.adId ? String(row.adId) : row.id ? String(row.id) : null;
+  normalized.creative_name = row.creative_name || row.ad_name || row.name || null;
+
   return normalized;
 };
 
@@ -203,7 +210,8 @@ const fetchAdsets = async ({ activeMetaAccount, datePreset, dateFrom, dateTo, ca
     filters,
   });
 
-  return (rawData || []).map(normalizeRowMetrics);
+  const normalizedRows = (rawData || []).map(normalizeRowMetrics);
+  return normalizeAndAggregateAdSets(normalizedRows, campaignId);
 };
 
 /**
@@ -443,14 +451,26 @@ const normalizeAndAggregateAdSets = (rawAdSets, targetCampaignId, defaultCurrenc
     // Frequency: Do not sum. If reach and impressions available, frequency = impressions / reach
     const frequency = reach !== null && reach > 0 && impressions !== null ? impressions / reach : null;
 
+    const campaignId = rows.find((r) => r.campaign_id || r.campaignId)?.campaign_id || targetCampaignId || "";
+    const campaignName = rows.find((r) => r.campaign || r.campaign_name)?.campaign || rows.find((r) => r.campaign || r.campaign_name)?.campaign_name || "";
+
     aggregatedAdSets.push({
+      ...firstRow,
       id: adsetId,
+      adset_id: adsetId,
       name: adsetName,
+      adset_name: adsetName,
+      campaign_id: campaignId,
+      campaign: campaignName,
+      campaign_name: campaignName,
       status,
+      effective_status: status,
+      adset_status: status,
       spend,
       impressions,
       reach,
       clicks,
+      link_clicks,
       ctr,
       cpc,
       cpm,
@@ -462,6 +482,7 @@ const normalizeAndAggregateAdSets = (rawAdSets, targetCampaignId, defaultCurrenc
       purchase_conversion_value,
       cost_per_result,
       purchase_roas,
+      roas: purchase_roas,
       currency,
     });
   }
@@ -520,6 +541,8 @@ const fetchCampaignDetails = async ({ activeMetaAccount, campaignId, datePreset,
     id: String(cr.ad_id || cr.creative_id || cr.id || ""),
     ad_name: cr.ad_name || cr.creative_name || "Unnamed Creative",
     ad_id: String(cr.ad_id || cr.creative_id || cr.id || ""),
+    adset_id: cr.adset_id ? String(cr.adset_id) : cr.adsetId ? String(cr.adsetId) : null,
+    adset_name: cr.adset_name || cr.adsetName || cr.adset || null,
     effective_status: cr.effective_status || cr.ad_status || cr.status || "ACTIVE",
     media_type: cr.media_type || cr.creative_type || ((
       (cr.video_id && String(cr.video_id).trim() !== "" && String(cr.video_id) !== "null" && String(cr.video_id) !== "0") ||

@@ -11,6 +11,7 @@ import ShopifyLockedState from "../components/ShopifyLockedState.jsx";
 import { formatCurrencyINR } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { getErrorMessage } from "../../../utils/error.js";
+import { calculateShopifyOrderBreakdown } from "../utils/shopify-calculator.jsx";
 import { ShoppingCart, CreditCard, Truck, XCircle, Filter } from "lucide-react";
 
 export const ShopifyOrders = () => {
@@ -66,47 +67,19 @@ export const ShopifyOrders = () => {
   // Calculate Overall Metric Cards based on Date Range
   const metrics = useMemo(() => {
     let totalValue = 0;
-    let prepaidCount = 0;
-    let prepaidValue = 0;
-    let codCount = 0;
-    let codValue = 0;
-    let cancelledCount = 0;
-    let cancelledValue = 0;
-
-    const totalCount = ordersData.length || 1;
+    const totalCount = ordersData.length;
 
     ordersData.forEach((order) => {
       const val = Number(order.order_total_price || order.order_net_sales || 0);
       totalValue += val;
-
-      const finStatus = (order.order_financial_status || "").toUpperCase();
-
-      if (order.order_cancelled_at !== null && order.order_cancelled_at !== undefined && String(order.order_cancelled_at).trim() !== "") {
-        cancelledCount += 1;
-        cancelledValue += val;
-      }
-
-      if (finStatus === "PAID" || order.order_fully_paid === true) {
-        prepaidCount += 1;
-        prepaidValue += val;
-      } else if (finStatus === "PENDING" || order.order_unpaid === true) {
-        codCount += 1;
-        codValue += val;
-      }
     });
 
+    const breakdown = calculateShopifyOrderBreakdown(ordersData, totalCount);
+
     return {
-      totalOrders: ordersData.length,
+      totalOrders: totalCount,
       totalValue,
-      prepaidCount,
-      prepaidValue,
-      prepaidPct: ((prepaidCount / totalCount) * 100).toFixed(1),
-      codCount,
-      codValue,
-      codPct: ((codCount / totalCount) * 100).toFixed(1),
-      cancelledCount,
-      cancelledValue,
-      cancelledPct: ((cancelledCount / totalCount) * 100).toFixed(1),
+      ...breakdown,
     };
   }, [ordersData]);
 

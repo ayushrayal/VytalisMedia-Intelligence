@@ -54,7 +54,7 @@ export const calculateShopifyOrderBreakdown = (ordersData = [], totalOrdersCount
 
     if (order.order_cancelled_at !== null && order.order_cancelled_at !== undefined && String(order.order_cancelled_at).trim() !== "") {
       cancelledCount += 1;
-      cancelledValue += orderPrice;
+      cancelledValue += Math.abs(orderPrice);
     }
 
     if (finStatus === "PAID" || order.order_fully_paid === true) {
@@ -165,8 +165,9 @@ export const calculateShopifyMetrics = ({ overviewData = [], ordersData = [], cu
         id: "prepaid",
         title: "Prepaid Orders",
         label: "Prepaid Orders",
-        value: hasAnyData ? formatNumber(breakdown.prepaidCount) : "—",
-        rawValue: breakdown.prepaidCount,
+        value: hasAnyData ? formatCurrencyINR(breakdown.prepaidValue) : "—",
+        subtitle: hasAnyData ? `${breakdown.prepaidCount} orders (${breakdown.prepaidPct}%)` : undefined,
+        rawValue: breakdown.prepaidValue,
         icon: CreditCard,
         accentColor: "#16A34A",
       },
@@ -174,8 +175,9 @@ export const calculateShopifyMetrics = ({ overviewData = [], ordersData = [], cu
         id: "cod",
         title: "COD Orders",
         label: "COD Orders",
-        value: hasAnyData ? formatNumber(breakdown.codCount) : "—",
-        rawValue: breakdown.codCount,
+        value: hasAnyData ? formatCurrencyINR(breakdown.codValue) : "—",
+        subtitle: hasAnyData ? `${breakdown.codCount} orders (${breakdown.codPct}%)` : undefined,
+        rawValue: breakdown.codValue,
         icon: Truck,
         accentColor: "#F59E0B",
       },
@@ -183,8 +185,9 @@ export const calculateShopifyMetrics = ({ overviewData = [], ordersData = [], cu
         id: "cancelled",
         title: "Cancelled Orders",
         label: "Cancelled Orders",
-        value: hasAnyData ? formatNumber(breakdown.cancelledCount) : "—",
-        rawValue: breakdown.cancelledCount,
+        value: hasAnyData ? formatCurrencyINR(breakdown.cancelledValue) : "—",
+        subtitle: hasAnyData ? `${breakdown.cancelledCount} orders (${breakdown.cancelledPct}%)` : undefined,
+        rawValue: breakdown.cancelledValue,
         icon: XCircle,
         accentColor: "#DC2626",
       },
