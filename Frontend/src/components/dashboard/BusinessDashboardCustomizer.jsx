@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, GripVertical, ChevronUp, ChevronDown, Check, AlertCircle } from "lucide-react";
 import { http } from "../../lib/http.js";
+import { getErrorMessage } from "../../utils/error.js";
 
 /**
  * AVAILABLE META METRICS
@@ -186,9 +187,7 @@ export const BusinessDashboardCustomizer = ({
       onClose();
     } catch (err) {
       console.error("[KPI Preference Save Failure]:", err);
-      setErrorMessage(
-        err.message || "Unable to save dashboard preferences. Please try again."
-      );
+      setErrorMessage(getErrorMessage(err));
     } finally {
       setIsSaving(false);
     }

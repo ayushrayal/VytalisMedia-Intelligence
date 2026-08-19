@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMetaAccounts, setActiveMetaAccount } from "../services/meta.api.js";
+import { getErrorMessage } from "../../../utils/error.js";
 import { Link2, RefreshCw, ChevronDown } from "lucide-react";
 import metaLogoImg from "../../../assets/mobile.png";
 
@@ -27,7 +28,7 @@ export const AccountSwitcher = ({ onAccountSwitched }) => {
         setActiveAccount(res.data.activeMetaAccount || null);
       }
     } catch (err) {
-      setError(err.message || "Failed to fetch accounts");
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -51,7 +52,7 @@ export const AccountSwitcher = ({ onAccountSwitched }) => {
         }
       }
     } catch (err) {
-      alert(`Account switch failed: ${err.message}`);
+      alert(`Account switch failed: ${getErrorMessage(err)}`);
     } finally {
       setSwitching(false);
     }

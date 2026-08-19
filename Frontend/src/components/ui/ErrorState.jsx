@@ -1,5 +1,6 @@
 import React from "react";
 import { AlertCircle, RotateCcw } from "lucide-react";
+import { getUserFriendlyErrorMessage } from "../../utils/error.js";
 
 /**
  * Generic ErrorState UI Primitive.
@@ -7,9 +8,11 @@ import { AlertCircle, RotateCcw } from "lucide-react";
  */
 export const ErrorState = ({
   title = "Failed to load data",
-  message = "An error occurred while fetching information. Please try again.",
+  message = "Unable to load data. Please try again.",
   onRetry,
 }) => {
+  const safeMessage = getUserFriendlyErrorMessage(message);
+
   return (
     <div
       style={{
@@ -42,7 +45,7 @@ export const ErrorState = ({
       </div>
       <h4 style={{ margin: "0 0 6px 0", fontSize: "1.05rem", color: "#DC2626", fontWeight: "650" }}>{title}</h4>
       <p style={{ margin: "0 0 16px 0", fontSize: "0.875rem", color: "var(--color-text-secondary, #64748B)", maxWidth: "450px" }}>
-        {message}
+        {safeMessage}
       </p>
       {onRetry && (
         <button

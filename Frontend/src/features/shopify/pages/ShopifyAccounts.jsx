@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { http } from "../../../lib/http.js";
+import { getErrorMessage } from "../../../utils/error.js";
 import Button from "../../../components/ui/Button.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
@@ -42,7 +43,7 @@ export const ShopifyAccounts = () => {
         setActiveAccount(res.data.activeShopifyAccount || null);
       }
     } catch (err) {
-      setError(err.message || "Failed to fetch Shopify accounts");
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -62,7 +63,7 @@ export const ShopifyAccounts = () => {
         await fetchAccounts();
       }
     } catch (err) {
-      alert(`Failed to set active account: ${err.message}`);
+      alert(`Failed to set active account: ${getErrorMessage(err)}`);
     } finally {
       setSwitchingId(null);
     }
@@ -97,7 +98,7 @@ export const ShopifyAccounts = () => {
       setAccountName("");
       await fetchAccounts();
     } catch (err) {
-      setFormError(err.message || "Failed to save Shopify account");
+      setFormError(getErrorMessage(err));
     } finally {
       setFormSubmitting(false);
     }
@@ -113,7 +114,7 @@ export const ShopifyAccounts = () => {
       setDeleteTargetAccount(null);
       await fetchAccounts();
     } catch (err) {
-      alert(`Failed to delete account: ${err.message}`);
+      alert(`Failed to delete account: ${getErrorMessage(err)}`);
     } finally {
       setIsDeleting(false);
     }

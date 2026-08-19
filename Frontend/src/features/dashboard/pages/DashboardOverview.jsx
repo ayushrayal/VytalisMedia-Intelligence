@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { getMetaOverview } from "../../meta/services/meta.api.js";
 import { getShopifyOverviewBundle } from "../../shopify/services/shopify.api.js";
 import { calculateShopifyMetrics } from "../../shopify/utils/shopify-calculator.jsx";
+import { getErrorMessage } from "../../../utils/error.js";
 import PageHeader from "../../../components/shared/PageHeader.jsx";
 import MetricCard from "../../../components/ui/MetricCard.jsx";
 import AccountSwitcher from "../../meta/components/AccountSwitcher.jsx";

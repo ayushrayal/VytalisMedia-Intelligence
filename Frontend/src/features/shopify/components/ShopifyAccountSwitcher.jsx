@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { http } from "../../../lib/http.js";
+import { getErrorMessage } from "../../../utils/error.js";
 import { ChevronDown } from "lucide-react";
 import shopifyLogoImg from "../../../assets/shopify.png";
 
@@ -55,7 +56,7 @@ export const ShopifyAccountSwitcher = ({ onAccountChanged, onAccountsLoaded }) =
         onAccountChanged(selectedDomain);
       }
     } catch (err) {
-      alert(`Failed to switch active Shopify store: ${err.message}`);
+      alert(`Failed to switch active Shopify store: ${getErrorMessage(err)}`);
     } finally {
       setSwitching(false);
     }
