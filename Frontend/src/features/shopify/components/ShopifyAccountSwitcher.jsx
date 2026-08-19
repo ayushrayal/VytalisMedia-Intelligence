@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { http } from "../../../lib/http.js";
-import { Store, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import shopifyLogoImg from "../../../assets/shopify.png";
 
 /**
  * Reusable Shopify Account Switcher Component for all Shopify Analytics pages.
@@ -65,45 +66,54 @@ export const ShopifyAccountSwitcher = ({ onAccountChanged, onAccountsLoaded }) =
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-      <span style={{ fontSize: "12px", color: "#64748B", fontWeight: "600" }}>Account:</span>
-      <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
-        <select
-          value={activeAccount}
-          onChange={handleSelectChange}
-          disabled={switching}
-          aria-label="Select active Shopify store"
-          style={{
-            height: "36px",
-            padding: "0 28px 0 30px",
-            borderRadius: "8px",
-            backgroundColor: "#FFFFFF",
-            border: "1px solid #E5E7EB",
-            color: "#0F172A",
-            fontSize: "13px",
-            fontWeight: "600",
-            outline: "none",
-            cursor: switching ? "wait" : "pointer",
-            transition: "all 0.15s ease",
-            boxShadow: "0 1px 2px rgba(15, 23, 42, 0.03)",
-            appearance: "none",
-            WebkitAppearance: "none",
-            MozAppearance: "none",
-            maxWidth: "240px",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {accounts.map((acc) => (
-            <option key={acc.accountName} value={acc.accountName}>
-              {acc.shopName ? `${acc.shopName} (${acc.accountName})` : acc.accountName}
-            </option>
-          ))}
-        </select>
-        <Store size={14} style={{ position: "absolute", left: "9px", color: "#0A84FF", pointerEvents: "none" }} />
-        <ChevronDown size={14} style={{ position: "absolute", right: "8px", color: "#64748B", pointerEvents: "none" }} />
-      </div>
+    <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+      <select
+        value={activeAccount}
+        onChange={handleSelectChange}
+        disabled={switching}
+        aria-label="Select active Shopify store"
+        style={{
+          height: "36px",
+          padding: "0 28px 0 32px",
+          borderRadius: "8px",
+          backgroundColor: "#FFFFFF",
+          border: "1px solid #E5E7EB",
+          color: "#0F172A",
+          fontSize: "13px",
+          fontWeight: "600",
+          outline: "none",
+          cursor: switching ? "wait" : "pointer",
+          transition: "all 0.15s ease",
+          boxShadow: "0 1px 2px rgba(15, 23, 42, 0.03)",
+          appearance: "none",
+          WebkitAppearance: "none",
+          MozAppearance: "none",
+          maxWidth: "240px",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {accounts.map((acc) => (
+          <option key={acc.accountName} value={acc.accountName}>
+            {acc.shopName || acc.accountName}
+          </option>
+        ))}
+      </select>
+      <img
+        src={shopifyLogoImg}
+        alt="Shopify"
+        style={{
+          position: "absolute",
+          left: "9px",
+          width: "18px",
+          height: "18px",
+          objectFit: "contain",
+          borderRadius: "3px",
+          pointerEvents: "none",
+        }}
+      />
+      <ChevronDown size={14} style={{ position: "absolute", right: "8px", color: "#64748B", pointerEvents: "none" }} />
     </div>
   );
 };
