@@ -47,6 +47,19 @@ const protect = async (req, res, next) => {
   }
 };
 
+/**
+ * Express middleware to restrict access to Attribution API endpoints.
+ * Requires Boolean(req.user.attributionEnabled) === true.
+ */
+const requireAttributionAccess = (req, res, next) => {
+  if (!req.user || Boolean(req.user.attributionEnabled) !== true) {
+    logger.warn(`Attribution access denied for user ${req.user?._id || "unknown"}`);
+    return sendError(res, 403, "Attribution access is not enabled for this account");
+  }
+  next();
+};
+
 module.exports = {
   protect,
+  requireAttributionAccess,
 };

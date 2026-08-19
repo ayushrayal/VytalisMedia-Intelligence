@@ -29,6 +29,7 @@ import ShopifyCustomers from "../features/shopify/pages/ShopifyCustomers.jsx";
 import ShopifyLocation from "../features/shopify/pages/ShopifyLocation.jsx";
 import ShopifyAccounts from "../features/shopify/pages/ShopifyAccounts.jsx";
 import AttributionOverview from "../features/attribution/pages/AttributionOverview.jsx";
+import Profile from "../features/profile/pages/Profile.jsx";
 import GoogleIntegration from "../features/integrations/pages/GoogleIntegration.jsx";
 import Input from "../components/ui/Input.jsx";
 import Button from "../components/ui/Button.jsx";
@@ -274,6 +275,13 @@ const ProtectedRoute = ({ user, setUser, authLoading }) => {
   return <DashboardLayout user={user} setUser={setUser} />;
 };
 
+const AttributionRouteGuard = ({ user }) => {
+  if (!user || Boolean(user.attributionEnabled) !== true) {
+    return <Navigate to="/profile" replace />;
+  }
+  return <AttributionOverview />;
+};
+
 const FallbackRoute = ({ user, authLoading }) => {
   if (authLoading) return null;
   if (user) {
@@ -348,8 +356,11 @@ export const Router = () => {
           {/* Global Analytics Overview */}
           <Route path="/overview" element={<DashboardOverview />} />
 
-          {/* Attribution Route */}
-          <Route path="/attribution" element={<AttributionOverview />} />
+          {/* Profile Route */}
+          <Route path="/profile" element={<Profile user={user} setUser={setUser} />} />
+
+          {/* Protected Attribution Route */}
+          <Route path="/attribution" element={<AttributionRouteGuard user={user} />} />
 
           {/* Meta Analytics Routes */}
           <Route path="/meta/overview" element={<MetaOverview />} />

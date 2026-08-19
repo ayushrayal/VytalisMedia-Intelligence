@@ -235,8 +235,13 @@ export const DashboardLayout = ({ user, setUser }) => {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               {analyticsNavigation.map((group) => {
-                // Single Item (Global Overview)
+                // Single Item (Global Overview or Attribution)
                 if (group.route) {
+                  // Attribution navigation rule: NOT rendered if attributionEnabled is false
+                  if (group.key === "attribution" && Boolean(user?.attributionEnabled) !== true) {
+                    return null;
+                  }
+
                   const IconComponent = group.icon;
                   return (
                     <NavLink
@@ -388,7 +393,22 @@ export const DashboardLayout = ({ user, setUser }) => {
 
         {/* Sidebar Footer User Area */}
         <div style={{ paddingTop: "14px", borderTop: "1px solid var(--color-border, #E8ECF2)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", overflow: "hidden" }}>
+          <NavLink
+            to="/profile"
+            title="View Profile"
+            style={({ isActive }) => ({
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              overflow: "hidden",
+              textDecoration: "none",
+              padding: "4px 6px",
+              borderRadius: "6px",
+              backgroundColor: isActive ? "var(--color-surface-subtle, #F1F5F9)" : "transparent",
+              transition: "all 0.15s ease",
+              flex: 1,
+            })}
+          >
             <div
               style={{
                 width: "30px",
@@ -414,7 +434,7 @@ export const DashboardLayout = ({ user, setUser }) => {
                 {user ? user.email : "admin@vytalis.com"}
               </span>
             </div>
-          </div>
+          </NavLink>
 
           <button
             ref={logoutTriggerRef}

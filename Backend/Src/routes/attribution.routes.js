@@ -7,10 +7,11 @@ const express = require("express");
 const router = express.Router();
 const attributionController = require("../controllers/attribution.controller");
 const { validateAttributionRequest } = require("../validators/attribution.validator");
-const { protect } = require("../middleware/auth.middleware");
+const { protect, requireAttributionAccess } = require("../middleware/auth.middleware");
 
-// Protect all Attribution endpoints with JWT authentication
+// Protect all Attribution endpoints with JWT authentication & Attribution feature access
 router.use(protect);
+router.use(requireAttributionAccess);
 
 /**
  * @route   GET /api/attribution/overview

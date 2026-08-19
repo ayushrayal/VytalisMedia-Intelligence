@@ -39,6 +39,10 @@ const userSchema = new mongoose.Schema(
       required: [true, "Password is required"],
       select: false,
     },
+    attributionEnabled: {
+      type: Boolean,
+      default: false,
+    },
     integrations: {
       meta: {
         type: [metaIntegrationSchema],
