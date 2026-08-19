@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import PageHeader from "../../../components/shared/PageHeader.jsx";
 import Button from "../../../components/ui/Button.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import MetaAccountCard from "../components/MetaAccountCard.jsx";
@@ -20,6 +21,7 @@ export const MetaAccounts = () => {
   const [accounts, setAccounts] = useState([]);
   const [activeMetaAccount, setActiveMetaAccountState] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
 
   // Modal States
@@ -170,10 +172,13 @@ export const MetaAccounts = () => {
       </div>
 
       {/* Main Content Area */}
-      {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
-          <Skeleton height="180px" />
-          <Skeleton height="180px" />
+      {isDisplayLoading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <ContextualLoader isLoading={loading} onComplete={handleComplete} section="meta-accounts" minHeight="auto" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
+            <Skeleton height="180px" />
+            <Skeleton height="180px" />
+          </div>
         </div>
       ) : error ? (
         <ErrorState title="Unable to load Meta accounts" message={error} onRetry={fetchAccounts} />

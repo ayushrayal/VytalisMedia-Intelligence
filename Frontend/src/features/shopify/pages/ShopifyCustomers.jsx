@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { getShopifyCustomers } from "../services/shopify.api.js";
 import MetricCard from "../../../components/ui/MetricCard.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Pagination from "../../../components/ui/Pagination.jsx";
@@ -16,6 +17,7 @@ import { Users, UserPlus, UserCheck } from "lucide-react";
 export const ShopifyCustomers = () => {
   const [customersData, setCustomersData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
   const [dateParams, setDateParams] = useState({ datePreset: "last_7d" });
 
@@ -112,8 +114,9 @@ export const ShopifyCustomers = () => {
         </div>
       </div>
 
-      {loading ? (
+      {isDisplayLoading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <ContextualLoader isLoading={loading} onComplete={handleComplete} section="shopify-customers" minHeight="auto" />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
             <Skeleton height="110px" />
             <Skeleton height="110px" />

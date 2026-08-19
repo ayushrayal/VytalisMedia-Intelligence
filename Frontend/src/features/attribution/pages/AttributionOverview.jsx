@@ -13,6 +13,7 @@ import DateFilter from "../../meta/components/DateFilter.jsx";
 import ShopifyAccountSwitcher from "../../shopify/components/ShopifyAccountSwitcher.jsx";
 import ShopifyLockedState from "../../shopify/components/ShopifyLockedState.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import { useDebounce } from "../../../hooks/useDebounce.js";
@@ -34,12 +35,14 @@ export const AttributionOverview = () => {
   // Overview Data State
   const [overviewData, setOverviewData] = useState(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
+  const { isDisplayLoading: isOverviewDisplayLoading, handleComplete: handleOverviewComplete } = usePageLoading(overviewLoading);
   const [overviewError, setOverviewError] = useState(null);
 
   // Orders Data State & Filters
   const [orders, setOrders] = useState([]);
   const [ordersPagination, setOrdersPagination] = useState({ currentPage: 1, totalPages: 1, limit: 20, totalItems: 0 });
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const { isDisplayLoading: isOrdersDisplayLoading, handleComplete: handleOrdersComplete } = usePageLoading(ordersLoading);
   const [ordersError, setOrdersError] = useState(null);
 
   // Order Filters State
@@ -211,8 +214,9 @@ export const AttributionOverview = () => {
       {/* OVERVIEW SECTION */}
       {overviewError ? (
         <ErrorState message={overviewError} onRetry={fetchOverview} />
-      ) : overviewLoading ? (
+      ) : isOverviewDisplayLoading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px", marginBottom: "32px" }}>
+          <ContextualLoader isLoading={overviewLoading} onComplete={handleOverviewComplete} label="Loading Attribution Data" minHeight="auto" />
           <Skeleton height="100px" />
           <Skeleton height="200px" />
           <Skeleton height="300px" />
@@ -262,8 +266,11 @@ export const AttributionOverview = () => {
 
         {ordersError ? (
           <ErrorState message={ordersError} onRetry={fetchOrders} />
-        ) : ordersLoading ? (
-          <Skeleton height="320px" />
+        ) : isOrdersDisplayLoading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <ContextualLoader isLoading={ordersLoading} onComplete={handleOrdersComplete} label="Loading Attribution Orders" minHeight="auto" />
+            <Skeleton height="320px" />
+          </div>
         ) : (
           <AttributionOrderTable
             orders={orders}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { http } from "../../../lib/http.js";
 import Button from "../../../components/ui/Button.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Input from "../../../components/ui/Input.jsx";
@@ -12,6 +13,7 @@ export const ShopifyAccounts = () => {
   const [accounts, setAccounts] = useState([]);
   const [activeAccount, setActiveAccount] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
 
   // Form Modal States
@@ -156,10 +158,13 @@ export const ShopifyAccounts = () => {
       </div>
 
       {/* Main Grid / Cards */}
-      {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px" }}>
-          <Skeleton height="160px" />
-          <Skeleton height="160px" />
+      {isDisplayLoading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <ContextualLoader isLoading={loading} onComplete={handleComplete} section="shopify-accounts" minHeight="auto" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "16px" }}>
+            <Skeleton height="160px" />
+            <Skeleton height="160px" />
+          </div>
         </div>
       ) : error ? (
         <ErrorState message={error} onRetry={fetchAccounts} />

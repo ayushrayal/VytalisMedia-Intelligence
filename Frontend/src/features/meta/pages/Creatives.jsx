@@ -11,6 +11,7 @@ import CreativeDetailsDrawer from "../components/CreativeDetailsDrawer.jsx";
 import CustomizeCardsModal from "../components/CustomizeCardsModal.jsx";
 import Pagination from "../../../components/ui/Pagination.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Button from "../../../components/ui/Button.jsx";
@@ -31,6 +32,7 @@ import { checkIsSingleDay, aggregateCreativesData } from "../utils/creativeAggre
 export const Creatives = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
   const [dateParams, setDateParams] = useState({ datePreset: "last_7d" });
 
@@ -207,12 +209,15 @@ export const Creatives = () => {
         }
       />
 
-      {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
-          <Skeleton height="360px" />
-          <Skeleton height="360px" />
-          <Skeleton height="360px" />
-          <Skeleton height="360px" />
+      {isDisplayLoading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <ContextualLoader isLoading={loading} onComplete={handleComplete} section="meta-creatives" minHeight="auto" />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
+            <Skeleton height="360px" />
+            <Skeleton height="360px" />
+            <Skeleton height="360px" />
+            <Skeleton height="360px" />
+          </div>
         </div>
       ) : error ? (
         <ErrorState message={error} onRetry={fetchData} />

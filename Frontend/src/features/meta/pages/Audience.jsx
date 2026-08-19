@@ -10,6 +10,7 @@ import AudienceAgePerformance from "../components/AudienceAgePerformance.jsx";
 import AudienceHeatmapAndInsights from "../components/AudienceHeatmapAndInsights.jsx";
 import AudienceTablesSection from "../components/AudienceTablesSection.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Button from "../../../components/ui/Button.jsx";
@@ -29,6 +30,7 @@ import { getErrorMessage } from "../../../utils/error.js";
 export const Audience = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
   const [dateParams, setDateParams] = useState({ datePreset: "last_7d" });
 
@@ -223,9 +225,9 @@ export const Audience = () => {
         }
       />
 
-      {loading ? (
+      {isDisplayLoading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          {/* Skeleton KPI Grid */}
+          <ContextualLoader isLoading={loading} onComplete={handleComplete} section="meta-audience" minHeight="auto" />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
             <Skeleton height="110px" />
             <Skeleton height="110px" />

@@ -7,6 +7,8 @@ import CreativePreviewSection from "./CreativePreviewSection.jsx";
 import CampaignAdSetSection from "./CampaignAdSetSection.jsx";
 import CreativeLinksSection, { hasValidCreativeLinks } from "./CreativeLinksSection.jsx";
 import { isCreativeVideo, getCreativeType } from "./CreativeCard.jsx";
+import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import { X, Video, Image as ImageIcon } from "lucide-react";
 
 /**
@@ -16,6 +18,8 @@ import { X, Video, Image as ImageIcon } from "lucide-react";
  */
 export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState("performance");
+  const [loading, setLoading] = useState(true);
+  const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const contentRef = useRef(null);
 
   const isVideo = isCreativeVideo(creative);
@@ -24,10 +28,15 @@ export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
   // Reset tab to "performance" and scroll content to top whenever a new creative opens
   useEffect(() => {
     if (isOpen) {
+      setLoading(true);
       setActiveTab("performance");
       if (contentRef.current) {
         contentRef.current.scrollTop = 0;
       }
+      const timer = setTimeout(() => {
+        setLoading(false);
+      }, 150);
+      return () => clearTimeout(timer);
     }
   }, [creative, isOpen]);
 
@@ -217,24 +226,34 @@ export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
             flexDirection: "column",
           }}
         >
-          {activeTab === "performance" && (
-            <PerformanceSection creative={creative} />
-          )}
+          {isDisplayLoading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <ContextualLoader isLoading={loading} onComplete={handleComplete} label="Loading Creative Details" minHeight="auto" />
+              <Skeleton height="180px" />
+              <Skeleton height="240px" />
+            </div>
+          ) : (
+            <>
+              {activeTab === "performance" && (
+                <PerformanceSection creative={creative} />
+              )}
 
-          {activeTab === "video" && isVideo && (
-            <VideoPerformanceSection creative={creative} />
-          )}
+              {activeTab === "video" && isVideo && (
+                <VideoPerformanceSection creative={creative} />
+              )}
 
-          {activeTab === "creative" && (
-            <CreativePreviewSection creative={creative} />
-          )}
+              {activeTab === "creative" && (
+                <CreativePreviewSection creative={creative} />
+              )}
 
-          {activeTab === "campaign" && (
-            <CampaignAdSetSection creative={creative} />
-          )}
+              {activeTab === "campaign" && (
+                <CampaignAdSetSection creative={creative} />
+              )}
 
-          {activeTab === "links" && hasLinks && (
-            <CreativeLinksSection creative={creative} />
+              {activeTab === "links" && hasLinks && (
+                <CreativeLinksSection creative={creative} />
+              )}
+            </>
           )}
         </div>
       </aside>

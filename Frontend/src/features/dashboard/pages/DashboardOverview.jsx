@@ -8,6 +8,7 @@ import AccountSwitcher from "../../meta/components/AccountSwitcher.jsx";
 import ShopifyAccountSwitcher from "../../shopify/components/ShopifyAccountSwitcher.jsx";
 import DateFilter from "../../meta/components/DateFilter.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import { DASHBOARD_WIDGETS } from "../../../config/dashboardWidgets.js";
 import { formatCurrency, formatCurrencyINR } from "../../../utils/formatCurrency.js";
@@ -72,6 +73,7 @@ export const DashboardOverview = () => {
 
   // Loading & Error States
   const [loading, setLoading] = useState(true);
+  const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
 
   // Preference States (Loaded from Single Source of Truth LocalStorage)
@@ -359,13 +361,16 @@ export const DashboardOverview = () => {
               </span>
             </div>
 
-            {loading ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-                <Skeleton height="90px" />
-                <Skeleton height="90px" />
-                <Skeleton height="90px" />
-                <Skeleton height="90px" />
-                <Skeleton height="90px" />
+            {isDisplayLoading ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                <ContextualLoader isLoading={loading} onComplete={handleComplete} section="business-overview" minHeight="auto" />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+                  <Skeleton height="90px" />
+                  <Skeleton height="90px" />
+                  <Skeleton height="90px" />
+                  <Skeleton height="90px" />
+                  <Skeleton height="90px" />
+                </div>
               </div>
             ) : metaSelectedMetricIds.length === 0 ? (
               <div style={{ padding: "20px", backgroundColor: "#FFFFFF", borderRadius: "12px", border: "1px solid #E5E7EB", fontSize: "13px", color: "#64748B" }}>

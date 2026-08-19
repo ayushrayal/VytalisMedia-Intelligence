@@ -10,6 +10,7 @@ import PlacesRegionalCharts from "../components/PlacesRegionalCharts.jsx";
 import PlacesInsightsAndHighlights from "../components/PlacesInsightsAndHighlights.jsx";
 import PlacesDetailedTable from "../components/PlacesDetailedTable.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Button from "../../../components/ui/Button.jsx";
@@ -33,6 +34,7 @@ import { getErrorMessage } from "../../../utils/error.js";
 export const Places = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
   const [dateParams, setDateParams] = useState({ datePreset: "last_7d" });
 
@@ -228,9 +230,9 @@ export const Places = () => {
         }
       />
 
-      {loading ? (
+      {isDisplayLoading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          {/* Skeleton KPI Cards */}
+          <ContextualLoader isLoading={loading} onComplete={handleComplete} section="meta-places" minHeight="auto" />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
             <Skeleton height="110px" />
             <Skeleton height="110px" />

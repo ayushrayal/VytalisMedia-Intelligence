@@ -7,6 +7,7 @@ import DateFilter from "../components/DateFilter.jsx";
 import SpendFilter from "../components/SpendFilter.jsx";
 import DailyBreakdown from "../components/DailyBreakdown/DailyBreakdown.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Button from "../../../components/ui/Button.jsx";
@@ -72,6 +73,7 @@ export const MetaOverview = () => {
   const [placesData, setPlacesData] = useState([]);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
@@ -447,8 +449,9 @@ export const MetaOverview = () => {
         </div>
       </div>
 
-      {loading ? (
+      {isDisplayLoading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          <ContextualLoader isLoading={loading} onComplete={handleComplete} section="meta-overview" minHeight="auto" />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
             <Skeleton height="110px" />
             <Skeleton height="110px" />

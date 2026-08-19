@@ -3,6 +3,7 @@ import { getCampaignDetails } from "../services/meta.api.js";
 import StatusBadge from "./StatusBadge.jsx";
 import AdSetAccordionList from "./AdSetAccordionList.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import { X, Image as ImageIcon, Layers, BarChart3, ChevronRight } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
@@ -62,6 +63,7 @@ export const CampaignDetailsDrawer = ({
 }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("adsets"); // "adsets" | "creatives" | "performance"
 
@@ -343,8 +345,9 @@ export const CampaignDetailsDrawer = ({
             gap: "20px",
           }}
         >
-          {loading ? (
+          {isDisplayLoading ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <ContextualLoader isLoading={loading} onComplete={handleComplete} label="Loading Campaign Details" minHeight="auto" />
               <Skeleton height="100px" />
               <Skeleton height="180px" />
             </div>

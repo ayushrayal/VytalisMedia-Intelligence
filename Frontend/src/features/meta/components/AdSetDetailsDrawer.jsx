@@ -3,6 +3,7 @@ import { getCreatives } from "../services/meta.api.js";
 import StatusBadge, { getNormalizedStatus } from "./StatusBadge.jsx";
 import CreativeCard from "./CreativeCard.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
+import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import { X, Image as ImageIcon, BarChart3, Layers } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
@@ -59,6 +60,7 @@ export const AdSetDetailsDrawer = ({
 }) => {
   const [rawCreatives, setRawCreatives] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("creatives"); // "creatives" | "performance"
 
@@ -350,11 +352,14 @@ export const AdSetDetailsDrawer = ({
             gap: "20px",
           }}
         >
-          {loading ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "16px" }}>
-              <Skeleton height="320px" />
-              <Skeleton height="320px" />
-              <Skeleton height="320px" />
+          {isDisplayLoading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <ContextualLoader isLoading={loading} onComplete={handleComplete} label="Loading Ad Set Details" minHeight="auto" />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "16px" }}>
+                <Skeleton height="320px" />
+                <Skeleton height="320px" />
+                <Skeleton height="320px" />
+              </div>
             </div>
           ) : error ? (
             <ErrorState message="Unable to load creatives for this Ad Set" onRetry={fetchCreativesData} />
