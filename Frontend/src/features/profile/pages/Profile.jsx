@@ -2,23 +2,23 @@ import React, { useState } from "react";
 import { http } from "../../../lib/http.js";
 import { Input } from "../../../components/ui/Input.jsx";
 import { Button } from "../../../components/ui/Button.jsx";
-import { User, Target, CheckCircle2, Lock, X, Shield, Sparkles } from "lucide-react";
+import { User, CheckCircle2, Shield, Sparkles, X, KeyRound } from "lucide-react";
 
 /**
  * Profile Page Component.
- * Displays User Profile Info and Feature Access (Attribution Unlock Flow).
+ * Displays User Profile Info and Role Upgrade Flow.
  */
 export const Profile = ({ user, setUser }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [accessKey, setAccessKey] = useState("");
+  const [upgradeKey, setUpgradeKey] = useState("");
   const [modalError, setModalError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  const isAttributionEnabled = Boolean(user?.attributionEnabled);
+  const isAdmin = user?.role === "admin";
 
   const handleOpenModal = () => {
-    setAccessKey("");
+    setUpgradeKey("");
     setModalError("");
     setIsModalOpen(true);
   };
@@ -26,14 +26,14 @@ export const Profile = ({ user, setUser }) => {
   const handleCloseModal = () => {
     if (isSubmitting) return;
     setIsModalOpen(false);
-    setAccessKey("");
+    setUpgradeKey("");
     setModalError("");
   };
 
-  const handleEnableAttribution = async (e) => {
+  const handleUpgradeRole = async (e) => {
     e.preventDefault();
-    if (!accessKey.trim()) {
-      setModalError("Please enter your access key.");
+    if (!upgradeKey.trim()) {
+      setModalError("Please enter your administrator access key.");
       return;
     }
 
@@ -41,27 +41,22 @@ export const Profile = ({ user, setUser }) => {
       setIsSubmitting(true);
       setModalError("");
 
-      const res = await http.post("/profile/attribution/enable", {
-        accessKey: accessKey.trim(),
+      const res = await http.post("/profile/upgrade-role", {
+        key: upgradeKey.trim(),
       });
 
-      if (res.data && res.data.attributionEnabled) {
-        // Update authenticated user state across the entire app
-        const updatedUser = {
-          ...user,
-          attributionEnabled: true,
-        };
+      if (res.data && res.data.user) {
         if (setUser) {
-          setUser(updatedUser);
+          setUser(res.data.user);
         }
 
         setIsModalOpen(false);
-        setAccessKey("");
-        setSuccessMessage("Attribution feature unlocked successfully!");
-        setTimeout(() => setSuccessMessage(""), 4000);
+        setUpgradeKey("");
+        setSuccessMessage("Account role upgraded to Administrator successfully!");
+        setTimeout(() => setSuccessMessage(""), 5000);
       }
     } catch (err) {
-      setModalError("Invalid access key. Please try again.");
+      setModalError(err.message || "Invalid administrator access key.");
     } finally {
       setIsSubmitting(false);
     }
@@ -83,7 +78,7 @@ export const Profile = ({ user, setUser }) => {
           Profile & Account
         </h1>
         <p style={{ margin: 0, fontSize: "14px", color: "var(--color-text-secondary, #60758F)" }}>
-          Manage your personal account details and feature access add-ons.
+          Manage your personal account details and access privileges.
         </p>
       </div>
 
@@ -137,14 +132,16 @@ export const Profile = ({ user, setUser }) => {
               width: "60px",
               height: "60px",
               borderRadius: "50%",
-              backgroundColor: "var(--color-primary, #0A84FF)",
+              backgroundColor: isAdmin ? "#10B981" : "var(--color-primary, #0A84FF)",
               color: "#FFFFFF",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontWeight: "800",
               fontSize: "24px",
-              boxShadow: "0 4px 12px rgba(10, 132, 255, 0.25)",
+              boxShadow: isAdmin
+                ? "0 4px 12px rgba(16, 185, 129, 0.25)"
+                : "0 4px 12px rgba(10, 132, 255, 0.25)",
               flexShrink: 0,
             }}
           >
@@ -152,15 +149,48 @@ export const Profile = ({ user, setUser }) => {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-            <span
-              style={{
-                fontSize: "18px",
-                fontWeight: "700",
-                color: "var(--color-text-primary, #0F2742)",
-              }}
-            >
-              {user?.name || "Vytalis User"}
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "700",
+                  color: "var(--color-text-primary, #0F2742)",
+                }}
+              >
+                {user?.name || "Vytalis User"}
+              </span>
+              {isAdmin ? (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "3px 9px",
+                    backgroundColor: "rgba(16, 185, 129, 0.1)",
+                    color: "#059669",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    borderRadius: "6px",
+                  }}
+                >
+                  <Shield size={13} />
+                  Administrator
+                </span>
+              ) : (
+                <span
+                  style={{
+                    padding: "3px 9px",
+                    backgroundColor: "#F1F5F9",
+                    color: "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    borderRadius: "6px",
+                  }}
+                >
+                  Client Account
+                </span>
+              )}
+            </div>
             <span style={{ fontSize: "14px", color: "var(--color-text-secondary, #60758F)" }}>
               {user?.email || "user@vytalis.com"}
             </span>
@@ -243,145 +273,97 @@ export const Profile = ({ user, setUser }) => {
         </div>
       </div>
 
-      {/* CARD 2: FEATURE ACCESS */}
-      <div
-        style={{
-          backgroundColor: "#FFFFFF",
-          border: "1px solid var(--color-border, #E8EAED)",
-          borderRadius: "16px",
-          padding: "28px",
-          boxShadow: "0 2px 6px rgba(15, 23, 42, 0.03)",
-        }}
-      >
-        <div style={{ marginBottom: "20px" }}>
-          <h2
-            style={{
-              fontSize: "16px",
-              fontWeight: "700",
-              color: "var(--color-text-primary, #0F2742)",
-              margin: "0 0 4px 0",
-              letterSpacing: "-0.2px",
-            }}
-          >
-            Feature Access
-          </h2>
-          <p style={{ margin: 0, fontSize: "13.5px", color: "var(--color-text-secondary, #60758F)" }}>
-            Specialized modules and data analytics enabled for your account.
-          </p>
-        </div>
-
-        {/* Feature Item: Attribution */}
+      {/* CARD 2: UPGRADE YOUR ROLE (CLIENT ONLY) */}
+      {!isAdmin && (
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "20px",
-            backgroundColor: "#F8FAFC",
-            border: "1px solid #E2E8F0",
-            borderRadius: "12px",
-            flexWrap: "wrap",
-            gap: "16px",
+            backgroundColor: "#FFFFFF",
+            border: "1px solid var(--color-border, #E8EAED)",
+            borderRadius: "16px",
+            padding: "28px",
+            boxShadow: "0 2px 6px rgba(15, 23, 42, 0.03)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-            <div
+          <div style={{ marginBottom: "20px" }}>
+            <h2
               style={{
-                width: "42px",
-                height: "42px",
-                borderRadius: "10px",
-                backgroundColor: isAttributionEnabled ? "rgba(10, 132, 255, 0.1)" : "#E2E8F0",
-                color: isAttributionEnabled ? "#0A84FF" : "#64748B",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
+                fontSize: "16px",
+                fontWeight: "700",
+                color: "var(--color-text-primary, #0F2742)",
+                margin: "0 0 4px 0",
+                letterSpacing: "-0.2px",
               }}
             >
-              <Target size={22} />
-            </div>
+              Upgrade Your Role
+            </h2>
+            <p style={{ margin: 0, fontSize: "13.5px", color: "var(--color-text-secondary, #60758F)" }}>
+              Have an administrator access key? Upgrade your account.
+            </p>
+          </div>
 
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "20px",
+              backgroundColor: "#F8FAFC",
+              border: "1px solid #E2E8F0",
+              borderRadius: "12px",
+              flexWrap: "wrap",
+              gap: "16px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+              <div
+                style={{
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "10px",
+                  backgroundColor: "rgba(10, 132, 255, 0.1)",
+                  color: "#0A84FF",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <KeyRound size={22} />
+              </div>
+
+              <div>
                 <span
                   style={{
                     fontSize: "15px",
                     fontWeight: "700",
                     color: "var(--color-text-primary, #0F2742)",
+                    display: "block",
                   }}
                 >
-                  Attribution
+                  Administrator Privilege Upgrade
                 </span>
-                {isAttributionEnabled ? (
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: "700",
-                      color: "#0A84FF",
-                      backgroundColor: "rgba(10, 132, 255, 0.1)",
-                      padding: "2px 8px",
-                      borderRadius: "6px",
-                    }}
-                  >
-                    ✓ Enabled
-                  </span>
-                ) : (
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      color: "#64748B",
-                      backgroundColor: "#E2E8F0",
-                      padding: "2px 8px",
-                      borderRadius: "6px",
-                    }}
-                  >
-                    Disabled
-                  </span>
-                )}
+                <p
+                  style={{
+                    margin: "3px 0 0 0",
+                    fontSize: "13px",
+                    color: "var(--color-text-secondary, #60758F)",
+                  }}
+                >
+                  Unlock administrative permissions and platform management capabilities.
+                </p>
               </div>
-              <p
-                style={{
-                  margin: "3px 0 0 0",
-                  fontSize: "13px",
-                  color: "var(--color-text-secondary, #60758F)",
-                }}
-              >
-                Unlock attribution analytics for this account.
-              </p>
+            </div>
+
+            <div>
+              <Button variant="primary" size="sm" onClick={handleOpenModal}>
+                Upgrade Your Role
+              </Button>
             </div>
           </div>
-
-          <div>
-            {isAttributionEnabled ? (
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  color: "#0A84FF",
-                  backgroundColor: "rgba(10, 132, 255, 0.08)",
-                  border: "1px solid rgba(10, 132, 255, 0.2)",
-                  padding: "8px 14px",
-                  borderRadius: "8px",
-                }}
-              >
-                <CheckCircle2 size={16} />
-                <span>✓ Attribution Enabled</span>
-              </div>
-            ) : (
-              <Button variant="primary" size="sm" onClick={handleOpenModal}>
-                <Lock size={14} style={{ marginRight: "6px" }} />
-                Unlock Attribution
-              </Button>
-            )}
-          </div>
         </div>
-      </div>
+      )}
 
-      {/* UNLOCK ATTRIBUTION MODAL */}
+      {/* UPGRADE ROLE MODAL */}
       {isModalOpen && (
         <div
           style={{
@@ -447,7 +429,7 @@ export const Profile = ({ user, setUser }) => {
                     color: "var(--color-text-primary, #0F2742)",
                   }}
                 >
-                  Unlock Attribution
+                  Upgrade Your Role
                 </h3>
               </div>
 
@@ -475,7 +457,7 @@ export const Profile = ({ user, setUser }) => {
                 lineHeight: "1.5",
               }}
             >
-              Enter your Attribution access key to enable Attribution analytics for this account.
+              Enter your Administrator Access Key to upgrade your account role to Administrator.
             </p>
 
             {modalError && (
@@ -496,14 +478,14 @@ export const Profile = ({ user, setUser }) => {
             )}
 
             {/* Form */}
-            <form onSubmit={handleEnableAttribution}>
+            <form onSubmit={handleUpgradeRole}>
               <div style={{ marginBottom: "20px" }}>
                 <Input
-                  label="Access Key"
+                  label="Administrator Access Key"
                   type="password"
-                  value={accessKey}
-                  onChange={(e) => setAccessKey(e.target.value)}
-                  placeholder="Enter access key"
+                  value={upgradeKey}
+                  onChange={(e) => setUpgradeKey(e.target.value)}
+                  placeholder="Enter administrator access key"
                   required
                 />
               </div>
@@ -513,7 +495,7 @@ export const Profile = ({ user, setUser }) => {
                   Cancel
                 </Button>
                 <Button type="submit" variant="primary" isLoading={isSubmitting}>
-                  Enable Attribution
+                  Upgrade Account
                 </Button>
               </div>
             </form>

@@ -39,9 +39,22 @@ const userSchema = new mongoose.Schema(
       required: [true, "Password is required"],
       select: false,
     },
+    role: {
+      type: String,
+      enum: ["client", "admin"],
+      default: "client",
+    },
+    shopifyEnabled: {
+      type: Boolean,
+      default: false,
+    },
     attributionEnabled: {
       type: Boolean,
       default: false,
+    },
+    rbacMigrated: {
+      type: Boolean,
+      default: true,
     },
     integrations: {
       meta: {
@@ -102,11 +115,15 @@ userSchema.methods.matchPassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Transform toJSON to guarantee password and __v are omitted
+// Transform toJSON to guarantee password and __v are omitted and defaults applied for legacy docs
 userSchema.set("toJSON", {
   transform: (doc, ret) => {
     delete ret.password;
     delete ret.__v;
+    delete ret.rbacMigrated;
+    ret.role = ret.role || "client";
+    ret.shopifyEnabled = Boolean(ret.shopifyEnabled);
+    ret.attributionEnabled = Boolean(ret.attributionEnabled);
     return ret;
   },
 });

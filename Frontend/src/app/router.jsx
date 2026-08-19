@@ -31,6 +31,7 @@ import ShopifyAccounts from "../features/shopify/pages/ShopifyAccounts.jsx";
 import AttributionOverview from "../features/attribution/pages/AttributionOverview.jsx";
 import Profile from "../features/profile/pages/Profile.jsx";
 import GoogleIntegration from "../features/integrations/pages/GoogleIntegration.jsx";
+import UserManagement from "../features/admin/pages/UserManagement.jsx";
 import Input from "../components/ui/Input.jsx";
 import Button from "../components/ui/Button.jsx";
 
@@ -275,9 +276,25 @@ const ProtectedRoute = ({ user, setUser, authLoading }) => {
   return <DashboardLayout user={user} setUser={setUser} />;
 };
 
+const AdminRouteGuard = ({ user }) => {
+  if (!user || user.role !== "admin") {
+    return <Navigate to="/overview" replace />;
+  }
+  return <UserManagement />;
+};
+
+const ShopifyRouteGuard = ({ user }) => {
+  const isShopifyEnabled = user && (user.role === "admin" || Boolean(user.shopifyEnabled) === true);
+  if (!isShopifyEnabled) {
+    return <Navigate to="/overview" replace />;
+  }
+  return <Outlet />;
+};
+
 const AttributionRouteGuard = ({ user }) => {
-  if (!user || Boolean(user.attributionEnabled) !== true) {
-    return <Navigate to="/profile" replace />;
+  const isAttributionEnabled = user && (user.role === "admin" || Boolean(user.attributionEnabled) === true);
+  if (!isAttributionEnabled) {
+    return <Navigate to="/overview" replace />;
   }
   return <AttributionOverview />;
 };
@@ -354,10 +371,14 @@ export const Router = () => {
         {/* Protected Dashboard Shell Routes */}
         <Route element={<ProtectedRoute user={user} setUser={setUser} authLoading={authLoading} />}>
           {/* Global Analytics Overview */}
-          <Route path="/overview" element={<DashboardOverview />} />
+          <Route path="/overview" element={<DashboardOverview user={user} />} />
 
           {/* Profile Route */}
           <Route path="/profile" element={<Profile user={user} setUser={setUser} />} />
+
+          {/* Protected Admin Route */}
+          <Route path="/admin/users" element={<AdminRouteGuard user={user} />} />
+          <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
 
           {/* Protected Attribution Route */}
           <Route path="/attribution" element={<AttributionRouteGuard user={user} />} />
@@ -373,17 +394,19 @@ export const Router = () => {
           <Route path="/meta/places" element={<Places />} />
           <Route path="/meta" element={<Navigate to="/meta/overview" replace />} />
 
-          {/* Shopify Analytics Routes */}
-          <Route path="/shopify/overview" element={<ShopifyOverview />} />
-          <Route path="/shopify/orders" element={<ShopifyOrders />} />
-          <Route path="/shopify/products" element={<ShopifyProducts />} />
-          <Route path="/shopify/customers" element={<ShopifyCustomers />} />
-          <Route path="/shopify/location" element={<ShopifyLocation />} />
-          <Route path="/shopify" element={<Navigate to="/shopify/overview" replace />} />
+          {/* Protected Shopify Analytics & Integration Routes */}
+          <Route element={<ShopifyRouteGuard user={user} />}>
+            <Route path="/shopify/overview" element={<ShopifyOverview />} />
+            <Route path="/shopify/orders" element={<ShopifyOrders />} />
+            <Route path="/shopify/products" element={<ShopifyProducts />} />
+            <Route path="/shopify/customers" element={<ShopifyCustomers />} />
+            <Route path="/shopify/location" element={<ShopifyLocation />} />
+            <Route path="/shopify" element={<Navigate to="/shopify/overview" replace />} />
+            <Route path="/integrations/shopify" element={<ShopifyAccounts />} />
+          </Route>
 
           {/* Integrations Routes */}
           <Route path="/integrations/meta" element={<MetaAccounts />} />
-          <Route path="/integrations/shopify" element={<ShopifyAccounts />} />
           <Route path="/integrations/google" element={<GoogleIntegration />} />
           <Route path="/integrations" element={<Navigate to="/integrations/meta" replace />} />
 

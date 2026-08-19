@@ -68,7 +68,8 @@ const DEFAULT_SHOPIFY_CARDS_CONFIG = [
  * Business Dashboard Overview Page Component.
  * Dynamic executive summary consuming user's saved Meta & Shopify platform card preferences.
  */
-export const DashboardOverview = () => {
+export const DashboardOverview = ({ user }) => {
+  const isShopifyEnabled = user?.role === "admin" || Boolean(user?.shopifyEnabled) === true;
   // Global Date Filter State
   const [dateParams, setDateParams] = useState({ datePreset: "last_7d" });
 
@@ -195,7 +196,9 @@ export const DashboardOverview = () => {
 
       const [metaRes, shopifyBundleRes] = await Promise.allSettled([
         getMetaOverview(dateParams),
-        getShopifyOverviewBundle(dateParams),
+        isShopifyEnabled
+          ? getShopifyOverviewBundle(dateParams)
+          : Promise.resolve({ overviewData: [], ordersData: [], customersData: [] }),
       ]);
 
       if (metaRes.status === "fulfilled" && metaRes.value?.data) {
@@ -214,7 +217,7 @@ export const DashboardOverview = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateParams]);
+  }, [dateParams, isShopifyEnabled]);
 
   useEffect(() => {
     fetchOverviewData();
@@ -349,7 +352,7 @@ export const DashboardOverview = () => {
         actions={
           <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
             <AccountSwitcher onAccountSwitched={fetchOverviewData} />
-            <ShopifyAccountSwitcher onAccountChanged={fetchOverviewData} />
+            {isShopifyEnabled && <ShopifyAccountSwitcher onAccountChanged={fetchOverviewData} />}
             <DateFilter onChange={(params) => setDateParams(params)} initialPreset="last_7d" />
             <button
               type="button"
@@ -460,53 +463,55 @@ export const DashboardOverview = () => {
           {/* ========================================== */}
           {/* 2. SHOPIFY PERFORMANCE SUMMARY */}
           {/* ========================================== */}
-          <div>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-              <h3 style={{ margin: 0, color: "#0F172A", fontSize: "17px", fontWeight: "700", letterSpacing: "-0.3px" }}>
-                Shopify Performance Summary
-              </h3>
-              <span style={{ fontSize: "12px", color: "#64748B", fontWeight: "500" }}>
-                Synced with your Shopify Overview customization
-              </span>
-            </div>
+          {isShopifyEnabled && (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                <h3 style={{ margin: 0, color: "#0F172A", fontSize: "17px", fontWeight: "700", letterSpacing: "-0.3px" }}>
+                  Shopify Performance Summary
+                </h3>
+                <span style={{ fontSize: "12px", color: "#64748B", fontWeight: "500" }}>
+                  Synced with your Shopify Overview customization
+                </span>
+              </div>
 
-            {loading ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-                <Skeleton height="90px" />
-                <Skeleton height="90px" />
-                <Skeleton height="90px" />
-                <Skeleton height="90px" />
-                <Skeleton height="90px" />
-              </div>
-            ) : shopifySelectedCards.length === 0 ? (
-              <div style={{ padding: "20px", backgroundColor: "#FFFFFF", borderRadius: "12px", border: "1px solid #E5E7EB", fontSize: "13px", color: "#64748B" }}>
-                No Shopify metrics selected in Shopify Overview Customize.
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-                {shopifySelectedCards.map((card) => {
-                  const cardId = card.id;
-                  const cardLabel = card.label;
-                  const m = shopifyCalculatedMetrics[cardId] || {
-                    title: cardLabel || cardId,
-                    value: "—",
-                    icon: ShoppingCart,
-                    accentColor: "#0A84FF",
-                  };
-                  return (
-                    <MetricCard
-                      key={cardId}
-                      title={cardLabel || m.title}
-                      value={shopifyCalculated.hasData ? m.value : "—"}
-                      subtitle={shopifyCalculated.hasData ? m.subtitle : undefined}
-                      icon={m.icon}
-                      accentColor={m.accentColor}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </div>
+              {loading ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+                  <Skeleton height="90px" />
+                  <Skeleton height="90px" />
+                  <Skeleton height="90px" />
+                  <Skeleton height="90px" />
+                  <Skeleton height="90px" />
+                </div>
+              ) : shopifySelectedCards.length === 0 ? (
+                <div style={{ padding: "20px", backgroundColor: "#FFFFFF", borderRadius: "12px", border: "1px solid #E5E7EB", fontSize: "13px", color: "#64748B" }}>
+                  No Shopify metrics selected in Shopify Overview Customize.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
+                  {shopifySelectedCards.map((card) => {
+                    const cardId = card.id;
+                    const cardLabel = card.label;
+                    const m = shopifyCalculatedMetrics[cardId] || {
+                      title: cardLabel || cardId,
+                      value: "—",
+                      icon: ShoppingCart,
+                      accentColor: "#0A84FF",
+                    };
+                    return (
+                      <MetricCard
+                        key={cardId}
+                        title={cardLabel || m.title}
+                        value={shopifyCalculated.hasData ? m.value : "—"}
+                        subtitle={shopifyCalculated.hasData ? m.subtitle : undefined}
+                        icon={m.icon}
+                        accentColor={m.accentColor}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ========================================== */}
           {/* 3. GOOGLE ADS (INFORMATIONAL COMING SOON CARD) */}
@@ -596,6 +601,7 @@ export const DashboardOverview = () => {
       <BusinessDashboardCustomizer
         isOpen={isCustomizerOpen}
         onClose={() => setIsCustomizerOpen(false)}
+        isShopifyEnabled={isShopifyEnabled}
         initialMeta={metaSelectedMetricIds}
         initialShopify={shopifySelectedCards.map((c) => (typeof c === "string" ? c : c.id))}
         onSave={({ meta, shopify }) => {

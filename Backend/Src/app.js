@@ -8,6 +8,7 @@ const metaRoutes = require("./routes/meta.routes");
 const shopifyRoutes = require("./routes/shopify.routes");
 const attributionRoutes = require("./routes/attribution.routes");
 const profileRoutes = require("./routes/profile.routes");
+const adminRoutes = require("./routes/admin.routes");
 const errorHandler = require("./middleware/error.middleware");
 const { apiRateLimiter } = require("./middleware/rate-limit.middleware");
 const { sendSuccess } = require("./utils/api-response.util");
@@ -107,6 +108,7 @@ app.use("/api/meta", apiRateLimiter, metaRoutes);
 app.use("/api/shopify", apiRateLimiter, shopifyRoutes);
 app.use("/api/attribution", apiRateLimiter, attributionRoutes);
 app.use("/api/profile", apiRateLimiter, profileRoutes);
+app.use("/api/admin", apiRateLimiter, adminRoutes);
 
 // ==========================================
 // REACT FRONTEND

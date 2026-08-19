@@ -8,10 +8,11 @@ const {
   validateAccountIdParam,
 } = require("../validators/shopify.validator");
 const { validateShopifyDataRequest } = require("../validators/shopify-data.validator");
-const { protect } = require("../middleware/auth.middleware");
+const { protect, requireShopifyAccess } = require("../middleware/auth.middleware");
 
-// Protect all Shopify account and data routes with JWT authentication
+// Protect all Shopify account and data routes with JWT authentication & Shopify feature access
 router.use(protect);
+router.use(requireShopifyAccess);
 
 /**
  * @route   GET /api/shopify/overview

@@ -48,18 +48,46 @@ const protect = async (req, res, next) => {
 };
 
 /**
+ * Express middleware to restrict access to Admin-only API endpoints.
+ * Requires authenticated user database role === "admin".
+ */
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== "admin") {
+    logger.warn(`Admin access denied for user ${req.user?._id || "unknown"}`);
+    return sendError(res, 403, "You don't have permission to access User Management.");
+  }
+  next();
+};
+
+/**
  * Express middleware to restrict access to Attribution API endpoints.
- * Requires Boolean(req.user.attributionEnabled) === true.
+ * Allowed if user is admin OR req.user.attributionEnabled === true.
  */
 const requireAttributionAccess = (req, res, next) => {
-  if (!req.user || Boolean(req.user.attributionEnabled) !== true) {
+  const isAllowed = req.user && (req.user.role === "admin" || Boolean(req.user.attributionEnabled) === true);
+  if (!isAllowed) {
     logger.warn(`Attribution access denied for user ${req.user?._id || "unknown"}`);
-    return sendError(res, 403, "Attribution access is not enabled for this account");
+    return sendError(res, 403, "This feature is not enabled for your account.");
+  }
+  next();
+};
+
+/**
+ * Express middleware to restrict access to Shopify API endpoints.
+ * Allowed if user is admin OR req.user.shopifyEnabled === true.
+ */
+const requireShopifyAccess = (req, res, next) => {
+  const isAllowed = req.user && (req.user.role === "admin" || Boolean(req.user.shopifyEnabled) === true);
+  if (!isAllowed) {
+    logger.warn(`Shopify access denied for user ${req.user?._id || "unknown"}`);
+    return sendError(res, 403, "This feature is not enabled for your account.");
   }
   next();
 };
 
 module.exports = {
   protect,
+  requireAdmin,
   requireAttributionAccess,
+  requireShopifyAccess,
 };

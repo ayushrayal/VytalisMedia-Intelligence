@@ -45,6 +45,7 @@ export const ALL_SHOPIFY_METRICS = [
 export const BusinessDashboardCustomizer = ({
   isOpen,
   onClose,
+  isShopifyEnabled = true,
   initialMeta = [],
   initialShopify = [],
   onSave,
@@ -141,13 +142,15 @@ export const BusinessDashboardCustomizer = ({
       setErrorMessage("Maximum 5 Meta metrics selected.");
       return;
     }
-    if (selectedShopify.length === 0) {
-      setErrorMessage("Select at least one Shopify metric.");
-      return;
-    }
-    if (selectedShopify.length > 5) {
-      setErrorMessage("Maximum 5 Shopify metrics selected.");
-      return;
+    if (isShopifyEnabled) {
+      if (selectedShopify.length === 0) {
+        setErrorMessage("Select at least one Shopify metric.");
+        return;
+      }
+      if (selectedShopify.length > 5) {
+        setErrorMessage("Maximum 5 Shopify metrics selected.");
+        return;
+      }
     }
 
     try {
@@ -467,104 +470,155 @@ export const BusinessDashboardCustomizer = ({
           {/* ========================================== */}
           {/* SECTION 2: SHOPIFY METRICS */}
           {/* ========================================== */}
-          <div
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "14px",
-              border: "1px solid #E8EAED",
-              padding: "20px",
-            }}
-          >
+          {isShopifyEnabled && (
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "14px",
+                backgroundColor: "#FFFFFF",
+                borderRadius: "14px",
+                border: "1px solid #E8EAED",
+                padding: "20px",
               }}
             >
-              <div>
-                <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: "#0F2742", letterSpacing: "0.5px" }}>
-                  SHOPIFY
-                </h3>
-                <span style={{ fontSize: "12px", color: "#60758F" }}>Choose up to 5 metrics</span>
-              </div>
-              <span
+              <div
                 style={{
-                  fontSize: "12px",
-                  fontWeight: "700",
-                  color: selectedShopify.length === 5 ? "#0A84FF" : "#64748B",
-                  backgroundColor: selectedShopify.length === 5 ? "rgba(10, 132, 255, 0.1)" : "#F1F5F9",
-                  padding: "3px 8px",
-                  borderRadius: "6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: "14px",
                 }}
               >
-                Selected: {selectedShopify.length} / 5
-              </span>
-            </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "14px", fontWeight: "700", color: "#0F2742", letterSpacing: "0.5px" }}>
+                    SHOPIFY
+                  </h3>
+                  <span style={{ fontSize: "12px", color: "#60758F" }}>Choose up to 5 metrics</span>
+                </div>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    color: selectedShopify.length === 5 ? "#0A84FF" : "#64748B",
+                    backgroundColor: selectedShopify.length === 5 ? "rgba(10, 132, 255, 0.1)" : "#F1F5F9",
+                    padding: "3px 8px",
+                    borderRadius: "6px",
+                  }}
+                >
+                  Selected: {selectedShopify.length} / 5
+                </span>
+              </div>
 
-            {/* Selected Shopify Metrics (Order) */}
-            <div style={{ marginBottom: "16px" }}>
-              <span style={{ fontSize: "11px", fontWeight: "700", textTransform: "uppercase", color: "#60758F", display: "block", marginBottom: "8px" }}>
-                Selected Order on Dashboard
-              </span>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {selectedShopify.map((id, idx) => {
-                  const shopifyObj = ALL_SHOPIFY_METRICS.find((m) => m.id === id) || { label: id, desc: "" };
-                  return (
-                    <div
-                      key={id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "8px 12px",
-                        backgroundColor: "rgba(10, 132, 255, 0.05)",
-                        border: "1px solid rgba(10, 132, 255, 0.2)",
-                        borderRadius: "8px",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+              {/* Selected Shopify Metrics (Order) */}
+              <div style={{ marginBottom: "16px" }}>
+                <span style={{ fontSize: "11px", fontWeight: "700", textTransform: "uppercase", color: "#60758F", display: "block", marginBottom: "8px" }}>
+                  Selected Order on Dashboard
+                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {selectedShopify.map((id, idx) => {
+                    const shopifyObj = ALL_SHOPIFY_METRICS.find((m) => m.id === id) || { label: id, desc: "" };
+                    return (
+                      <div
+                        key={id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "8px 12px",
+                          backgroundColor: "rgba(10, 132, 255, 0.05)",
+                          border: "1px solid rgba(10, 132, 255, 0.2)",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                            <button
+                              type="button"
+                              onClick={() => moveShopifyMetric(idx, -1)}
+                              disabled={idx === 0}
+                              style={{ background: "none", border: "none", color: idx === 0 ? "#CBD5E1" : "#64748B", cursor: idx === 0 ? "default" : "pointer", padding: 0 }}
+                            >
+                              <ChevronUp size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveShopifyMetric(idx, 1)}
+                              disabled={idx === selectedShopify.length - 1}
+                              style={{ background: "none", border: "none", color: idx === selectedShopify.length - 1 ? "#CBD5E1" : "#64748B", cursor: idx === selectedShopify.length - 1 ? "default" : "pointer", padding: 0 }}
+                            >
+                              <ChevronDown size={14} />
+                            </button>
+                          </div>
+
                           <button
                             type="button"
-                            onClick={() => moveShopifyMetric(idx, -1)}
-                            disabled={idx === 0}
-                            style={{ background: "none", border: "none", color: idx === 0 ? "#CBD5E1" : "#64748B", cursor: idx === 0 ? "default" : "pointer", padding: 0 }}
+                            onClick={() => toggleShopifyMetric(id)}
+                            style={{
+                              width: "18px",
+                              height: "18px",
+                              borderRadius: "4px",
+                              backgroundColor: "#0A84FF",
+                              color: "#FFFFFF",
+                              border: "none",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                            }}
                           >
-                            <ChevronUp size={14} />
+                            <Check size={12} strokeWidth={3} />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => moveShopifyMetric(idx, 1)}
-                            disabled={idx === selectedShopify.length - 1}
-                            style={{ background: "none", border: "none", color: idx === selectedShopify.length - 1 ? "#CBD5E1" : "#64748B", cursor: idx === selectedShopify.length - 1 ? "default" : "pointer", padding: 0 }}
-                          >
-                            <ChevronDown size={14} />
-                          </button>
+
+                          <div>
+                            <span style={{ fontSize: "13px", fontWeight: "600", color: "#0F2742", display: "block" }}>
+                              {shopifyObj.label}
+                            </span>
+                            {shopifyObj.desc && (
+                              <span style={{ fontSize: "11px", color: "#60758F" }}>{shopifyObj.desc}</span>
+                            )}
+                          </div>
                         </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-                        <button
-                          type="button"
-                          onClick={() => toggleShopifyMetric(id)}
+              {/* Unselected Available Shopify Metrics */}
+              <div>
+                <span style={{ fontSize: "11px", fontWeight: "700", textTransform: "uppercase", color: "#60758F", display: "block", marginBottom: "8px" }}>
+                  Available Metrics
+                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxHeight: "200px", overflowY: "auto" }}>
+                  {ALL_SHOPIFY_METRICS.filter((m) => !selectedShopify.includes(m.id)).map((shopifyObj) => {
+                    const isMaxedOut = selectedShopify.length >= 5;
+                    return (
+                      <div
+                        key={shopifyObj.id}
+                        onClick={() => !isMaxedOut && toggleShopifyMetric(shopifyObj.id)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          padding: "8px 12px",
+                          borderRadius: "8px",
+                          backgroundColor: "#FFFFFF",
+                          border: "1px solid #E8EAED",
+                          cursor: isMaxedOut ? "not-allowed" : "pointer",
+                          opacity: isMaxedOut ? 0.6 : 1,
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        <div
                           style={{
                             width: "18px",
                             height: "18px",
                             borderRadius: "4px",
-                            backgroundColor: "#0A84FF",
-                            color: "#FFFFFF",
-                            border: "none",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            cursor: "pointer",
+                            border: "1.5px solid #CBD5E1",
+                            backgroundColor: "#FFFFFF",
+                            flexShrink: 0,
                           }}
-                        >
-                          <Check size={12} strokeWidth={3} />
-                        </button>
-
+                        />
                         <div>
-                          <span style={{ fontSize: "13px", fontWeight: "600", color: "#0F2742", display: "block" }}>
+                          <span style={{ fontSize: "13px", fontWeight: "500", color: "#0F2742", display: "block" }}>
                             {shopifyObj.label}
                           </span>
                           {shopifyObj.desc && (
@@ -572,61 +626,12 @@ export const BusinessDashboardCustomizer = ({
                           )}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
-
-            {/* Unselected Available Shopify Metrics */}
-            <div>
-              <span style={{ fontSize: "11px", fontWeight: "700", textTransform: "uppercase", color: "#60758F", display: "block", marginBottom: "8px" }}>
-                Available Metrics
-              </span>
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxHeight: "200px", overflowY: "auto" }}>
-                {ALL_SHOPIFY_METRICS.filter((m) => !selectedShopify.includes(m.id)).map((shopifyObj) => {
-                  const isMaxedOut = selectedShopify.length >= 5;
-                  return (
-                    <div
-                      key={shopifyObj.id}
-                      onClick={() => !isMaxedOut && toggleShopifyMetric(shopifyObj.id)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        padding: "8px 12px",
-                        borderRadius: "8px",
-                        backgroundColor: "#FFFFFF",
-                        border: "1px solid #E8EAED",
-                        cursor: isMaxedOut ? "not-allowed" : "pointer",
-                        opacity: isMaxedOut ? 0.6 : 1,
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          borderRadius: "4px",
-                          border: "1.5px solid #CBD5E1",
-                          backgroundColor: "#FFFFFF",
-                          flexShrink: 0,
-                        }}
-                      />
-                      <div>
-                        <span style={{ fontSize: "13px", fontWeight: "500", color: "#0F2742", display: "block" }}>
-                          {shopifyObj.label}
-                        </span>
-                        {shopifyObj.desc && (
-                          <span style={{ fontSize: "11px", color: "#60758F" }}>{shopifyObj.desc}</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* DRAWER FOOTER (STICKY) */}

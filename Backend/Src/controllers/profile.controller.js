@@ -17,32 +17,30 @@ const getProfile = async (req, res, next) => {
 };
 
 /**
- * POST /api/profile/attribution/enable
- * Enable Attribution analytics for the authenticated user account
- *
- * Rules:
- * - Compares accessKey against process.env.ATTRIBUTION_ACCESS_KEY || "VytalisAttribution@2026".
- * - Uses authenticated user from JWT (req.user._id). Never accepts userId from req.body.
- * - Returns 401 if accessKey is invalid.
+ * POST /api/profile/upgrade-role
+ * Upgrade the authenticated client user to admin role using ADMIN_UPGRADE_KEY
  */
-const enableAttribution = async (req, res, next) => {
+const upgradeRole = async (req, res, next) => {
   try {
-    const { accessKey } = req.body || {};
-    const expectedKey = process.env.ATTRIBUTION_ACCESS_KEY || "VytalisAttribution@2026";
+    const { key } = req.body || {};
+    const expectedKey = process.env.ADMIN_UPGRADE_KEY;
 
-    if (!accessKey || accessKey.trim() !== expectedKey.trim()) {
-      logger.warn(`Invalid access key attempt for user ${req.user._id}`);
-      return sendError(res, 401, "Invalid access key");
+    if (!expectedKey) {
+      logger.error("ADMIN_UPGRADE_KEY is not defined in environment variables");
+      return sendError(res, 500, "Server environment configuration error");
     }
 
-    // Update ONLY the authenticated user from JWT
-    req.user.attributionEnabled = true;
+    if (!key || typeof key !== "string" || key.trim() !== expectedKey.trim()) {
+      logger.warn(`Invalid admin upgrade key attempt for user ${req.user._id}`);
+      return sendError(res, 401, "Invalid administrator access key.");
+    }
+
+    req.user.role = "admin";
     await req.user.save();
 
-    logger.info(`Attribution enabled successfully for user ${req.user._id}`);
+    logger.info(`User ${req.user._id} (${req.user.email}) successfully upgraded to admin role`);
 
-    return sendSuccess(res, 200, "Attribution analytics unlocked successfully", {
-      attributionEnabled: true,
+    return sendSuccess(res, 200, "Account role successfully upgraded to Administrator", {
       user: req.user,
     });
   } catch (error) {
@@ -143,7 +141,7 @@ const updateKpiPreferences = async (req, res, next) => {
 
 module.exports = {
   getProfile,
-  enableAttribution,
+  upgradeRole,
   getKpiPreferences,
   updateKpiPreferences,
 };

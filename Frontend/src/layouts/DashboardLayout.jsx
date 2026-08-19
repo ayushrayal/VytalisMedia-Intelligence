@@ -21,6 +21,7 @@ import {
   Target,
   Trophy,
   TrendingDown,
+  Shield,
 } from "lucide-react";
 
 import metaLogoImg from "../assets/mobile.png";
@@ -237,9 +238,10 @@ export const DashboardLayout = ({ user, setUser }) => {
               {analyticsNavigation.map((group) => {
                 // Single Item (Global Overview or Attribution)
                 if (group.route) {
-                  // Attribution navigation rule: NOT rendered if attributionEnabled is false
-                  if (group.key === "attribution" && Boolean(user?.attributionEnabled) !== true) {
-                    return null;
+                  // Attribution navigation rule: NOT rendered if attribution is not enabled
+                  if (group.key === "attribution") {
+                    const isAttributionEnabled = user?.role === "admin" || Boolean(user?.attributionEnabled) === true;
+                    if (!isAttributionEnabled) return null;
                   }
 
                   const IconComponent = group.icon;
@@ -269,6 +271,11 @@ export const DashboardLayout = ({ user, setUser }) => {
                 }
 
                 // Collapsible Provider Group (Meta, Shopify)
+                if (group.key === "shopify") {
+                  const isShopifyEnabled = user?.role === "admin" || Boolean(user?.shopifyEnabled) === true;
+                  if (!isShopifyEnabled) return null;
+                }
+
                 const isExpanded = expandedGroups[group.key] ?? true;
                 const isGroupActive = location.pathname.startsWith(group.basePath);
                 const GroupIcon = group.icon;
@@ -362,6 +369,11 @@ export const DashboardLayout = ({ user, setUser }) => {
             </span>
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               {integrationsNavigation.map((item) => {
+                if (item.route === "/integrations/shopify") {
+                  const isShopifyEnabled = user?.role === "admin" || Boolean(user?.shopifyEnabled) === true;
+                  if (!isShopifyEnabled) return null;
+                }
+
                 const IconComponent = item.icon;
                 return (
                   <NavLink
@@ -389,6 +401,48 @@ export const DashboardLayout = ({ user, setUser }) => {
               })}
             </div>
           </div>
+
+          {/* ADMINISTRATION SECTION (ADMIN ONLY) */}
+          {user?.role === "admin" && (
+            <div style={{ marginBottom: "20px" }}>
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "700",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.6px",
+                  color: "var(--color-text-muted, #94A3B8)",
+                  padding: "0 10px",
+                  display: "block",
+                  marginBottom: "6px",
+                }}
+              >
+                Administration
+              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                <NavLink
+                  to="/admin/users"
+                  style={({ isActive }) => ({
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "8px 10px",
+                    borderRadius: "var(--radius-nav, 6px)",
+                    textDecoration: "none",
+                    backgroundColor: isActive ? "var(--color-surface-subtle, #F1F5F9)" : "transparent",
+                    color: isActive ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
+                    fontSize: "13px",
+                    fontWeight: isActive ? "600" : "500",
+                    transition: "all 0.15s ease",
+                    borderLeft: isActive ? "2px solid #0A84FF" : "2px solid transparent",
+                  })}
+                >
+                  <Shield size={18} />
+                  <span>User Management</span>
+                </NavLink>
+              </div>
+            </div>
+          )}
         </nav>
 
         {/* Sidebar Footer User Area */}

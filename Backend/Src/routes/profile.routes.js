@@ -14,13 +14,11 @@ router.use(protect);
 router.get("/", profileController.getProfile);
 
 /**
- * @route   POST /api/profile/attribution/enable
- * @route   POST /api/profile/attribution/unlock
- * @desc    Unlock Attribution access for the authenticated user
+ * @route   POST /api/profile/upgrade-role
+ * @desc    Upgrade user role to admin using secret access key
  * @access  Private
  */
-router.post("/attribution/enable", profileController.enableAttribution);
-router.post("/attribution/unlock", profileController.enableAttribution);
+router.post("/upgrade-role", profileController.upgradeRole);
 
 /**
  * @route   GET /api/profile/kpi-preferences
