@@ -2,6 +2,7 @@ import { getActionValue } from "../utils/actionParser.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { getHookRate, getHoldRate } from "../components/CreativeCard.jsx";
+import { extractCreativeRoas } from "../components/WinningCreativesSection.jsx";
 
 export const DEFAULT_CREATIVE_CARD_PREFERENCES = {
   primaryMetrics: ["spend", "purchases", "cost_per_result", "purchase_roas"],
@@ -46,7 +47,7 @@ export const CREATIVE_PRIMARY_KPIS = [
     label: "ROAS",
     category: "primary",
     format: "roas",
-    getValue: (creative) => getActionValue(creative.purchase_roas || creative.purchase_roas_omni_purchase),
+    getValue: (creative) => extractCreativeRoas(creative),
   },
   {
     id: "cost_per_result",

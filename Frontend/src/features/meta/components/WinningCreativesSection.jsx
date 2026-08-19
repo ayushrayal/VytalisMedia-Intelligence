@@ -3,13 +3,39 @@ import CreativeCard from "./CreativeCard.jsx";
 import Pagination from "../../../components/ui/Pagination.jsx";
 import { Trophy, Filter, Check } from "lucide-react";
 
+import { extractNumericValue } from "../utils/creativeAggregator.js";
+
 export const extractCreativeRoas = (creative) => {
   if (!creative) return null;
-  const raw = creative.purchase_roas ?? creative.roas;
-  if (raw === null || raw === undefined || raw === "" || raw === "--") return null;
-  const num = Number(raw);
-  if (isNaN(num) || !isFinite(num)) return null;
-  return num;
+
+  // 1. Explicit purchase_roas / roas metric (nullish coalescing preserves 0)
+  const raw = creative.purchase_roas ?? creative.purchase_roas_omni_purchase ?? creative.roas;
+  const numericRoas = extractNumericValue(raw);
+  if (numericRoas !== null && !isNaN(numericRoas) && isFinite(numericRoas)) {
+    return numericRoas;
+  }
+
+  // 2. Evidence-based calculation using nullish coalescing for metric fallback
+  const spend = extractNumericValue(creative.spend ?? creative.amount_spent);
+  if (spend === null || spend <= 0) return null;
+
+  const purchases = extractNumericValue(creative.purchases ?? creative.actions_omni_purchase);
+  const purchaseValue = extractNumericValue(
+    creative.purchase_conversion_value ??
+    creative.action_values_omni_purchase ??
+    creative.purchaseValue ??
+    creative.purchase_value
+  );
+
+  if (purchaseValue !== null && purchaseValue > 0) {
+    return purchaseValue / spend;
+  }
+
+  if (purchaseValue === 0 || purchases === 0) {
+    return 0;
+  }
+
+  return null;
 };
 
 const PREDEFINED_WINNING_OPTIONS = [
@@ -49,7 +75,7 @@ export const WinningCreativesSection = ({ creatives, preferences, onCardClick, o
         const roas = extractCreativeRoas(item);
         return roas !== null && roas > thresholdVal;
       })
-      .sort((a, b) => (extractCreativeRoas(b) || 0) - (extractCreativeRoas(a) || 0));
+      .sort((a, b) => (extractCreativeRoas(b) ?? 0) - (extractCreativeRoas(a) ?? 0));
   }, [creatives, thresholdVal]);
 
   // Reset pagination to page 1 whenever filter, threshold, or underlying dataset changes

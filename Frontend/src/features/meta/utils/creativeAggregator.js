@@ -356,21 +356,21 @@ export const aggregateCreativesData = (records, isSingleDay) => {
     }
 
     // 3. Recalculate derived rates from aggregated totals
-    const totalSpend = extractNumericValue(aggregated.spend || aggregated.amount_spent);
+    const totalSpend = extractNumericValue(aggregated.spend ?? aggregated.amount_spent);
     const totalImpressions = extractNumericValue(aggregated.impressions);
     const totalClicks = extractNumericValue(aggregated.clicks);
-    const totalPurchases = extractNumericValue(aggregated.purchases || aggregated.actions_omni_purchase);
-    const totalPurchaseValue = extractNumericValue(aggregated.purchase_conversion_value || aggregated.action_values_omni_purchase);
+    const totalPurchases = extractNumericValue(aggregated.purchases ?? aggregated.actions_omni_purchase);
+    const totalPurchaseValue = extractNumericValue(aggregated.purchase_conversion_value ?? aggregated.action_values_omni_purchase);
     const totalReach = extractNumericValue(aggregated.reach);
 
     // Verified Windsor 3-sec plays (actions_video_view)
     const total3SecPlays = extractNumericValue(
-      aggregated.actions_video_view || aggregated.video_3_sec_watched_actions || aggregated.video_3_sec_views
+      aggregated.actions_video_view ?? aggregated.video_3_sec_watched_actions ?? aggregated.video_3_sec_views
     );
 
     // Verified Windsor ThruPlay (video_thruplay_watched_actions_video_view)
     const totalThruplay = extractNumericValue(
-      aggregated.video_thruplay_watched_actions_video_view || aggregated.video_thruplay_watched_actions || aggregated.thruplay
+      aggregated.video_thruplay_watched_actions_video_view ?? aggregated.video_thruplay_watched_actions ?? aggregated.thruplay
     );
 
     // CTR
@@ -391,11 +391,18 @@ export const aggregateCreativesData = (records, isSingleDay) => {
         ? (totalSpend / totalImpressions) * 1000
         : null;
 
-    // Purchase ROAS
-    aggregated.purchase_roas =
-      totalSpend !== null && totalSpend > 0 && totalPurchaseValue !== null
-        ? totalPurchaseValue / totalSpend
-        : null;
+    // Purchase ROAS (evidence-based: 0 only when totalSpend > 0 and (totalPurchaseValue === 0 || totalPurchases === 0))
+    if (totalSpend !== null && totalSpend > 0) {
+      if (totalPurchaseValue !== null && totalPurchaseValue > 0) {
+        aggregated.purchase_roas = totalPurchaseValue / totalSpend;
+      } else if (totalPurchaseValue === 0 || totalPurchases === 0) {
+        aggregated.purchase_roas = 0;
+      } else {
+        aggregated.purchase_roas = null;
+      }
+    } else {
+      aggregated.purchase_roas = null;
+    }
 
     // Cost per Result
     aggregated.cost_per_result =

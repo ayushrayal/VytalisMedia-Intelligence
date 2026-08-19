@@ -41,7 +41,7 @@ export const PoorPerformersSection = ({ creatives, preferences, onCardClick, onT
         const roas = extractCreativeRoas(item);
         return roas !== null && roas < thresholdVal;
       })
-      .sort((a, b) => (extractCreativeRoas(a) || 0) - (extractCreativeRoas(a) || 0));
+      .sort((a, b) => (extractCreativeRoas(a) ?? 0) - (extractCreativeRoas(b) ?? 0));
   }, [creatives, thresholdVal]);
 
   // Reset pagination to page 1 whenever filter, threshold, or underlying dataset changes

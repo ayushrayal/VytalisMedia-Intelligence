@@ -119,10 +119,14 @@ export const aggregateAdSetsData = (records) => {
       impressions !== null && impressions > 0 && clicks !== null ? (clicks / impressions) * 100 : null;
     const cpc = clicks !== null && clicks > 0 && spend !== null ? spend / clicks : null;
     const cpm = impressions !== null && impressions > 0 && spend !== null ? (spend / impressions) * 1000 : null;
-    const purchase_roas =
-      spend !== null && spend > 0 && purchase_conversion_value !== null
-        ? purchase_conversion_value / spend
-        : null;
+    let purchase_roas = null;
+    if (spend !== null && spend > 0) {
+      if (purchase_conversion_value !== null && purchase_conversion_value > 0) {
+        purchase_roas = purchase_conversion_value / spend;
+      } else if (purchase_conversion_value === 0 || purchases === 0) {
+        purchase_roas = 0;
+      }
+    }
     const cost_per_result =
       purchases !== null && purchases > 0 && spend !== null ? spend / purchases : null;
 
