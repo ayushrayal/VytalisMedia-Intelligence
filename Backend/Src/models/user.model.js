@@ -71,6 +71,16 @@ const userSchema = new mongoose.Schema(
         winningRoasThreshold: { type: Number, default: 1.0 },
         poorRoasThreshold: { type: Number, default: 1.0 },
       },
+      kpiPreferences: {
+        meta: {
+          type: [String],
+          default: ["amount-spent", "impressions", "purchases", "purchase-value", "reach"],
+        },
+        shopify: {
+          type: [String],
+          default: ["grossSales", "netSales", "orders", "discounts", "customers"],
+        },
+      },
     },
   },
   {

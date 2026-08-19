@@ -185,6 +185,7 @@ const request = async (endpoint, options = {}) => {
 export const http = {
   get: (endpoint, options = {}) => request(endpoint, { ...options, method: "GET" }),
   post: (endpoint, body, options = {}) => request(endpoint, { ...options, method: "POST", body }),
+  put: (endpoint, body, options = {}) => request(endpoint, { ...options, method: "PUT", body }),
   patch: (endpoint, body, options = {}) => request(endpoint, { ...options, method: "PATCH", body }),
   delete: (endpoint, options = {}) => request(endpoint, { ...options, method: "DELETE" }),
 };

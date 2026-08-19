@@ -14,6 +14,8 @@ import { DASHBOARD_WIDGETS } from "../../../config/dashboardWidgets.js";
 import { formatCurrency, formatCurrencyINR } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
+import { http } from "../../../lib/http.js";
+import BusinessDashboardCustomizer, { ALL_SHOPIFY_METRICS } from "../../../components/dashboard/BusinessDashboardCustomizer.jsx";
 import {
   Wallet,
   Eye,
@@ -32,6 +34,8 @@ import {
   Clock3,
   Globe,
   RotateCcw,
+  SlidersHorizontal,
+  CheckCircle2,
 } from "lucide-react";
 
 /**
@@ -76,9 +80,11 @@ export const DashboardOverview = () => {
   const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
 
-  // Preference States (Loaded from Single Source of Truth LocalStorage)
+  // Preference States & Customizer Drawer State
   const [metaSelectedMetricIds, setMetaSelectedMetricIds] = useState([]);
   const [shopifySelectedCards, setShopifySelectedCards] = useState([]);
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   /**
    * Reads saved Meta layout preferences from `vytalis_meta_dashboard_layout`.
@@ -137,19 +143,46 @@ export const DashboardOverview = () => {
     );
   }, []);
 
-  // Sync preferences on mount & storage event
-  useEffect(() => {
+  /**
+   * Fetches user's saved KPI preferences from Backend API, falling back to LocalStorage & defaults.
+   */
+  const loadKpiPreferences = useCallback(async () => {
+    try {
+      const res = await http.get("/profile/kpi-preferences");
+      if (res.data && (res.data.meta || res.data.shopify)) {
+        if (Array.isArray(res.data.meta) && res.data.meta.length > 0) {
+          setMetaSelectedMetricIds(res.data.meta.slice(0, 5));
+        }
+        if (Array.isArray(res.data.shopify) && res.data.shopify.length > 0) {
+          const shopifyConfig = res.data.shopify.slice(0, 5).map((id, index) => ({
+            id,
+            label: ALL_SHOPIFY_METRICS.find((m) => m.id === id)?.label || id,
+            visible: true,
+            order: index + 1,
+          }));
+          setShopifySelectedCards(shopifyConfig);
+        }
+        return;
+      }
+    } catch (e) {
+      // Fall back to local storage and default configurations safely
+    }
+
     loadMetaPreferences();
     loadShopifyPreferences();
+  }, [loadMetaPreferences, loadShopifyPreferences]);
+
+  // Sync preferences on mount & storage event
+  useEffect(() => {
+    loadKpiPreferences();
 
     const handleStorageChange = () => {
-      loadMetaPreferences();
-      loadShopifyPreferences();
+      loadKpiPreferences();
     };
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [loadMetaPreferences, loadShopifyPreferences]);
+  }, [loadKpiPreferences]);
 
   /**
    * Parallel Fetching for active Meta and Shopify datasets
@@ -317,6 +350,30 @@ export const DashboardOverview = () => {
             <AccountSwitcher onAccountSwitched={fetchOverviewData} />
             <ShopifyAccountSwitcher onAccountChanged={fetchOverviewData} />
             <DateFilter onChange={(params) => setDateParams(params)} initialPreset="last_7d" />
+            <button
+              type="button"
+              onClick={() => setIsCustomizerOpen(true)}
+              title="Customize Dashboard Cards"
+              style={{
+                height: "36px",
+                padding: "0 12px",
+                borderRadius: "8px",
+                backgroundColor: "#FFFFFF",
+                border: "1px solid #E5E7EB",
+                color: "#0F172A",
+                fontSize: "13px",
+                fontWeight: "600",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 1px 2px rgba(15, 23, 42, 0.03)",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <SlidersHorizontal size={14} />
+              <span>Customize</span>
+            </button>
             <button
               type="button"
               onClick={fetchOverviewData}
@@ -508,6 +565,52 @@ export const DashboardOverview = () => {
           </div>
         </>
       )}
+
+      {/* Toast Feedback Notification */}
+      {toastMessage && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            right: "24px",
+            padding: "12px 18px",
+            backgroundColor: "#0F2742",
+            color: "#FFFFFF",
+            borderRadius: "10px",
+            fontSize: "13.5px",
+            fontWeight: "600",
+            boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15)",
+            zIndex: 999,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          <CheckCircle2 size={16} color="#0A84FF" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Customize Right-Side Drawer */}
+      <BusinessDashboardCustomizer
+        isOpen={isCustomizerOpen}
+        onClose={() => setIsCustomizerOpen(false)}
+        initialMeta={metaSelectedMetricIds}
+        initialShopify={shopifySelectedCards.map((c) => (typeof c === "string" ? c : c.id))}
+        onSave={({ meta, shopify }) => {
+          setMetaSelectedMetricIds(meta);
+          setShopifySelectedCards(
+            shopify.map((id, index) => ({
+              id,
+              label: ALL_SHOPIFY_METRICS.find((m) => m.id === id)?.label || id,
+              visible: true,
+              order: index + 1,
+            }))
+          );
+          setToastMessage("Dashboard updated");
+          setTimeout(() => setToastMessage(""), 3500);
+        }}
+      />
     </div>
   );
 };

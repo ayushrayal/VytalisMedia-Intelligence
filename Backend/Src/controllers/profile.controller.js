@@ -50,7 +50,100 @@ const enableAttribution = async (req, res, next) => {
   }
 };
 
+const ALLOWED_META_METRICS = [
+  "amount-spent",
+  "impressions",
+  "reach",
+  "purchases",
+  "purchase-value",
+  "clicks",
+  "ctr",
+  "cpm",
+  "cpc",
+  "frequency",
+  "add-to-cart",
+  "checkout-initiated",
+  "purchase-roas",
+  "cost-per-purchase",
+];
+
+const ALLOWED_SHOPIFY_METRICS = [
+  "grossSales",
+  "netSales",
+  "orders",
+  "discounts",
+  "customers",
+  "aov",
+  "prepaid",
+  "cod",
+  "cancelled",
+];
+
+/**
+ * GET /api/profile/kpi-preferences
+ * Retrieve authenticated user's KPI card preferences for Business Dashboard
+ */
+const getKpiPreferences = async (req, res, next) => {
+  try {
+    const kpiPrefs = req.user.preferences?.kpiPreferences || {
+      meta: ["amount-spent", "impressions", "purchases", "purchase-value", "reach"],
+      shopify: ["grossSales", "netSales", "orders", "discounts", "customers"],
+    };
+
+    return sendSuccess(res, 200, "KPI preferences retrieved successfully", kpiPrefs);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PUT /api/profile/kpi-preferences
+ * Save authenticated user's KPI card preferences for Business Dashboard
+ */
+const updateKpiPreferences = async (req, res, next) => {
+  try {
+    const { meta, shopify } = req.body || {};
+
+    if (!Array.isArray(meta) || meta.length === 0 || meta.length > 5) {
+      return sendError(res, 400, "Meta metrics selection must contain between 1 and 5 items.");
+    }
+
+    if (!Array.isArray(shopify) || shopify.length === 0 || shopify.length > 5) {
+      return sendError(res, 400, "Shopify metrics selection must contain between 1 and 5 items.");
+    }
+
+    // Whitelist Validation
+    const validMeta = meta.filter((id) => ALLOWED_META_METRICS.includes(id));
+    const validShopify = shopify.filter((id) => ALLOWED_SHOPIFY_METRICS.includes(id));
+
+    if (validMeta.length === 0) {
+      return sendError(res, 400, "Invalid Meta metric selection.");
+    }
+    if (validShopify.length === 0) {
+      return sendError(res, 400, "Invalid Shopify metric selection.");
+    }
+
+    if (!req.user.preferences) {
+      req.user.preferences = {};
+    }
+
+    req.user.preferences.kpiPreferences = {
+      meta: validMeta,
+      shopify: validShopify,
+    };
+
+    await req.user.save();
+    logger.info(`KPI preferences updated for user ${req.user._id}`);
+
+    return sendSuccess(res, 200, "KPI preferences updated successfully", req.user.preferences.kpiPreferences);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getProfile,
   enableAttribution,
+  getKpiPreferences,
+  updateKpiPreferences,
 };

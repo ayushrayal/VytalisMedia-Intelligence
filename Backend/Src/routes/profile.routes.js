@@ -22,4 +22,18 @@ router.get("/", profileController.getProfile);
 router.post("/attribution/enable", profileController.enableAttribution);
 router.post("/attribution/unlock", profileController.enableAttribution);
 
+/**
+ * @route   GET /api/profile/kpi-preferences
+ * @desc    Get dashboard KPI card preferences
+ * @access  Private
+ */
+router.get("/kpi-preferences", profileController.getKpiPreferences);
+
+/**
+ * @route   PUT /api/profile/kpi-preferences
+ * @desc    Update dashboard KPI card preferences
+ * @access  Private
+ */
+router.put("/kpi-preferences", profileController.updateKpiPreferences);
+
 module.exports = router;
