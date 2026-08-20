@@ -36,6 +36,13 @@ router.delete("/users/:userId", adminController.deleteUser);
 router.patch("/users/:userId/role", adminController.updateUserRole);
 
 /**
+ * @route   PATCH /api/admin/users/:userId/root-status
+ * @desc    Grant or revoke Root Administrator status (Root Admin only)
+ * @access  Private (Root Admin Only)
+ */
+router.patch("/users/:userId/root-status", adminController.updateUserRootStatus);
+
+/**
  * @route   PATCH /api/admin/users/:userId/features
  * @desc    Toggle Shopify and Attribution feature access for a specific user
  * @access  Private (Admin Only)

@@ -222,6 +222,66 @@ const updateUserRole = async (req, res, next) => {
 };
 
 /**
+ * PATCH /api/admin/users/:userId/root-status
+ * Grant or revoke Root Administrator status for a user.
+ * STRICT: ONLY Root Admin (isRootAdmin === true) can modify Root status.
+ *
+ * Body parameters:
+ * - isRootAdmin: boolean (required)
+ */
+const updateUserRootStatus = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { isRootAdmin } = req.body || {};
+
+    if (!req.user.isRootAdmin) {
+      logger.warn(`Root status update rejected: Non-root admin ${req.user._id} attempted root status change`);
+      return sendError(res, 403, "Only the Root Administrator can modify Root Administrator status.");
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return sendError(res, 400, "Invalid user ID format.");
+    }
+
+    if (typeof isRootAdmin !== "boolean") {
+      return sendError(res, 400, "isRootAdmin boolean field is required.");
+    }
+
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return sendError(res, 404, "User not found.");
+    }
+
+    // Prevent self-revocation of Root Admin status
+    if (req.user._id.toString() === userId && isRootAdmin === false) {
+      return sendError(res, 400, "You cannot remove your own Root Administrator status.");
+    }
+
+    if (isRootAdmin) {
+      // Granting Root Admin status automatically ensures role = "admin"
+      targetUser.isRootAdmin = true;
+      targetUser.role = "admin";
+    } else {
+      // Revoking Root Admin status leaves target as regular Admin
+      targetUser.isRootAdmin = false;
+      targetUser.role = "admin";
+    }
+
+    await targetUser.save();
+
+    logger.info(
+      `Root Admin ${req.user._id} updated root status for user ${targetUser._id}: isRootAdmin=${targetUser.isRootAdmin}`
+    );
+
+    return sendSuccess(res, 200, "User Root Administrator status updated successfully", {
+      user: targetUser.toJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * PATCH /api/admin/users/:userId/features
  * Independently toggle Shopify and Attribution feature access for a specific user.
  * Requires Admin privileges.
@@ -283,5 +343,6 @@ module.exports = {
   createUser,
   deleteUser,
   updateUserRole,
+  updateUserRootStatus,
   updateUserFeatures,
 };

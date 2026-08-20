@@ -294,8 +294,8 @@ export const Profile = ({ user, setUser }) => {
         </div>
       </div>
 
-      {/* CARD 2: UPGRADE YOUR ROLE */}
-      {!user?.isRootAdmin && (
+      {/* CARD 2: UPGRADE YOUR ROLE (CLIENT ONLY) */}
+      {user?.role !== "admin" && (
         <div
           style={{
             backgroundColor: "#FFFFFF",
