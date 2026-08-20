@@ -1,64 +1,59 @@
 import React from "react";
-import { Users, Wallet, UserCheck, UserPlus, Sparkles } from "lucide-react";
+import { UserCheck, UserPlus, TrendingUp, DollarSign, Trophy } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
-import { formatNumber } from "../../../utils/formatNumber.js";
-import { formatPercentage } from "../../../utils/formatPercentage.js";
 
 /**
  * AudienceKpiCards Component.
- * Displays 5 top summary KPI cards for Meta Audience Demographics:
- * 1. Total Reach
- * 2. Total Spend
- * 3. Male Audience Share
- * 4. Female Audience Share
- * 5. Top Performing Segment
+ * Displays 5 refined summary KPI cards for Meta Audience Demographics:
+ * 1. Total Spend on Male
+ * 2. Total Spend on Female
+ * 3. Revenue Generated from Male
+ * 4. Revenue Generated from Female
+ * 5. Best ROAS From Audience
  */
 export const AudienceKpiCards = ({
-  totalReach,
-  totalSpend,
-  maleReach,
-  femaleReach,
-  topSegment,
+  maleSpend = 0,
+  femaleSpend = 0,
+  maleRevenue = 0,
+  femaleRevenue = 0,
+  bestRoasSegment = null,
   currency = "INR",
 }) => {
-  const malePercent = totalReach > 0 ? (maleReach / totalReach) * 100 : 0;
-  const femalePercent = totalReach > 0 ? (femaleReach / totalReach) * 100 : 0;
-
   const cards = [
     {
-      title: "Total Audience Reach",
-      value: formatNumber(totalReach),
-      subtitle: "Unique users reached",
-      accentColor: "#0A84FF",
-      icon: Users,
-    },
-    {
-      title: "Total Demographic Spend",
-      value: formatCurrency(totalSpend, currency),
-      subtitle: "Demographic ad spend",
-      accentColor: "#16A34A",
-      icon: Wallet,
-    },
-    {
-      title: "Male Audience",
-      value: formatNumber(maleReach),
-      subtitle: `${malePercent.toFixed(1)}% of total reach`,
+      title: "Total Spend on Male",
+      value: formatCurrency(maleSpend, currency),
+      subtitle: "Ad spend targeted at male audience",
       accentColor: "#0A84FF",
       icon: UserCheck,
     },
     {
-      title: "Female Audience",
-      value: formatNumber(femaleReach),
-      subtitle: `${femalePercent.toFixed(1)}% of total reach`,
+      title: "Total Spend on Female",
+      value: formatCurrency(femaleSpend, currency),
+      subtitle: "Ad spend targeted at female audience",
       accentColor: "#EC4899",
       icon: UserPlus,
     },
     {
-      title: "Top Segment",
-      value: topSegment ? `${topSegment.age} · ${topSegment.gender}` : "—",
-      subtitle: topSegment ? `Highest CTR (${formatPercentage(topSegment.ctr)})` : "No segment data",
+      title: "Revenue Generated from Male",
+      value: formatCurrency(maleRevenue, currency),
+      subtitle: "Purchase conversion value from males",
+      accentColor: "#10B981",
+      icon: DollarSign,
+    },
+    {
+      title: "Revenue Generated from Female",
+      value: formatCurrency(femaleRevenue, currency),
+      subtitle: "Purchase conversion value from females",
       accentColor: "#8B5CF6",
-      icon: Sparkles,
+      icon: TrendingUp,
+    },
+    {
+      title: "Best ROAS From Audience",
+      value: bestRoasSegment ? `${bestRoasSegment.roas.toFixed(2)}x` : "—",
+      subtitle: bestRoasSegment ? `${bestRoasSegment.age} · ${bestRoasSegment.gender}` : "No valid ROAS segment",
+      accentColor: "#F59E0B",
+      icon: Trophy,
     },
   ];
 
@@ -108,10 +103,17 @@ export const AudienceKpiCards = ({
             </div>
 
             <div>
-              <div style={{ fontSize: "1.45rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)", letterSpacing: "-0.3px", textTransform: card.title === "Top Segment" ? "capitalize" : "none" }}>
+              <div
+                style={{
+                  fontSize: "1.45rem",
+                  fontWeight: "700",
+                  color: "var(--color-text-primary, #0F172A)",
+                  letterSpacing: "-0.3px",
+                }}
+              >
                 {card.value}
               </div>
-              <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", marginTop: "4px" }}>
+              <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted, #94A3B8)", marginTop: "4px", textTransform: card.title === "Best ROAS From Audience" ? "capitalize" : "none" }}>
                 {card.subtitle}
               </div>
             </div>

@@ -14,18 +14,14 @@ import ContextualLoader, { usePageLoading } from "../../../components/ui/Context
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Button from "../../../components/ui/Button.jsx";
+import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
 import { getErrorMessage } from "../../../utils/error.js";
 
 /**
  * Audience Component (Meta Audience Demographics).
- * Transformed into a premium analytics dashboard with:
- * - Summary KPI cards
- * - Gender distribution donut chart & bar comparison
- * - Age group performance bar visualization
- * - Demographic heatmap & rule-based insights
- * - Age group summary table
- * - Detailed demographics table with frontend sorting
+ * Complete Business Analytics Workspace focusing on:
+ * Spend, Add to Cart, Checkout Initiated, Purchases, Cost per Result, Revenue, and ROAS.
  */
 export const Audience = () => {
   const [data, setData] = useState([]);
@@ -71,31 +67,95 @@ export const Audience = () => {
   }, [filteredData]);
 
   // Total Metrics & Gender Breakdown
-  const { totalReach, totalSpend, maleReach, femaleReach } = useMemo(() => {
+  const {
+    totalReach,
+    totalSpend,
+    maleSpend,
+    femaleSpend,
+    maleRevenue,
+    femaleRevenue,
+    maleReach,
+    femaleReach,
+  } = useMemo(() => {
     let reachSum = 0;
     let spendSum = 0;
+    let mSpend = 0;
+    let fSpend = 0;
+    let mRev = 0;
+    let fRev = 0;
     let mReach = 0;
     let fReach = 0;
 
     filteredData.forEach((row) => {
       const r = Number(row.reach || 0);
       const s = Number(row.spend || 0);
+      const rev = Number(row.purchase_conversion_value || row.revenue || 0);
       const gender = String(row.gender || "").toLowerCase().trim();
 
       reachSum += r;
       spendSum += s;
 
-      if (gender === "male") mReach += r;
-      else if (gender === "female") fReach += r;
+      if (gender === "male") {
+        mSpend += s;
+        mRev += rev;
+        mReach += r;
+      } else if (gender === "female") {
+        fSpend += s;
+        fRev += rev;
+        fReach += r;
+      }
     });
 
     return {
       totalReach: reachSum,
       totalSpend: spendSum,
+      maleSpend: mSpend,
+      femaleSpend: fSpend,
+      maleRevenue: mRev,
+      femaleRevenue: fRev,
       maleReach: mReach,
       femaleReach: fReach,
     };
   }, [filteredData]);
+
+  // Normalized Matrix Data
+  const matrixData = useMemo(() => {
+    return filteredData.map((row) => {
+      const spend = Number(row.spend || 0);
+      const impressions = Number(row.impressions || 0);
+      const clicks = Number(row.clicks || 0);
+      const purchases = Number(row.purchases || 0);
+      const revenue = Number(row.purchase_conversion_value || row.revenue || 0);
+      const atc = Number(row.actions_add_to_cart || row.add_to_cart || 0);
+      const ic = Number(row.actions_initiate_checkout || row.initiate_checkout || 0);
+
+      return {
+        age: String(row.age || "Unknown").trim(),
+        gender: String(row.gender || "unknown").toLowerCase().trim(),
+        spend,
+        impressions,
+        reach: Number(row.reach || 0),
+        clicks,
+        ctr: Number(row.ctr || (impressions > 0 ? (clicks / impressions) * 100 : 0)),
+        cpc: Number(row.cpc || (clicks > 0 ? spend / clicks : 0)),
+        add_to_cart: atc,
+        initiate_checkout: ic,
+        purchases,
+        revenue,
+        cpr: purchases > 0 ? spend / purchases : null,
+        roas: spend > 0 ? revenue / spend : null,
+      };
+    });
+  }, [filteredData]);
+
+  // Best ROAS Segment calculation
+  const bestRoasSegment = useMemo(() => {
+    if (matrixData.length === 0) return null;
+    const validRoasRows = matrixData.filter((r) => r.roas !== null && r.roas > 0);
+    if (validRoasRows.length === 0) return null;
+    const sorted = [...validRoasRows].sort((a, b) => b.roas - a.roas);
+    return sorted[0];
+  }, [matrixData]);
 
   // Aggregated Gender Summary Data
   const genderSummary = useMemo(() => {
@@ -103,33 +163,43 @@ export const Audience = () => {
     filteredData.forEach((row) => {
       const g = String(row.gender || "unknown").toLowerCase().trim();
       if (!map[g]) {
-        map[g] = { gender: g, spend: 0, reach: 0, impressions: 0, clicks: 0 };
+        map[g] = { gender: g, spend: 0, reach: 0, impressions: 0, clicks: 0, add_to_cart: 0, initiate_checkout: 0, purchases: 0, revenue: 0 };
       }
       map[g].spend += Number(row.spend || 0);
       map[g].reach += Number(row.reach || 0);
       map[g].impressions += Number(row.impressions || 0);
       map[g].clicks += Number(row.clicks || 0);
+      map[g].add_to_cart += Number(row.actions_add_to_cart || row.add_to_cart || 0);
+      map[g].initiate_checkout += Number(row.actions_initiate_checkout || row.initiate_checkout || 0);
+      map[g].purchases += Number(row.purchases || 0);
+      map[g].revenue += Number(row.purchase_conversion_value || row.revenue || 0);
     });
 
     return Object.values(map).map((g) => ({
       ...g,
       ctr: g.impressions > 0 ? (g.clicks / g.impressions) * 100 : 0,
       cpc: g.clicks > 0 ? g.spend / g.clicks : 0,
+      cpr: g.purchases > 0 ? g.spend / g.purchases : null,
+      roas: g.spend > 0 ? g.revenue / g.spend : null,
     }));
   }, [filteredData]);
 
-  // Aggregated Age Group Summary Data
+  // Aggregated Age Group Summary Data (Combines Male + Female + Unknown per age group)
   const ageGroupSummary = useMemo(() => {
     const map = {};
     filteredData.forEach((row) => {
       const age = String(row.age || "Unknown").trim();
       if (!map[age]) {
-        map[age] = { age, spend: 0, reach: 0, impressions: 0, clicks: 0 };
+        map[age] = { age, spend: 0, reach: 0, impressions: 0, clicks: 0, add_to_cart: 0, initiate_checkout: 0, purchases: 0, revenue: 0 };
       }
       map[age].spend += Number(row.spend || 0);
       map[age].reach += Number(row.reach || 0);
       map[age].impressions += Number(row.impressions || 0);
       map[age].clicks += Number(row.clicks || 0);
+      map[age].add_to_cart += Number(row.actions_add_to_cart || row.add_to_cart || 0);
+      map[age].initiate_checkout += Number(row.actions_initiate_checkout || row.initiate_checkout || 0);
+      map[age].purchases += Number(row.purchases || 0);
+      map[age].revenue += Number(row.purchase_conversion_value || row.revenue || 0);
     });
 
     const ageOrder = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+", "Unknown"];
@@ -139,6 +209,8 @@ export const Audience = () => {
         ...item,
         ctr: item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0,
         cpc: item.clicks > 0 ? item.spend / item.clicks : 0,
+        cpr: item.purchases > 0 ? item.spend / item.purchases : null,
+        roas: item.spend > 0 ? item.revenue / item.spend : null,
       }))
       .sort((a, b) => {
         const idxA = ageOrder.indexOf(a.age);
@@ -150,33 +222,19 @@ export const Audience = () => {
       });
   }, [filteredData]);
 
-  // Normalized Matrix Data (Age x Gender)
-  const matrixData = useMemo(() => {
-    return filteredData.map((row) => ({
-      age: String(row.age || "Unknown").trim(),
-      gender: String(row.gender || "unknown").toLowerCase().trim(),
-      spend: Number(row.spend || 0),
-      impressions: Number(row.impressions || 0),
-      reach: Number(row.reach || 0),
-      clicks: Number(row.clicks || 0),
-      ctr: Number(row.ctr || (row.impressions > 0 ? (row.clicks / row.impressions) * 100 : 0)),
-      cpc: Number(row.cpc || (row.clicks > 0 ? row.spend / row.clicks : 0)),
-    }));
-  }, [filteredData]);
-
-  // Top Performing Segment (highest CTR with min clicks/impressions)
+  // Top Performing Segment (highest CTR)
   const topSegment = useMemo(() => {
     if (matrixData.length === 0) return null;
     const sorted = [...matrixData].sort((a, b) => (b.ctr || 0) - (a.ctr || 0));
     return sorted[0] || null;
   }, [matrixData]);
 
-  // Rule-based Insights generated strictly from payload data
+  // Rule-based Insights generated strictly from current payload data
   const insights = useMemo(() => {
     if (filteredData.length === 0) return [];
     const list = [];
 
-    // 1. Spend Dominance by Age
+    // 1. Spend Dominance by Age Group
     if (ageGroupSummary.length > 0) {
       const topAgeBySpend = [...ageGroupSummary].sort((a, b) => b.spend - a.spend)[0];
       if (topAgeBySpend && totalSpend > 0) {
@@ -185,18 +243,30 @@ export const Audience = () => {
       }
     }
 
-    // 2. Highest CTR Segment
+    // 2. Best ROAS Age Group
+    if (ageGroupSummary.length > 0) {
+      const validRoasAges = ageGroupSummary.filter((a) => a.roas !== null && a.roas > 0);
+      if (validRoasAges.length > 0) {
+        const topRoasAge = [...validRoasAges].sort((a, b) => b.roas - a.roas)[0];
+        list.push(`Age group ${topRoasAge.age} achieved the best ROAS at ${topRoasAge.roas.toFixed(2)}x.`);
+      }
+    }
+
+    // 3. Lowest Cost per Result Age Group
+    if (ageGroupSummary.length > 0) {
+      const validCprAges = ageGroupSummary.filter((a) => a.cpr !== null && a.cpr > 0);
+      if (validCprAges.length > 0) {
+        const topCprAge = [...validCprAges].sort((a, b) => a.cpr - b.cpr)[0];
+        list.push(`Age group ${topCprAge.age} achieved the lowest Cost per Result at ${formatCurrency(topCprAge.cpr, currency)}.`);
+      }
+    }
+
+    // 4. Highest CTR Segment
     if (topSegment && topSegment.ctr > 0) {
       list.push(`${topSegment.gender.toUpperCase()} ${topSegment.age} achieved the highest CTR at ${formatPercentage(topSegment.ctr)}.`);
     }
 
-    // 3. Highest Clicks Segment
-    const topClickSegment = [...matrixData].sort((a, b) => b.clicks - a.clicks)[0];
-    if (topClickSegment && topClickSegment.clicks > 0) {
-      list.push(`${topClickSegment.gender.toUpperCase()} ${topClickSegment.age} generated the highest click volume (${topClickSegment.clicks.toLocaleString()} clicks).`);
-    }
-
-    // 4. Gender Reach Dominance
+    // 5. Gender Reach Dominance
     if (totalReach > 0) {
       if (maleReach > femaleReach) {
         const pct = ((maleReach / totalReach) * 100).toFixed(0);
@@ -208,14 +278,14 @@ export const Audience = () => {
     }
 
     return list;
-  }, [filteredData, ageGroupSummary, matrixData, topSegment, totalSpend, totalReach, maleReach, femaleReach]);
+  }, [filteredData, ageGroupSummary, topSegment, totalSpend, totalReach, maleReach, femaleReach, currency]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
       {/* PAGE HEADER */}
       <PageHeader
         title="Meta Audience Demographics"
-        subtitle="Demographic audience breakdown by age group and gender"
+        subtitle="Demographic audience breakdown by age group, gender, spend, and conversion funnel metrics"
         actions={
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
             <AccountSwitcher onAccountSwitched={fetchData} />
@@ -263,11 +333,11 @@ export const Audience = () => {
         <>
           {/* 1. AUDIENCE SUMMARY KPI CARDS */}
           <AudienceKpiCards
-            totalReach={totalReach}
-            totalSpend={totalSpend}
-            maleReach={maleReach}
-            femaleReach={femaleReach}
-            topSegment={topSegment}
+            maleSpend={maleSpend}
+            femaleSpend={femaleSpend}
+            maleRevenue={maleRevenue}
+            femaleRevenue={femaleRevenue}
+            bestRoasSegment={bestRoasSegment}
             currency={currency}
           />
 

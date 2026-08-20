@@ -5,18 +5,17 @@ import { formatPercentage } from "../../../utils/formatPercentage.js";
 
 /**
  * AudienceGenderDistribution Component.
- * Contains:
- * 1. SVG Donut Chart for Gender Share (Male, Female, Unknown)
- * 2. Gender Performance Bar Comparison with Metric Selector (Spend, Reach, Impressions, Clicks, CTR)
+ * Displays:
+ * 1. Donut Chart for Audience Gender Share
+ * 2. Bar Comparison with expanded metric selector (Reach, Spend, Impressions, Clicks, CTR, Add to Cart, Checkout Initiated, Purchases, Cost per Result, Revenue, ROAS)
  */
 export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }) => {
-  const [metric, setMetric] = useState("reach"); // "spend" | "reach" | "impressions" | "clicks" | "ctr"
+  const [metric, setMetric] = useState("reach");
   const [hoveredSegment, setHoveredSegment] = useState(null);
 
-  // Extract totals by gender
-  const maleItem = genderData.find((g) => g.gender === "male") || { gender: "male", spend: 0, reach: 0, impressions: 0, clicks: 0, ctr: 0 };
-  const femaleItem = genderData.find((g) => g.gender === "female") || { gender: "female", spend: 0, reach: 0, impressions: 0, clicks: 0, ctr: 0 };
-  const unknownItem = genderData.find((g) => g.gender === "unknown") || { gender: "unknown", spend: 0, reach: 0, impressions: 0, clicks: 0, ctr: 0 };
+  const maleItem = genderData.find((g) => g.gender === "male") || { gender: "male", spend: 0, reach: 0, impressions: 0, clicks: 0, ctr: 0, add_to_cart: 0, initiate_checkout: 0, purchases: 0, revenue: 0 };
+  const femaleItem = genderData.find((g) => g.gender === "female") || { gender: "female", spend: 0, reach: 0, impressions: 0, clicks: 0, ctr: 0, add_to_cart: 0, initiate_checkout: 0, purchases: 0, revenue: 0 };
+  const unknownItem = genderData.find((g) => g.gender === "unknown") || { gender: "unknown", spend: 0, reach: 0, impressions: 0, clicks: 0, ctr: 0, add_to_cart: 0, initiate_checkout: 0, purchases: 0, revenue: 0 };
 
   const totalReach = (maleItem.reach || 0) + (femaleItem.reach || 0) + (unknownItem.reach || 0);
 
@@ -46,19 +45,56 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
     };
   });
 
-  const getFormattedValue = (item, metricKey) => {
-    const val = item[metricKey] || 0;
-    if (metricKey === "spend") return formatCurrency(val, currency);
-    if (metricKey === "ctr") return formatPercentage(val);
-    return formatNumber(val);
+  const getMetricVal = (item, metricKey) => {
+    if (!item) return null;
+    if (metricKey === "cpr") {
+      const p = item.purchases || 0;
+      const s = item.spend || 0;
+      return p > 0 ? s / p : null;
+    }
+    if (metricKey === "roas") {
+      const s = item.spend || 0;
+      const r = item.revenue || 0;
+      return s > 0 ? r / s : null;
+    }
+    return item[metricKey] ?? 0;
   };
 
-  const getMetricMax = () => {
-    const m = Math.max(maleItem[metric] || 0, femaleItem[metric] || 0, unknownItem[metric] || 0);
-    return m > 0 ? m : 1;
+  const formatDisplayVal = (val, metricKey) => {
+    if (val === null || val === undefined || isNaN(Number(val))) return "—";
+    const num = Number(val);
+    if (metricKey === "spend" || metricKey === "revenue" || metricKey === "cpr") {
+      return formatCurrency(num, currency);
+    }
+    if (metricKey === "roas") {
+      return `${num.toFixed(2)}x`;
+    }
+    if (metricKey === "ctr") {
+      return formatPercentage(num);
+    }
+    return formatNumber(num);
   };
 
-  const maxVal = getMetricMax();
+  const maxVal = Math.max(
+    Number(getMetricVal(maleItem, metric)) || 0,
+    Number(getMetricVal(femaleItem, metric)) || 0,
+    Number(getMetricVal(unknownItem, metric)) || 0,
+    1
+  );
+
+  const metricOptions = [
+    { id: "reach", label: "Reach" },
+    { id: "spend", label: "Spend" },
+    { id: "impressions", label: "Impressions" },
+    { id: "clicks", label: "Clicks" },
+    { id: "ctr", label: "CTR" },
+    { id: "add_to_cart", label: "Add to Cart" },
+    { id: "initiate_checkout", label: "Checkout Initiated" },
+    { id: "purchases", label: "Purchases" },
+    { id: "cpr", label: "Cost per Result" },
+    { id: "revenue", label: "Revenue" },
+    { id: "roas", label: "ROAS" },
+  ];
 
   return (
     <div
@@ -199,22 +235,16 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
             </span>
           </div>
 
-          {/* Metric Selector Pills */}
-          <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)" }}>
-            {[
-              { id: "reach", label: "Reach" },
-              { id: "spend", label: "Spend" },
-              { id: "impressions", label: "Impr." },
-              { id: "clicks", label: "Clicks" },
-              { id: "ctr", label: "CTR" },
-            ].map((m) => {
+          {/* Metric Selector Pills (Flex Wrap) */}
+          <div style={{ display: "flex", flexWrap: "wrap", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "4px", border: "1px solid var(--color-border, #E5E7EB)", gap: "4px" }}>
+            {metricOptions.map((m) => {
               const active = metric === m.id;
               return (
                 <button
                   key={m.id}
                   onClick={() => setMetric(m.id)}
                   style={{
-                    padding: "4px 8px",
+                    padding: "4px 9px",
                     border: "none",
                     borderRadius: "4px",
                     backgroundColor: active ? "#FFFFFF" : "transparent",
@@ -222,6 +252,7 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
                     fontWeight: active ? "700" : "500",
                     fontSize: "0.75rem",
                     cursor: "pointer",
+                    whiteSpace: "nowrap",
                     boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.05)" : "none",
                     transition: "all 0.15s ease",
                   }}
@@ -240,8 +271,9 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
             { label: "Female", item: femaleItem, color: "#EC4899" },
             { label: "Unknown", item: unknownItem, color: "#94A3B8" },
           ].map((row, idx) => {
-            const rawVal = row.item[metric] || 0;
-            const pctFill = Math.min(100, Math.max(4, (rawVal / maxVal) * 100));
+            const rawVal = getMetricVal(row.item, metric);
+            const numVal = Number(rawVal) || 0;
+            const pctFill = Math.min(100, Math.max(0, (numVal / maxVal) * 100));
 
             return (
               <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -250,7 +282,7 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
                     {row.label}
                   </span>
                   <strong style={{ color: "var(--color-text-primary, #0F172A)" }}>
-                    {getFormattedValue(row.item, metric)}
+                    {formatDisplayVal(rawVal, metric)}
                   </strong>
                 </div>
 

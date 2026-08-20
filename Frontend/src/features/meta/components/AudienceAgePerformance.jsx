@@ -6,29 +6,74 @@ import { formatPercentage } from "../../../utils/formatPercentage.js";
 /**
  * AudienceAgePerformance Component.
  * Displays Age Group Performance with an interactive metric selector:
- * [ Spend ] [ Reach ] [ Impressions ] [ Clicks ] [ CTR ] [ CPC ]
+ * [ Spend ] [ Add to Cart ] [ Checkout Initiated ] [ Purchases ] [ Cost per Result ] [ Revenue ] [ ROAS ]
+ * 
+ * Sorting Rule:
+ * - Cost per Result sorts LOW -> HIGH (#1 = lowest cost per result)
+ * - All other metrics sort HIGH -> LOW (#1 = highest value)
  */
 export const AudienceAgePerformance = ({ ageGroupData = [], currency = "INR" }) => {
-  const [metric, setMetric] = useState("spend"); // "spend" | "reach" | "impressions" | "clicks" | "ctr" | "cpc"
+  const [metric, setMetric] = useState("spend"); // "spend" | "add_to_cart" | "initiate_checkout" | "purchases" | "cpr" | "revenue" | "roas"
 
-  // Standard ordered age brackets
-  const ageOrder = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+", "Unknown"];
+  const metricOptions = [
+    { id: "spend", label: "Spend" },
+    { id: "add_to_cart", label: "Add to Cart" },
+    { id: "initiate_checkout", label: "Checkout Initiated" },
+    { id: "purchases", label: "Purchases" },
+    { id: "cpr", label: "Cost per Result" },
+    { id: "revenue", label: "Revenue" },
+    { id: "roas", label: "ROAS" },
+  ];
 
-  // Sort/normalize data according to ageOrder or metric value
+  const getMetricVal = (row, metricKey) => {
+    if (!row) return null;
+    if (metricKey === "cpr") {
+      const p = row.purchases || 0;
+      const s = row.spend || 0;
+      return p > 0 ? s / p : null;
+    }
+    if (metricKey === "roas") {
+      const s = row.spend || 0;
+      const r = row.revenue || 0;
+      return s > 0 ? r / s : null;
+    }
+    return row[metricKey] ?? 0;
+  };
+
+  const formatDisplayVal = (val, metricKey) => {
+    if (val === null || val === undefined || isNaN(Number(val))) return "—";
+    const num = Number(val);
+    if (metricKey === "spend" || metricKey === "revenue" || metricKey === "cpr") {
+      return formatCurrency(num, currency);
+    }
+    if (metricKey === "roas") {
+      return `${num.toFixed(2)}x`;
+    }
+    if (metricKey === "ctr") {
+      return formatPercentage(num);
+    }
+    return formatNumber(num);
+  };
+
+  // Sort age group data based on metric type
   const sortedAgeData = [...ageGroupData].sort((a, b) => {
-    const valA = a[metric] || 0;
-    const valB = b[metric] || 0;
+    const valA = getMetricVal(a, metric);
+    const valB = getMetricVal(b, metric);
+
+    if (valA === null && valB === null) return 0;
+    if (valA === null) return 1;
+    if (valB === null) return -1;
+
+    // Exception: Cost per Result sorts LOW -> HIGH (#1 = lowest cost)
+    if (metric === "cpr") {
+      return valA - valB;
+    }
+    // Standard: Volume/Value metrics sort HIGH -> LOW (#1 = highest value)
     return valB - valA;
   });
 
-  const maxVal = Math.max(...sortedAgeData.map((d) => d[metric] || 0), 1);
-  const totalVal = sortedAgeData.reduce((sum, d) => sum + (d[metric] || 0), 0);
-
-  const getFormattedValue = (val, metricKey) => {
-    if (metricKey === "spend" || metricKey === "cpc") return formatCurrency(val, currency);
-    if (metricKey === "ctr") return formatPercentage(val);
-    return formatNumber(val);
-  };
+  const validVals = sortedAgeData.map((d) => getMetricVal(d, metric)).filter((v) => v !== null && !isNaN(Number(v)));
+  const maxVal = validVals.length > 0 ? Math.max(...validVals.map(Number), 1) : 1;
 
   return (
     <div
@@ -50,20 +95,13 @@ export const AudienceAgePerformance = ({ ageGroupData = [], currency = "INR" }) 
             Age Group Performance
           </h4>
           <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
-            Performance metrics distribution across age brackets
+            Performance ranking across age brackets ({metric === "cpr" ? "Sorted Low → High" : "Sorted High → Low"})
           </span>
         </div>
 
         {/* Metric Selector Pills */}
         <div style={{ display: "flex", backgroundColor: "var(--color-surface, #F7F9FC)", borderRadius: "8px", padding: "3px", border: "1px solid var(--color-border, #E8EAED)", gap: "2px", flexWrap: "wrap" }}>
-          {[
-            { id: "spend", label: "Spend" },
-            { id: "reach", label: "Reach" },
-            { id: "impressions", label: "Impressions" },
-            { id: "clicks", label: "Clicks" },
-            { id: "ctr", label: "CTR" },
-            { id: "cpc", label: "CPC" },
-          ].map((m) => {
+          {metricOptions.map((m) => {
             const active = metric === m.id;
             return (
               <button
@@ -97,9 +135,9 @@ export const AudienceAgePerformance = ({ ageGroupData = [], currency = "INR" }) 
           </div>
         ) : (
           sortedAgeData.map((row, idx) => {
-            const rawVal = row[metric] || 0;
-            const pctMax = Math.min(100, Math.max(3, (rawVal / maxVal) * 100));
-            const pctTotal = totalVal > 0 && metric !== "ctr" && metric !== "cpc" ? ((rawVal / totalVal) * 100).toFixed(1) : null;
+            const rawVal = getMetricVal(row, metric);
+            const numVal = Number(rawVal) || 0;
+            const pctMax = rawVal !== null ? Math.min(100, Math.max(3, (numVal / maxVal) * 100)) : 0;
 
             return (
               <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -113,16 +151,9 @@ export const AudienceAgePerformance = ({ ageGroupData = [], currency = "INR" }) 
                     </span>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    {pctTotal && (
-                      <span style={{ fontSize: "0.75rem", color: "var(--color-text-muted, #94A3B8)" }}>
-                        {pctTotal}% share
-                      </span>
-                    )}
-                    <strong style={{ fontSize: "0.9rem", color: "var(--color-text-primary, #111827)" }}>
-                      {getFormattedValue(rawVal, metric)}
-                    </strong>
-                  </div>
+                  <strong style={{ fontSize: "0.9rem", color: "var(--color-text-primary, #111827)" }}>
+                    {formatDisplayVal(rawVal, metric)}
+                  </strong>
                 </div>
 
                 {/* Progress Bar */}

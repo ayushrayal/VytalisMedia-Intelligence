@@ -7,9 +7,9 @@ import { formatPercentage } from "../../../utils/formatPercentage.js";
 /**
  * AudienceHeatmapAndInsights Component.
  * Contains:
- * 1. Age + Gender Matrix Heatmap with metric selector
- * 2. Top Performing Audience Card
- * 3. Rule-based Audience Insights generated strictly from payload data
+ * 1. Demographic Heatmap Matrix (Age x Gender) with metric selector
+ * 2. Top Performing Segment Card (Highest CTR)
+ * 3. Dynamic Rule-based Audience Insights
  */
 export const AudienceHeatmapAndInsights = ({
   matrixData = [],
@@ -17,37 +17,83 @@ export const AudienceHeatmapAndInsights = ({
   insights = [],
   currency = "INR",
 }) => {
-  const [metric, setMetric] = useState("spend"); // "spend" | "reach" | "clicks" | "ctr"
+  const [metric, setMetric] = useState("spend"); // "spend" | "add_to_cart" | "initiate_checkout" | "purchases" | "cpr" | "revenue" | "roas"
 
-  const ageGroups = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
-  const genders = ["male", "female"];
+  const ageGroups = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+", "Unknown"];
+  const genders = ["male", "female", "unknown"];
 
-  // Find max cell value in matrix for metric shading scale
-  let maxCellValue = 1;
-  matrixData.forEach((row) => {
-    const val = row[metric] || 0;
-    if (val > maxCellValue) maxCellValue = val;
-  });
+  const metricOptions = [
+    { id: "spend", label: "Spend" },
+    { id: "add_to_cart", label: "Add to Cart" },
+    { id: "initiate_checkout", label: "Checkout Initiated" },
+    { id: "purchases", label: "Purchases" },
+    { id: "cpr", label: "Cost per Result" },
+    { id: "revenue", label: "Revenue" },
+    { id: "roas", label: "ROAS" },
+  ];
 
-  const getCellData = (age, gender) => {
-    return (
-      matrixData.find(
-        (r) =>
-          String(r.age || "").trim() === age &&
-          String(r.gender || "").trim().toLowerCase() === gender
-      ) || null
+  const getCellMetricVal = (age, gender, metricKey) => {
+    const matchedRows = matrixData.filter(
+      (r) =>
+        String(r.age || "Unknown").trim() === age &&
+        String(r.gender || "unknown").trim().toLowerCase() === gender
     );
+
+    if (matchedRows.length === 0) return null;
+
+    let spendSum = 0;
+    let revSum = 0;
+    let purSum = 0;
+    let atcSum = 0;
+    let icSum = 0;
+
+    matchedRows.forEach((r) => {
+      spendSum += Number(r.spend || 0);
+      revSum += Number(r.purchase_conversion_value || r.revenue || 0);
+      purSum += Number(r.purchases || 0);
+      atcSum += Number(r.actions_add_to_cart || r.add_to_cart || 0);
+      icSum += Number(r.actions_initiate_checkout || r.initiate_checkout || 0);
+    });
+
+    if (metricKey === "spend") return spendSum;
+    if (metricKey === "revenue") return revSum;
+    if (metricKey === "purchases") return purSum;
+    if (metricKey === "add_to_cart") return atcSum;
+    if (metricKey === "initiate_checkout") return icSum;
+
+    if (metricKey === "cpr") {
+      return purSum > 0 ? spendSum / purSum : null;
+    }
+    if (metricKey === "roas") {
+      return spendSum > 0 ? revSum / spendSum : null;
+    }
+
+    return null;
   };
 
-  const getFormattedValue = (val, metricKey) => {
+  // Find max cell value for shading scale
+  let maxCellValue = 1;
+  ageGroups.forEach((age) => {
+    genders.forEach((gender) => {
+      const val = getCellMetricVal(age, gender, metric);
+      if (val !== null && val > maxCellValue) maxCellValue = val;
+    });
+  });
+
+  const formatDisplayVal = (val, metricKey) => {
     if (val === null || val === undefined || isNaN(Number(val))) return "—";
-    if (metricKey === "spend") return formatCurrency(val, currency);
-    if (metricKey === "ctr") return formatPercentage(val);
-    return formatNumber(val);
+    const num = Number(val);
+    if (metricKey === "spend" || metricKey === "revenue" || metricKey === "cpr") {
+      return formatCurrency(num, currency);
+    }
+    if (metricKey === "roas") {
+      return `${num.toFixed(2)}x`;
+    }
+    return formatNumber(num);
   };
 
   const getIntensityColor = (value) => {
-    if (!value || value <= 0) return "var(--color-surface-subtle, #F1F5F9)";
+    if (value === null || value === undefined || value <= 0) return "var(--color-surface-subtle, #F1F5F9)";
     const ratio = Math.min(1, Math.max(0.1, value / maxCellValue));
     if (ratio > 0.75) return "#0A84FF";
     if (ratio > 0.5) return "#3B9EFF";
@@ -56,7 +102,7 @@ export const AudienceHeatmapAndInsights = ({
   };
 
   const getTextColor = (value) => {
-    if (!value || value <= 0) return "var(--color-text-muted, #94A3B8)";
+    if (value === null || value === undefined || value <= 0) return "var(--color-text-muted, #94A3B8)";
     const ratio = Math.min(1, Math.max(0.1, value / maxCellValue));
     return ratio > 0.5 ? "#FFFFFF" : "#0F172A";
   };
@@ -93,14 +139,9 @@ export const AudienceHeatmapAndInsights = ({
             </span>
           </div>
 
-          {/* Metric Selector Pills */}
-          <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)", gap: "2px" }}>
-            {[
-              { id: "spend", label: "Spend" },
-              { id: "reach", label: "Reach" },
-              { id: "clicks", label: "Clicks" },
-              { id: "ctr", label: "CTR" },
-            ].map((m) => {
+          {/* Metric Selector Pills (Flex Wrap) */}
+          <div style={{ display: "flex", flexWrap: "wrap", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "4px", border: "1px solid var(--color-border, #E5E7EB)", gap: "4px" }}>
+            {metricOptions.map((m) => {
               const active = metric === m.id;
               return (
                 <button
@@ -115,6 +156,7 @@ export const AudienceHeatmapAndInsights = ({
                     fontWeight: active ? "700" : "500",
                     fontSize: "0.75rem",
                     cursor: "pointer",
+                    whiteSpace: "nowrap",
                     boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.05)" : "none",
                     transition: "all 0.15s ease",
                   }}
@@ -142,11 +184,11 @@ export const AudienceHeatmapAndInsights = ({
                       textTransform: "capitalize",
                       fontSize: "0.825rem",
                       fontWeight: "700",
-                      color: g === "male" ? "#0A84FF" : "#EC4899",
+                      color: g === "male" ? "#0A84FF" : g === "female" ? "#EC4899" : "#64748B",
                       textAlign: "center",
                     }}
                   >
-                    {g === "male" ? "Male" : "Female"}
+                    {g === "male" ? "Male" : g === "female" ? "Female" : "Unknown"}
                   </th>
                 ))}
               </tr>
@@ -158,8 +200,7 @@ export const AudienceHeatmapAndInsights = ({
                     {age}
                   </td>
                   {genders.map((gender) => {
-                    const cell = getCellData(age, gender);
-                    const val = cell ? cell[metric] : null;
+                    const val = getCellMetricVal(age, gender, metric);
                     const bg = getIntensityColor(val);
                     const textColor = getTextColor(val);
 
@@ -176,9 +217,9 @@ export const AudienceHeatmapAndInsights = ({
                           transition: "transform 0.15s ease",
                           cursor: "pointer",
                         }}
-                        title={`${age} · ${gender}: ${getFormattedValue(val, metric)}`}
+                        title={`${age} · ${gender}: ${formatDisplayVal(val, metric)}`}
                       >
-                        {getFormattedValue(val, metric)}
+                        {formatDisplayVal(val, metric)}
                       </td>
                     );
                   })}

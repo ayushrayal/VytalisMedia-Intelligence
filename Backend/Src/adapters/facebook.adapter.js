@@ -49,8 +49,8 @@ const normalizeRowMetrics = (row) => {
   if (!row || typeof row !== "object") return row;
   const normalized = { ...row };
 
-  const rawPurchases = row.actions_omni_purchase ?? row.purchases;
-  const rawValue = row.action_values_omni_purchase ?? row.purchase_conversion_value;
+  const rawPurchases = row.actions_omni_purchase ?? row.actions_purchase ?? row.purchases;
+  const rawValue = row.action_values_omni_purchase ?? row.action_values_purchase ?? row.purchase_conversion_value;
   const rawCost = row.cost_per_action_type_omni_purchase ?? row.cost_per_result;
   const rawRoas = row.purchase_roas_omni_purchase ?? row.purchase_roas;
 
@@ -294,9 +294,13 @@ const fetchAudience = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }
     "cpm",
     "frequency",
     "currency",
+    "actions_add_to_cart",
+    "actions_initiate_checkout",
+    "actions_purchase",
+    "action_values_purchase",
   ];
 
-  return await windsorProvider.fetchData({
+  const rawData = await windsorProvider.fetchData({
     connector: WINDSOR_CONSTANTS.CONNECTOR_FACEBOOK,
     fields,
     datePreset,
@@ -304,6 +308,8 @@ const fetchAudience = async ({ activeMetaAccount, datePreset, dateFrom, dateTo }
     dateTo,
     filters: buildAccountFilter(activeMetaAccount),
   });
+
+  return (rawData || []).map(normalizeRowMetrics);
 };
 
 /**
