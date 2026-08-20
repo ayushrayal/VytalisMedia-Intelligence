@@ -231,6 +231,28 @@ const getLocation = async (req, res, next) => {
   }
 };
 
+/**
+ * Handles request for Shopify comparison analytics data comparing Period A and Period B.
+ * Endpoint: GET /api/shopify/compare
+ */
+const getShopifyComparison = async (req, res, next) => {
+  try {
+    const result = await shopifyDataService.getShopifyComparison({
+      user: req.user,
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Shopify comparison data retrieved successfully.",
+      result
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   addAccount,
   getAllAccounts,
@@ -243,4 +265,6 @@ module.exports = {
   getProducts,
   getCustomers,
   getLocation,
+  getShopifyComparison,
 };
+

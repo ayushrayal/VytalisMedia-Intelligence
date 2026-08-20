@@ -15,6 +15,13 @@ router.use(protect);
 router.use(requireShopifyAccess);
 
 /**
+ * @route   GET /api/shopify/compare
+ * @desc    Fetch Shopify comparison analytics data comparing Period A and Period B
+ * @access  Private (Shopify Access required)
+ */
+router.get("/compare", shopifyController.getShopifyComparison);
+
+/**
  * @route   GET /api/shopify/overview
  * @desc    Fetch Shopify overview analytics data
  * @access  Private

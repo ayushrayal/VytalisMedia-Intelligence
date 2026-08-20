@@ -42,6 +42,13 @@ router.get(
 );
 
 /**
+ * @route   GET /api/meta/compare
+ * @desc    Fetch Meta comparison analytics data comparing Period A and Period B
+ * @access  Private
+ */
+router.get("/compare", metaController.getMetaComparison);
+
+/**
  * @route   GET /api/meta/analytics/:endpoint
  * @desc    Fetch Meta analytics data (overview, campaigns, adsets, creatives, audience, places)
  * @access  Private

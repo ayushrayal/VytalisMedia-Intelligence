@@ -91,6 +91,11 @@ export const getPlaces = async (params = {}) => {
   return await http.get(`/meta/analytics/places${query}`);
 };
 
+export const getMetaCompare = async (params = {}) => {
+  const query = buildQueryString(params);
+  return await http.get(`/meta/compare${query}`);
+};
+
 export const getCreativeCardPreferences = async () => {
   return await http.get("/meta/preferences/creative-card");
 };
@@ -98,4 +103,5 @@ export const getCreativeCardPreferences = async () => {
 export const updateCreativeCardPreferences = async (preferences) => {
   return await http.put("/meta/preferences/creative-card", preferences);
 };
+
 

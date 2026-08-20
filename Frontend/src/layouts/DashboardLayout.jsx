@@ -22,6 +22,7 @@ import {
   Trophy,
   TrendingDown,
   Shield,
+  ArrowLeftRight,
 } from "lucide-react";
 
 import metaLogoImg from "../assets/mobile.png";
@@ -91,6 +92,7 @@ const analyticsNavigation = [
       { route: "/meta/poor-performers", label: "Poor Performers", icon: TrendingDown },
       { route: "/meta/audience", label: "Audience", icon: Users },
       { route: "/meta/places", label: "Places", icon: MapPin },
+      { route: "/meta/compare", label: "Compare", icon: ArrowLeftRight },
     ],
   },
   {
@@ -104,8 +106,10 @@ const analyticsNavigation = [
       { route: "/shopify/products", label: "Products", icon: Package },
       { route: "/shopify/customers", label: "Customers", icon: Users },
       { route: "/shopify/location", label: "Location", icon: MapPin },
+      { route: "/shopify/compare", label: "Compare", icon: ArrowLeftRight },
     ],
   },
+
   {
     key: "attribution",
     label: "Attribution",

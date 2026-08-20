@@ -41,6 +41,20 @@ export const getShopifyLocation = (params = {}) => {
   return http.get(`/shopify/location${q}`);
 };
 
+export const getShopifyCompare = (params = {}) => {
+  const query = new URLSearchParams();
+  if (params.datePreset || params.preset) {
+    query.append("datePreset", params.datePreset || params.preset);
+  } else {
+    if (params.dateFrom1) query.append("dateFrom1", params.dateFrom1);
+    if (params.dateTo1) query.append("dateTo1", params.dateTo1);
+    if (params.dateFrom2) query.append("dateFrom2", params.dateFrom2);
+    if (params.dateTo2) query.append("dateTo2", params.dateTo2);
+  }
+  const str = query.toString();
+  return http.get(`/shopify/compare${str ? `?${str}` : ""}`);
+};
+
 export const getShopifyOverviewBundle = async (params = {}) => {
   const [overviewRes, ordersRes, customersRes] = await Promise.allSettled([
     getShopifyOverview(params),
@@ -54,3 +68,4 @@ export const getShopifyOverviewBundle = async (params = {}) => {
     customersData: customersRes.status === "fulfilled" && Array.isArray(customersRes.value?.data) ? customersRes.value.data : [],
   };
 };
+

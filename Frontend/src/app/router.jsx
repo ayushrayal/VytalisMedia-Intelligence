@@ -21,12 +21,14 @@ import WinningCreatives from "../features/meta/pages/WinningCreatives.jsx";
 import PoorPerformers from "../features/meta/pages/PoorPerformers.jsx";
 import Audience from "../features/meta/pages/Audience.jsx";
 import Places from "../features/meta/pages/Places.jsx";
+import MetaCompare from "../features/meta/pages/MetaCompare.jsx";
 import MetaAccounts from "../features/meta/pages/MetaAccounts.jsx";
 import ShopifyOverview from "../features/shopify/pages/ShopifyOverview.jsx";
 import ShopifyOrders from "../features/shopify/pages/ShopifyOrders.jsx";
 import ShopifyProducts from "../features/shopify/pages/ShopifyProducts.jsx";
 import ShopifyCustomers from "../features/shopify/pages/ShopifyCustomers.jsx";
 import ShopifyLocation from "../features/shopify/pages/ShopifyLocation.jsx";
+import ShopifyCompare from "../features/shopify/pages/ShopifyCompare.jsx";
 import ShopifyAccounts from "../features/shopify/pages/ShopifyAccounts.jsx";
 import AttributionOverview from "../features/attribution/pages/AttributionOverview.jsx";
 import Profile from "../features/profile/pages/Profile.jsx";
@@ -392,6 +394,7 @@ export const Router = () => {
           <Route path="/meta/poor-performers" element={<PoorPerformers />} />
           <Route path="/meta/audience" element={<Audience />} />
           <Route path="/meta/places" element={<Places />} />
+          <Route path="/meta/compare" element={<MetaCompare />} />
           <Route path="/meta" element={<Navigate to="/meta/overview" replace />} />
 
           {/* Protected Shopify Analytics & Integration Routes */}
@@ -401,6 +404,7 @@ export const Router = () => {
             <Route path="/shopify/products" element={<ShopifyProducts />} />
             <Route path="/shopify/customers" element={<ShopifyCustomers />} />
             <Route path="/shopify/location" element={<ShopifyLocation />} />
+            <Route path="/shopify/compare" element={<ShopifyCompare />} />
             <Route path="/shopify" element={<Navigate to="/shopify/overview" replace />} />
             <Route path="/integrations/shopify" element={<ShopifyAccounts />} />
           </Route>

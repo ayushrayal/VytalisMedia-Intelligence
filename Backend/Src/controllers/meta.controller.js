@@ -220,6 +220,28 @@ const updateCreativeCardPreferences = async (req, res, next) => {
   }
 };
 
+/**
+ * Handles request for Meta comparison analytics data comparing Period A and Period B.
+ * Endpoint: GET /api/meta/compare
+ */
+const getMetaComparison = async (req, res, next) => {
+  try {
+    const result = await metaAnalyticsService.getMetaComparison({
+      user: req.user,
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Meta comparison data retrieved successfully.",
+      result
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   addAccount,
   getAllAccounts,
@@ -229,9 +251,11 @@ module.exports = {
   deleteAllAccounts,
   getAnalyticsData,
   getCampaignDetails,
+  getMetaComparison,
   setActiveAccount,
   getCreativeCardPreferences,
   updateCreativeCardPreferences,
 };
+
 
 
