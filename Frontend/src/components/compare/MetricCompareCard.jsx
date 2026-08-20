@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowUpRight, ArrowDownRight, Minus, Sparkles } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { formatCurrencyINR } from "../../utils/formatCurrency.js";
 import { formatNumber } from "../../utils/formatNumber.js";
 
@@ -26,9 +26,6 @@ const formatMetricVal = (val, metricKey, formatType) => {
   return formatNumber(num);
 };
 
-/**
- * MetricCompareCard Component.
- */
 export const MetricCompareCard = ({ metric }) => {
   if (!metric) return null;
 
@@ -37,82 +34,86 @@ export const MetricCompareCard = ({ metric }) => {
   const valAStr = formatMetricVal(valueA, metricKey, formatType);
   const valBStr = formatMetricVal(valueB, metricKey, formatType);
 
-  // Status Styling Logic
-  let badgeColor = "#64748B";
+  // Raw numerical movement calculation (Period A vs Period B)
+  let movement = "No Change";
+  let badgeColor = "#64748B"; // Gray
   let badgeBg = "rgba(100, 116, 139, 0.08)";
   let DirectionIcon = Minus;
 
-  if (performance === "Improved") {
-    badgeColor = "#16A34A";
-    badgeBg = "rgba(22, 163, 74, 0.08)";
-    DirectionIcon = ArrowUpRight;
-  } else if (performance === "Declined") {
-    badgeColor = "#DC2626";
-    badgeBg = "rgba(220, 38, 38, 0.08)";
-    DirectionIcon = ArrowDownRight;
-  } else if (performance === "Increased") {
-    badgeColor = "#0A84FF";
-    badgeBg = "rgba(10, 132, 255, 0.08)";
-    DirectionIcon = ArrowUpRight;
-  } else if (performance === "Decreased") {
-    badgeColor = "#0A84FF";
-    badgeBg = "rgba(10, 132, 255, 0.08)";
-    DirectionIcon = ArrowDownRight;
-  } else if (performance === "New") {
-    badgeColor = "#0284C7";
-    badgeBg = "rgba(2, 132, 199, 0.08)";
-    DirectionIcon = Sparkles;
+  if (valueB === null || valueB === undefined) {
+    movement = "No Previous Data";
+    badgeColor = "#94A3B8";
+    badgeBg = "rgba(148, 163, 184, 0.08)";
+  } else {
+    const numA = Number(valueA) || 0;
+    const numB = Number(valueB) || 0;
+
+    if (numA > numB || performance === "New") {
+      movement = "Increased";
+      badgeColor = "#16A34A"; // Green
+      badgeBg = "rgba(22, 163, 74, 0.08)";
+      DirectionIcon = ArrowUpRight;
+    } else if (numA < numB) {
+      movement = "Decreased";
+      badgeColor = "#DC2626"; // Red
+      badgeBg = "rgba(220, 38, 38, 0.08)";
+      DirectionIcon = ArrowDownRight;
+    } else {
+      movement = "No Change";
+      badgeColor = "#64748B"; // Gray
+      badgeBg = "rgba(100, 116, 139, 0.08)";
+      DirectionIcon = Minus;
+    }
   }
 
-  const showPct = percentageChange !== null && percentageChange !== undefined && performance !== "New" && performance !== "No Previous Data" && performance !== "No Change";
+  const showPct = percentageChange !== null && percentageChange !== undefined && performance !== "New" && movement !== "No Previous Data" && movement !== "No Change";
 
   return (
     <div
       style={{
         backgroundColor: "#FFFFFF",
-        borderRadius: "12px",
+        borderRadius: "10px",
         border: "1px solid var(--color-border, #E8ECF2)",
-        padding: "18px 20px",
+        padding: "16px",
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
         boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
-        transition: "transform 0.15s ease, box-shadow 0.15s ease",
       }}
     >
-      {/* Card Header: Title & Status Badge */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px", marginBottom: "14px" }}>
-        <span style={{ fontSize: "13px", fontWeight: "600", color: "var(--color-text-secondary, #64748B)" }}>
+      {/* Header: Label & Movement Badge */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px", marginBottom: "12px" }}>
+        <span style={{ fontSize: "13px", fontWeight: "600", color: "#64748B", lineHeight: "1.3", textOverflow: "ellipsis", overflow: "hidden" }}>
           {label}
         </span>
         <div
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: "4px",
-            padding: "3px 8px",
-            borderRadius: "6px",
+            gap: "3px",
+            padding: "2px 7px",
+            borderRadius: "5px",
             backgroundColor: badgeBg,
             color: badgeColor,
-            fontSize: "11.5px",
+            fontSize: "11px",
             fontWeight: "700",
             whiteSpace: "nowrap",
           }}
         >
           {showPct ? (
             <>
-              <DirectionIcon size={13} />
+              <DirectionIcon size={12} />
               <span>{percentageChange > 0 ? `+${percentageChange}%` : `${percentageChange}%`}</span>
             </>
           ) : (
-            <span>{performance}</span>
+            <span>{movement}</span>
           )}
         </div>
       </div>
 
-      {/* Primary Current (Period A) Value */}
-      <div style={{ marginBottom: "12px" }}>
-        <div style={{ fontSize: "22px", fontWeight: "800", color: "#0F172A", lineHeight: "1.2" }}>
+      {/* Period A Primary Value */}
+      <div style={{ marginBottom: "10px" }}>
+        <div style={{ fontSize: "20px", fontWeight: "800", color: "#0F172A", lineHeight: "1.2" }}>
           {valAStr}
         </div>
         <span style={{ fontSize: "11px", fontWeight: "600", color: "#94A3B8" }}>
@@ -120,23 +121,23 @@ export const MetricCompareCard = ({ metric }) => {
         </span>
       </div>
 
-      {/* Secondary Previous (Period B) Value & Explicit Performance Label */}
+      {/* Period B Secondary Value & Movement Label */}
       <div
         style={{
-          paddingTop: "10px",
+          paddingTop: "8px",
           borderTop: "1px solid var(--color-border, #F1F5F9)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          fontSize: "12px",
+          fontSize: "11.5px",
         }}
       >
         <div>
           <span style={{ color: "#64748B" }}>Period B: </span>
           <span style={{ fontWeight: "600", color: "#334155" }}>{valBStr}</span>
         </div>
-        <span style={{ fontWeight: "700", color: badgeColor, fontSize: "11.5px" }}>
-          {performance}
+        <span style={{ fontWeight: "700", color: badgeColor }}>
+          {movement}
         </span>
       </div>
     </div>

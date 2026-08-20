@@ -40,7 +40,8 @@ export const CompareTable = ({ metrics = [] }) => {
         Detailed Comparison Breakdown
       </h3>
 
-      <div style={{ overflowX: "auto" }}>
+      {/* Horizontally scrollable wrapper for mobile */}
+      <div style={{ overflowX: "auto", maxHeight: "600px" }}>
         <table
           style={{
             width: "100%",
@@ -49,13 +50,14 @@ export const CompareTable = ({ metrics = [] }) => {
             fontSize: "13.5px",
           }}
         >
-          <thead>
-            <tr style={{ borderBottom: "1px solid var(--color-border, #E8ECF2)", color: "#64748B" }}>
-              <th style={{ padding: "12px 14px", fontWeight: "600" }}>Metric</th>
-              <th style={{ padding: "12px 14px", fontWeight: "600" }}>Period A</th>
-              <th style={{ padding: "12px 14px", fontWeight: "600" }}>Period B</th>
-              <th style={{ padding: "12px 14px", fontWeight: "600" }}>Change</th>
-              <th style={{ padding: "12px 14px", fontWeight: "600" }}>Performance</th>
+          {/* Sticky Header */}
+          <thead style={{ position: "sticky", top: 0, zIndex: 10, backgroundColor: "#FFFFFF" }}>
+            <tr style={{ borderBottom: "2px solid var(--color-border, #E8ECF2)", color: "#64748B" }}>
+              <th style={{ padding: "12px 14px", fontWeight: "600", textAlign: "left" }}>Metric</th>
+              <th style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>Period A</th>
+              <th style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>Period B</th>
+              <th style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>Change</th>
+              <th style={{ padding: "12px 14px", fontWeight: "600", textAlign: "right" }}>Movement</th>
             </tr>
           </thead>
           <tbody>
@@ -63,21 +65,32 @@ export const CompareTable = ({ metrics = [] }) => {
               const valAStr = formatMetricVal(m.valueA, m.metricKey, m.formatType);
               const valBStr = formatMetricVal(m.valueB, m.metricKey, m.formatType);
 
-              let badgeColor = "#64748B";
+              // Raw numerical movement calculation (Period A vs Period B)
+              let movement = "No Change";
+              let badgeColor = "#64748B"; // Gray
               let badgeBg = "rgba(100, 116, 139, 0.08)";
 
-              if (m.performance === "Improved") {
-                badgeColor = "#16A34A";
-                badgeBg = "rgba(22, 163, 74, 0.08)";
-              } else if (m.performance === "Declined") {
-                badgeColor = "#DC2626";
-                badgeBg = "rgba(220, 38, 38, 0.08)";
-              } else if (m.performance === "Increased" || m.performance === "Decreased") {
-                badgeColor = "#0A84FF";
-                badgeBg = "rgba(10, 132, 255, 0.08)";
-              } else if (m.performance === "New") {
-                badgeColor = "#0284C7";
-                badgeBg = "rgba(2, 132, 199, 0.08)";
+              if (m.valueB === null || m.valueB === undefined) {
+                movement = "No Previous Data";
+                badgeColor = "#94A3B8";
+                badgeBg = "rgba(148, 163, 184, 0.08)";
+              } else {
+                const numA = Number(m.valueA) || 0;
+                const numB = Number(m.valueB) || 0;
+
+                if (numA > numB || m.performance === "New") {
+                  movement = "Increased";
+                  badgeColor = "#16A34A"; // Green
+                  badgeBg = "rgba(22, 163, 74, 0.08)";
+                } else if (numA < numB) {
+                  movement = "Decreased";
+                  badgeColor = "#DC2626"; // Red
+                  badgeBg = "rgba(220, 38, 38, 0.08)";
+                } else {
+                  movement = "No Change";
+                  badgeColor = "#64748B"; // Gray
+                  badgeBg = "rgba(100, 116, 139, 0.08)";
+                }
               }
 
               let changeStr = "—";
@@ -97,19 +110,19 @@ export const CompareTable = ({ metrics = [] }) => {
                   onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--color-background, #F8FAFC)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
                 >
-                  <td style={{ padding: "12px 14px", fontWeight: "600", color: "#0F172A" }}>
+                  <td style={{ padding: "12px 14px", fontWeight: "600", color: "#0F172A", textAlign: "left" }}>
                     {m.label}
                   </td>
-                  <td style={{ padding: "12px 14px", fontWeight: "700", color: "#0F172A" }}>
+                  <td style={{ padding: "12px 14px", fontWeight: "700", color: "#0F172A", textAlign: "right" }}>
                     {valAStr}
                   </td>
-                  <td style={{ padding: "12px 14px", color: "#475569" }}>
+                  <td style={{ padding: "12px 14px", color: "#475569", textAlign: "right" }}>
                     {valBStr}
                   </td>
-                  <td style={{ padding: "12px 14px", fontWeight: "600", color: badgeColor }}>
+                  <td style={{ padding: "12px 14px", fontWeight: "600", color: badgeColor, textAlign: "right" }}>
                     {changeStr}
                   </td>
-                  <td style={{ padding: "12px 14px" }}>
+                  <td style={{ padding: "12px 14px", textAlign: "right" }}>
                     <span
                       style={{
                         padding: "3px 8px",
@@ -118,9 +131,10 @@ export const CompareTable = ({ metrics = [] }) => {
                         color: badgeColor,
                         fontSize: "12px",
                         fontWeight: "700",
+                        display: "inline-block",
                       }}
                     >
-                      {m.performance}
+                      {movement}
                     </span>
                   </td>
                 </tr>
