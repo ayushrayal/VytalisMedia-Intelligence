@@ -1,122 +1,110 @@
-import React, { useState } from "react";
-import { formatCurrency } from "../../../utils/formatCurrency.js";
+import React, { useState, useEffect } from "react";
+import { formatAudienceMetricValue } from "../../../config/audienceMetrics.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
-import { formatPercentage } from "../../../utils/formatPercentage.js";
 
 /**
  * AudienceAgePerformance Component.
- * Displays Age Group Performance with an interactive metric selector:
- * [ Spend ] [ Add to Cart ] [ Checkout Initiated ] [ Purchases ] [ Cost per Result ] [ Revenue ] [ ROAS ]
- * 
- * Sorting Rule:
- * - Cost per Result sorts LOW -> HIGH (#1 = lowest cost per result)
- * - All other metrics sort HIGH -> LOW (#1 = highest value)
+ * Visualizes age group performance rankings using dynamic metric configuration.
+ * Cost per Result ranks LOW -> HIGH (#1 = lowest CPR). All other metrics rank HIGH -> LOW.
  */
-export const AudienceAgePerformance = ({ ageGroupData = [], currency = "INR" }) => {
-  const [metric, setMetric] = useState("spend"); // "spend" | "add_to_cart" | "initiate_checkout" | "purchases" | "cpr" | "revenue" | "roas"
+export const AudienceAgePerformance = ({
+  ageGroupData = [],
+  enabledMetrics = [],
+  currency = "INR",
+}) => {
+  // Filter metrics that support age group breakdown
+  const ageMetrics = enabledMetrics.filter((m) => m && m.supportsAge);
 
-  const metricOptions = [
-    { id: "spend", label: "Spend" },
-    { id: "add_to_cart", label: "Add to Cart" },
-    { id: "initiate_checkout", label: "Checkout Initiated" },
-    { id: "purchases", label: "Purchases" },
-    { id: "cpr", label: "Cost per Result" },
-    { id: "revenue", label: "Revenue" },
-    { id: "roas", label: "ROAS" },
-  ];
+  const [metric, setMetric] = useState("spend");
 
-  const getMetricVal = (row, metricKey) => {
-    if (!row) return null;
-    if (metricKey === "cpr") {
-      const p = row.purchases || 0;
-      const s = row.spend || 0;
-      return p > 0 ? s / p : null;
+  // Keep metric selection valid if active enabled metrics change
+  useEffect(() => {
+    if (ageMetrics.length > 0) {
+      const exists = ageMetrics.some((m) => m.key === metric);
+      if (!exists) {
+        setMetric(ageMetrics[0].key);
+      }
     }
-    if (metricKey === "roas") {
-      const s = row.spend || 0;
-      const r = row.revenue || 0;
-      return s > 0 ? r / s : null;
+  }, [ageMetrics, metric]);
+
+  const activeMetricObj = ageMetrics.find((m) => m.key === metric) || ageMetrics[0] || null;
+
+  const getMetricVal = (item) => {
+    if (!item) return null;
+    if (metric === "cpr") {
+      return item.purchases > 0 ? Number(item.spend || 0) / Number(item.purchases) : null;
     }
-    return row[metricKey] ?? 0;
+    if (metric === "roas") {
+      return item.spend > 0 ? Number(item.revenue || 0) / Number(item.spend) : null;
+    }
+    return item[metric] !== undefined && item[metric] !== null ? Number(item[metric]) : null;
   };
 
-  const formatDisplayVal = (val, metricKey) => {
-    if (val === null || val === undefined || isNaN(Number(val))) return "—";
-    const num = Number(val);
-    if (metricKey === "spend" || metricKey === "revenue" || metricKey === "cpr") {
-      return formatCurrency(num, currency);
-    }
-    if (metricKey === "roas") {
-      return `${num.toFixed(2)}x`;
-    }
-    if (metricKey === "ctr") {
-      return formatPercentage(num);
-    }
-    return formatNumber(num);
-  };
-
-  // Sort age group data based on metric type
+  // Sort age group records based on active metric
+  // Exception Rule: Cost per Result sorts LOW -> HIGH (#1 = lowest cost).
   const sortedAgeData = [...ageGroupData].sort((a, b) => {
-    const valA = getMetricVal(a, metric);
-    const valB = getMetricVal(b, metric);
+    const valA = getMetricVal(a);
+    const valB = getMetricVal(b);
 
     if (valA === null && valB === null) return 0;
-    if (valA === null) return 1;
+    if (valA === null) return 1; // Put nulls at end
     if (valB === null) return -1;
 
-    // Exception: Cost per Result sorts LOW -> HIGH (#1 = lowest cost)
     if (metric === "cpr") {
-      return valA - valB;
+      return valA - valB; // LOW to HIGH
     }
-    // Standard: Volume/Value metrics sort HIGH -> LOW (#1 = highest value)
-    return valB - valA;
+    return valB - valA; // HIGH to LOW
   });
 
-  const validVals = sortedAgeData.map((d) => getMetricVal(d, metric)).filter((v) => v !== null && !isNaN(Number(v)));
-  const maxVal = validVals.length > 0 ? Math.max(...validVals.map(Number), 1) : 1;
+  // Calculate max metric value for relative bar scaling
+  let maxMetricVal = 1;
+  ageGroupData.forEach((item) => {
+    const v = getMetricVal(item);
+    if (v !== null && v > maxMetricVal) maxMetricVal = v;
+  });
 
   return (
     <div
       style={{
         backgroundColor: "#FFFFFF",
-        borderRadius: "var(--radius-card, 16px)",
-        border: "1px solid var(--color-border, #E8EAED)",
+        borderRadius: "var(--radius-card, 12px)",
+        border: "1px solid var(--color-border, #E5E7EB)",
         padding: "20px 24px",
         display: "flex",
         flexDirection: "column",
-        gap: "20px",
-        boxShadow: "var(--shadow-subtle, 0 2px 8px rgba(15, 23, 42, 0.04))",
+        gap: "16px",
+        boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
       }}
     >
-      {/* Section Header + Metric Selector */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <h4 style={{ margin: 0, fontSize: "1.05rem", fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
+          <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
             Age Group Performance
           </h4>
           <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
-            Performance ranking across age brackets ({metric === "cpr" ? "Sorted Low → High" : "Sorted High → Low"})
+            Age cohort rankings · {metric === "cpr" ? "Sorted Low → High (#1 = lowest acquisition cost)" : "Sorted High → Low"}
           </span>
         </div>
 
-        {/* Metric Selector Pills */}
-        <div style={{ display: "flex", backgroundColor: "var(--color-surface, #F7F9FC)", borderRadius: "8px", padding: "3px", border: "1px solid var(--color-border, #E8EAED)", gap: "2px", flexWrap: "wrap" }}>
-          {metricOptions.map((m) => {
-            const active = metric === m.id;
+        {/* Dynamic Metric Selector Pills */}
+        <div style={{ display: "flex", flexWrap: "wrap", backgroundColor: "var(--color-surface, #F7F9FC)", borderRadius: "8px", padding: "3px", border: "1px solid var(--color-border, #E8EAED)", gap: "2px" }}>
+          {ageMetrics.map((m) => {
+            const active = metric === m.key;
             return (
               <button
-                key={m.id}
-                onClick={() => setMetric(m.id)}
+                key={m.key}
+                onClick={() => setMetric(m.key)}
                 style={{
-                  padding: "5px 12px",
+                  padding: "4px 10px",
                   border: "none",
                   borderRadius: "6px",
                   backgroundColor: active ? "#FFFFFF" : "transparent",
                   color: active ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
                   fontWeight: active ? "700" : "500",
-                  fontSize: "0.8rem",
+                  fontSize: "0.75rem",
                   cursor: "pointer",
-                  boxShadow: active ? "0 1px 3px rgba(0, 0, 0, 0.08)" : "none",
+                  whiteSpace: "nowrap",
+                  boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.05)" : "none",
                   transition: "all 0.15s ease",
                 }}
               >
@@ -127,55 +115,83 @@ export const AudienceAgePerformance = ({ ageGroupData = [], currency = "INR" }) 
         </div>
       </div>
 
-      {/* Age Rows */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+      {/* Age Group Ranking Bars */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
         {sortedAgeData.length === 0 ? (
-          <div style={{ padding: "20px", textAlign: "center", color: "var(--color-text-muted, #94A3B8)", fontSize: "0.85rem" }}>
-            No age group data available.
+          <div style={{ fontSize: "0.85rem", color: "var(--color-text-muted, #94A3B8)", padding: "12px 0" }}>
+            No age group performance data available.
           </div>
         ) : (
-          sortedAgeData.map((row, idx) => {
-            const rawVal = getMetricVal(row, metric);
-            const numVal = Number(rawVal) || 0;
-            const pctMax = rawVal !== null ? Math.min(100, Math.max(3, (numVal / maxVal) * 100)) : 0;
+          sortedAgeData.map((item, idx) => {
+            const val = getMetricVal(item);
+            const formattedVal = activeMetricObj
+              ? formatAudienceMetricValue(val, activeMetricObj.format, currency)
+              : formatNumber(val || 0);
+
+            const widthPct = val !== null && val > 0 ? Math.min(100, Math.max(3, (val / maxMetricVal) * 100)) : 0;
+            const isTopRanked = idx === 0;
 
             return (
-              <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.88rem" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ fontSize: "0.75rem", fontWeight: "700", color: "#0A84FF", width: "18px" }}>
-                      #{idx + 1}
-                    </span>
-                    <span style={{ fontWeight: "700", color: "var(--color-text-primary, #111827)" }}>
-                      {row.age}
-                    </span>
-                  </div>
-
-                  <strong style={{ fontSize: "0.9rem", color: "var(--color-text-primary, #111827)" }}>
-                    {formatDisplayVal(rawVal, metric)}
-                  </strong>
-                </div>
-
-                {/* Progress Bar */}
+              <div
+                key={item.age}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "14px",
+                  padding: "6px 8px",
+                  borderRadius: "6px",
+                  transition: "background-color 0.15s ease",
+                }}
+              >
+                {/* Rank Badge */}
                 <div
                   style={{
-                    height: "10px",
-                    width: "100%",
-                    backgroundColor: "var(--color-surface, #F7F9FC)",
-                    borderRadius: "999px",
-                    overflow: "hidden",
-                    border: "1px solid var(--color-border, #E8EAED)",
+                    width: "24px",
+                    height: "24px",
+                    borderRadius: "50%",
+                    backgroundColor: isTopRanked ? "rgba(10, 132, 255, 0.12)" : "var(--color-surface-subtle, #F1F5F9)",
+                    color: isTopRanked ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
+                    fontSize: "0.75rem",
+                    fontWeight: "700",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
                   }}
                 >
+                  #{idx + 1}
+                </div>
+
+                {/* Age Group Label */}
+                <div style={{ width: "65px", fontWeight: "650", fontSize: "0.85rem", color: "var(--color-text-primary, #0F172A)", flexShrink: 0 }}>
+                  {item.age}
+                </div>
+
+                {/* Progress Bar Container */}
+                <div style={{ flex: 1, height: "8px", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "999px", overflow: "hidden" }}>
                   <div
                     style={{
                       height: "100%",
-                      width: `${pctMax}%`,
-                      backgroundColor: idx === 0 ? "#0A84FF" : idx === 1 ? "rgba(10, 132, 255, 0.8)" : "rgba(10, 132, 255, 0.55)",
+                      width: `${widthPct}%`,
+                      backgroundColor: isTopRanked ? "#0A84FF" : "rgba(10, 132, 255, 0.45)",
                       borderRadius: "999px",
-                      transition: "width 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+                      transition: "width 0.3s ease",
                     }}
                   />
+                </div>
+
+                {/* Formatted Metric Value */}
+                <div
+                  style={{
+                    width: "110px",
+                    textAlign: "right",
+                    fontWeight: isTopRanked ? "700" : "600",
+                    fontSize: "0.85rem",
+                    color: isTopRanked ? "#0A84FF" : "var(--color-text-primary, #0F172A)",
+                    flexShrink: 0,
+                  }}
+                >
+                  {formattedVal}
                 </div>
               </div>
             );

@@ -4,6 +4,7 @@ import PageHeader from "../../../components/shared/PageHeader.jsx";
 import AccountSwitcher from "../components/AccountSwitcher.jsx";
 import DateFilter from "../components/DateFilter.jsx";
 import SpendFilter from "../components/SpendFilter.jsx";
+import CustomizeFieldsModal from "../components/CustomizeFieldsModal.jsx";
 import AudienceKpiCards from "../components/AudienceKpiCards.jsx";
 import AudienceGenderDistribution from "../components/AudienceGenderDistribution.jsx";
 import AudienceAgePerformance from "../components/AudienceAgePerformance.jsx";
@@ -14,14 +15,19 @@ import ContextualLoader, { usePageLoading } from "../../../components/ui/Context
 import EmptyState from "../../../components/ui/EmptyState.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Button from "../../../components/ui/Button.jsx";
+import {
+  loadSavedAudienceMetricPreferences,
+  getAudienceMetricConfig,
+  calculateAggregatedCpr,
+  calculateAggregatedRoas,
+} from "../../../config/audienceMetrics.js";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
 import { getErrorMessage } from "../../../utils/error.js";
 
 /**
  * Audience Component (Meta Audience Demographics).
- * Complete Business Analytics Workspace focusing on:
- * Spend, Add to Cart, Checkout Initiated, Purchases, Cost per Result, Revenue, and ROAS.
+ * Configurable Business Analytics Workspace with Centralized Field Customization.
  */
 export const Audience = () => {
   const [data, setData] = useState([]);
@@ -30,8 +36,14 @@ export const Audience = () => {
   const [error, setError] = useState(null);
   const [dateParams, setDateParams] = useState({ datePreset: "last_7d" });
 
-  // Local Spend Filter State
+  // Local Spend Filter & Metric Customization State
   const [spendFilter, setSpendFilter] = useState("all");
+  const [activeMetricKeys, setActiveMetricKeys] = useState(() => loadSavedAudienceMetricPreferences());
+
+  // Derived Active Metric Configuration Array
+  const enabledMetrics = useMemo(() => {
+    return activeMetricKeys.map((key) => getAudienceMetricConfig(key)).filter(Boolean);
+  }, [activeMetricKeys]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -66,10 +78,14 @@ export const Audience = () => {
     return found ? found.currency : "INR";
   }, [filteredData]);
 
-  // Total Metrics & Gender Breakdown
+  // Aggregated Total Summary Metrics
   const {
     totalReach,
+    totalImpressions,
+    totalClicks,
     totalSpend,
+    totalPurchases,
+    totalRevenue,
     maleSpend,
     femaleSpend,
     maleRevenue,
@@ -78,7 +94,12 @@ export const Audience = () => {
     femaleReach,
   } = useMemo(() => {
     let reachSum = 0;
+    let imprSum = 0;
+    let clickSum = 0;
     let spendSum = 0;
+    let purSum = 0;
+    let revSum = 0;
+
     let mSpend = 0;
     let fSpend = 0;
     let mRev = 0;
@@ -88,12 +109,20 @@ export const Audience = () => {
 
     filteredData.forEach((row) => {
       const r = Number(row.reach || 0);
+      const impr = Number(row.impressions || 0);
+      const clk = Number(row.clicks || 0);
       const s = Number(row.spend || 0);
+      const p = Number(row.purchases || 0);
       const rev = Number(row.purchase_conversion_value || row.revenue || 0);
+
       const gender = String(row.gender || "").toLowerCase().trim();
 
       reachSum += r;
+      imprSum += impr;
+      clickSum += clk;
       spendSum += s;
+      purSum += p;
+      revSum += rev;
 
       if (gender === "male") {
         mSpend += s;
@@ -108,7 +137,11 @@ export const Audience = () => {
 
     return {
       totalReach: reachSum,
+      totalImpressions: imprSum,
+      totalClicks: clickSum,
       totalSpend: spendSum,
+      totalPurchases: purSum,
+      totalRevenue: revSum,
       maleSpend: mSpend,
       femaleSpend: fSpend,
       maleRevenue: mRev,
@@ -142,8 +175,8 @@ export const Audience = () => {
         initiate_checkout: ic,
         purchases,
         revenue,
-        cpr: purchases > 0 ? spend / purchases : null,
-        roas: spend > 0 ? revenue / spend : null,
+        cpr: calculateAggregatedCpr(spend, purchases),
+        roas: calculateAggregatedRoas(revenue, spend),
       };
     });
   }, [filteredData]);
@@ -179,8 +212,8 @@ export const Audience = () => {
       ...g,
       ctr: g.impressions > 0 ? (g.clicks / g.impressions) * 100 : 0,
       cpc: g.clicks > 0 ? g.spend / g.clicks : 0,
-      cpr: g.purchases > 0 ? g.spend / g.purchases : null,
-      roas: g.spend > 0 ? g.revenue / g.spend : null,
+      cpr: calculateAggregatedCpr(g.spend, g.purchases),
+      roas: calculateAggregatedRoas(g.revenue, g.spend),
     }));
   }, [filteredData]);
 
@@ -209,8 +242,8 @@ export const Audience = () => {
         ...item,
         ctr: item.impressions > 0 ? (item.clicks / item.impressions) * 100 : 0,
         cpc: item.clicks > 0 ? item.spend / item.clicks : 0,
-        cpr: item.purchases > 0 ? item.spend / item.purchases : null,
-        roas: item.spend > 0 ? item.revenue / item.spend : null,
+        cpr: calculateAggregatedCpr(item.spend, item.purchases),
+        roas: calculateAggregatedRoas(item.revenue, item.spend),
       }))
       .sort((a, b) => {
         const idxA = ageOrder.indexOf(a.age);
@@ -229,12 +262,11 @@ export const Audience = () => {
     return sorted[0] || null;
   }, [matrixData]);
 
-  // Rule-based Insights generated strictly from current payload data
+  // Dynamic Insights
   const insights = useMemo(() => {
     if (filteredData.length === 0) return [];
     const list = [];
 
-    // 1. Spend Dominance by Age Group
     if (ageGroupSummary.length > 0) {
       const topAgeBySpend = [...ageGroupSummary].sort((a, b) => b.spend - a.spend)[0];
       if (topAgeBySpend && totalSpend > 0) {
@@ -243,7 +275,6 @@ export const Audience = () => {
       }
     }
 
-    // 2. Best ROAS Age Group
     if (ageGroupSummary.length > 0) {
       const validRoasAges = ageGroupSummary.filter((a) => a.roas !== null && a.roas > 0);
       if (validRoasAges.length > 0) {
@@ -252,7 +283,6 @@ export const Audience = () => {
       }
     }
 
-    // 3. Lowest Cost per Result Age Group
     if (ageGroupSummary.length > 0) {
       const validCprAges = ageGroupSummary.filter((a) => a.cpr !== null && a.cpr > 0);
       if (validCprAges.length > 0) {
@@ -261,12 +291,10 @@ export const Audience = () => {
       }
     }
 
-    // 4. Highest CTR Segment
     if (topSegment && topSegment.ctr > 0) {
       list.push(`${topSegment.gender.toUpperCase()} ${topSegment.age} achieved the highest CTR at ${formatPercentage(topSegment.ctr)}.`);
     }
 
-    // 5. Gender Reach Dominance
     if (totalReach > 0) {
       if (maleReach > femaleReach) {
         const pct = ((maleReach / totalReach) * 100).toFixed(0);
@@ -291,6 +319,7 @@ export const Audience = () => {
             <AccountSwitcher onAccountSwitched={fetchData} />
             <DateFilter onChange={(params) => setDateParams(params)} />
             <SpendFilter value={spendFilter} onChange={setSpendFilter} />
+            <CustomizeFieldsModal activeMetricKeys={activeMetricKeys} onChange={setActiveMetricKeys} />
           </div>
         }
       />
@@ -306,7 +335,6 @@ export const Audience = () => {
             <Skeleton height="110px" />
           </div>
 
-          {/* Skeleton Visualizations */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
             <Skeleton height="280px" />
             <Skeleton height="280px" />
@@ -331,7 +359,7 @@ export const Audience = () => {
         />
       ) : (
         <>
-          {/* 1. AUDIENCE SUMMARY KPI CARDS */}
+          {/* 1. AUDIENCE INSIGHT KPI CARDS (DEDICATED DOMAIN INSIGHTS) */}
           <AudienceKpiCards
             maleSpend={maleSpend}
             femaleSpend={femaleSpend}
@@ -341,30 +369,34 @@ export const Audience = () => {
             currency={currency}
           />
 
-          {/* 2. GENDER DISTRIBUTION & COMPARISON */}
+          {/* 2. DYNAMIC GENDER DISTRIBUTION & COMPARISON */}
           <AudienceGenderDistribution
             genderData={genderSummary}
+            enabledMetrics={enabledMetrics}
             currency={currency}
           />
 
-          {/* 3. AGE GROUP PERFORMANCE */}
+          {/* 3. DYNAMIC AGE GROUP PERFORMANCE */}
           <AudienceAgePerformance
             ageGroupData={ageGroupSummary}
+            enabledMetrics={enabledMetrics}
             currency={currency}
           />
 
-          {/* 4. AGE + GENDER HEATMAP & INSIGHTS */}
+          {/* 4. DYNAMIC HEATMAP & INSIGHTS */}
           <AudienceHeatmapAndInsights
             matrixData={matrixData}
+            enabledMetrics={enabledMetrics}
             topSegment={topSegment}
             insights={insights}
             currency={currency}
           />
 
-          {/* 5. AGE GROUP SUMMARY & DETAILED TABLES */}
+          {/* 5. DYNAMIC TABULAR SECTIONS */}
           <AudienceTablesSection
             ageGroupSummary={ageGroupSummary}
             detailedData={filteredData}
+            enabledMetrics={enabledMetrics}
             currency={currency}
           />
         </>

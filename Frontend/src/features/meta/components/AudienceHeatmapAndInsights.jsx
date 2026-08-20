@@ -1,36 +1,40 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Sparkles, Lightbulb } from "lucide-react";
+import { formatAudienceMetricValue, calculateAggregatedCpr, calculateAggregatedRoas } from "../../../config/audienceMetrics.js";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
 
 /**
  * AudienceHeatmapAndInsights Component.
- * Contains:
- * 1. Demographic Heatmap Matrix (Age x Gender) with metric selector
- * 2. Top Performing Segment Card (Highest CTR)
- * 3. Dynamic Rule-based Audience Insights
+ * Dynamic matrix visualization driven by active metric configuration.
  */
 export const AudienceHeatmapAndInsights = ({
   matrixData = [],
+  enabledMetrics = [],
   topSegment = null,
   insights = [],
   currency = "INR",
 }) => {
-  const [metric, setMetric] = useState("spend"); // "spend" | "add_to_cart" | "initiate_checkout" | "purchases" | "cpr" | "revenue" | "roas"
+  // Filter metrics supporting heatmap
+  const heatmapMetrics = enabledMetrics.filter((m) => m && m.supportsHeatmap);
+
+  const [metric, setMetric] = useState("spend");
+
+  // Keep metric selection valid if active enabled metrics change
+  useEffect(() => {
+    if (heatmapMetrics.length > 0) {
+      const exists = heatmapMetrics.some((m) => m.key === metric);
+      if (!exists) {
+        setMetric(heatmapMetrics[0].key);
+      }
+    }
+  }, [heatmapMetrics, metric]);
+
+  const activeMetricObj = heatmapMetrics.find((m) => m.key === metric) || heatmapMetrics[0] || null;
 
   const ageGroups = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+", "Unknown"];
   const genders = ["male", "female", "unknown"];
-
-  const metricOptions = [
-    { id: "spend", label: "Spend" },
-    { id: "add_to_cart", label: "Add to Cart" },
-    { id: "initiate_checkout", label: "Checkout Initiated" },
-    { id: "purchases", label: "Purchases" },
-    { id: "cpr", label: "Cost per Result" },
-    { id: "revenue", label: "Revenue" },
-    { id: "roas", label: "ROAS" },
-  ];
 
   const getCellMetricVal = (age, gender, metricKey) => {
     const matchedRows = matrixData.filter(
@@ -62,10 +66,10 @@ export const AudienceHeatmapAndInsights = ({
     if (metricKey === "initiate_checkout") return icSum;
 
     if (metricKey === "cpr") {
-      return purSum > 0 ? spendSum / purSum : null;
+      return calculateAggregatedCpr(spendSum, purSum);
     }
     if (metricKey === "roas") {
-      return spendSum > 0 ? revSum / spendSum : null;
+      return calculateAggregatedRoas(revSum, spendSum);
     }
 
     return null;
@@ -79,18 +83,6 @@ export const AudienceHeatmapAndInsights = ({
       if (val !== null && val > maxCellValue) maxCellValue = val;
     });
   });
-
-  const formatDisplayVal = (val, metricKey) => {
-    if (val === null || val === undefined || isNaN(Number(val))) return "—";
-    const num = Number(val);
-    if (metricKey === "spend" || metricKey === "revenue" || metricKey === "cpr") {
-      return formatCurrency(num, currency);
-    }
-    if (metricKey === "roas") {
-      return `${num.toFixed(2)}x`;
-    }
-    return formatNumber(num);
-  };
 
   const getIntensityColor = (value) => {
     if (value === null || value === undefined || value <= 0) return "var(--color-surface-subtle, #F1F5F9)";
@@ -139,16 +131,16 @@ export const AudienceHeatmapAndInsights = ({
             </span>
           </div>
 
-          {/* Metric Selector Pills (Flex Wrap) */}
+          {/* Dynamic Metric Selector Pills (Flex Wrap - No Scrollbar) */}
           <div style={{ display: "flex", flexWrap: "wrap", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "4px", border: "1px solid var(--color-border, #E5E7EB)", gap: "4px" }}>
-            {metricOptions.map((m) => {
-              const active = metric === m.id;
+            {heatmapMetrics.map((m) => {
+              const active = metric === m.key;
               return (
                 <button
-                  key={m.id}
-                  onClick={() => setMetric(m.id)}
+                  key={m.key}
+                  onClick={() => setMetric(m.key)}
                   style={{
-                    padding: "4px 10px",
+                    padding: "4px 9px",
                     border: "none",
                     borderRadius: "4px",
                     backgroundColor: active ? "#FFFFFF" : "transparent",
@@ -203,6 +195,9 @@ export const AudienceHeatmapAndInsights = ({
                     const val = getCellMetricVal(age, gender, metric);
                     const bg = getIntensityColor(val);
                     const textColor = getTextColor(val);
+                    const formatted = activeMetricObj
+                      ? formatAudienceMetricValue(val, activeMetricObj.format, currency)
+                      : formatNumber(val || 0);
 
                     return (
                       <td
@@ -217,9 +212,9 @@ export const AudienceHeatmapAndInsights = ({
                           transition: "transform 0.15s ease",
                           cursor: "pointer",
                         }}
-                        title={`${age} · ${gender}: ${formatDisplayVal(val, metric)}`}
+                        title={`${age} · ${gender}: ${formatted}`}
                       >
-                        {formatDisplayVal(val, metric)}
+                        {formatted}
                       </td>
                     );
                   })}

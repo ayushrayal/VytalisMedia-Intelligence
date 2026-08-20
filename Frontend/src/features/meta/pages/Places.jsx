@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { ChevronDown } from "lucide-react";
 import { getPlaces } from "../services/meta.api.js";
 import PageHeader from "../../../components/shared/PageHeader.jsx";
 import AccountSwitcher from "../components/AccountSwitcher.jsx";
@@ -217,14 +218,42 @@ export const Places = () => {
 
             {/* Optional Country Selector if multiple countries exist */}
             {distinctCountries.length > 1 && (
-              <Select
-                value={countryFilter}
-                onChange={(e) => setCountryFilter(e.target.value)}
-                options={[
-                  { value: "all", label: "All Countries" },
-                  ...distinctCountries.map((c) => ({ value: c, label: c })),
-                ]}
-              />
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ fontSize: "12px", color: "#64748B", fontWeight: "600" }}>
+                  Country:
+                </span>
+                <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+                  <select
+                    value={countryFilter}
+                    onChange={(e) => setCountryFilter(e.target.value)}
+                    style={{
+                      height: "36px",
+                      padding: "0 28px 0 10px",
+                      borderRadius: "8px",
+                      backgroundColor: "#FFFFFF",
+                      border: countryFilter !== "all" ? "1px solid #0A84FF" : "1px solid #E5E7EB",
+                      color: countryFilter !== "all" ? "#0A84FF" : "#0F172A",
+                      fontSize: "13px",
+                      fontWeight: countryFilter !== "all" ? "600" : "500",
+                      outline: "none",
+                      cursor: "pointer",
+                      boxShadow: countryFilter !== "all" ? "0 0 0 2px rgba(10, 132, 255, 0.12)" : "0 1px 2px rgba(15, 23, 42, 0.03)",
+                      transition: "all 0.15s ease",
+                      appearance: "none",
+                      WebkitAppearance: "none",
+                      MozAppearance: "none",
+                    }}
+                  >
+                    <option value="all">All Countries</option>
+                    {distinctCountries.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} style={{ position: "absolute", right: "8px", color: countryFilter !== "all" ? "#0A84FF" : "#64748B", pointerEvents: "none" }} />
+                </div>
+              </div>
             )}
           </div>
         }

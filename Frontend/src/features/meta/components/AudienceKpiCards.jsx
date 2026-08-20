@@ -4,12 +4,15 @@ import { formatCurrency } from "../../../utils/formatCurrency.js";
 
 /**
  * AudienceKpiCards Component.
- * Displays 5 refined summary KPI cards for Meta Audience Demographics:
+ * Dedicated Audience Insight Cards:
  * 1. Total Spend on Male
  * 2. Total Spend on Female
  * 3. Revenue Generated from Male
  * 4. Revenue Generated from Female
  * 5. Best ROAS From Audience
+ * 
+ * Note: These 5 specialized insight cards are permanent Audience domain metrics
+ * and remain independent from generic Customize Fields metric toggles.
  */
 export const AudienceKpiCards = ({
   maleSpend = 0,

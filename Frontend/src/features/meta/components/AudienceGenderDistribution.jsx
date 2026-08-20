@@ -1,100 +1,76 @@
-import React, { useState } from "react";
-import { formatCurrency } from "../../../utils/formatCurrency.js";
+import React, { useState, useEffect } from "react";
+import { formatAudienceMetricValue } from "../../../config/audienceMetrics.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
 
 /**
  * AudienceGenderDistribution Component.
- * Displays:
- * 1. Donut Chart for Audience Gender Share
- * 2. Bar Comparison with expanded metric selector (Reach, Spend, Impressions, Clicks, CTR, Add to Cart, Checkout Initiated, Purchases, Cost per Result, Revenue, ROAS)
+ * Visualizes gender distribution breakdown (Male vs Female vs Unknown)
+ * with dynamic metric selector driven by active metric configuration.
  */
-export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }) => {
-  const [metric, setMetric] = useState("reach");
-  const [hoveredSegment, setHoveredSegment] = useState(null);
+export const AudienceGenderDistribution = ({
+  genderData = [],
+  enabledMetrics = [],
+  currency = "INR",
+}) => {
+  // Filter metrics that support gender breakdown
+  const genderMetrics = enabledMetrics.filter((m) => m && m.supportsGender);
 
-  const maleItem = genderData.find((g) => g.gender === "male") || { gender: "male", spend: 0, reach: 0, impressions: 0, clicks: 0, ctr: 0, add_to_cart: 0, initiate_checkout: 0, purchases: 0, revenue: 0 };
-  const femaleItem = genderData.find((g) => g.gender === "female") || { gender: "female", spend: 0, reach: 0, impressions: 0, clicks: 0, ctr: 0, add_to_cart: 0, initiate_checkout: 0, purchases: 0, revenue: 0 };
-  const unknownItem = genderData.find((g) => g.gender === "unknown") || { gender: "unknown", spend: 0, reach: 0, impressions: 0, clicks: 0, ctr: 0, add_to_cart: 0, initiate_checkout: 0, purchases: 0, revenue: 0 };
+  // Default selected metric key
+  const [metric, setMetric] = useState("spend");
 
-  const totalReach = (maleItem.reach || 0) + (femaleItem.reach || 0) + (unknownItem.reach || 0);
-
-  const segments = [
-    { label: "Male", gender: "male", val: maleItem.reach || 0, color: "#0A84FF" },
-    { label: "Female", gender: "female", val: femaleItem.reach || 0, color: "#EC4899" },
-    { label: "Unknown", gender: "unknown", val: unknownItem.reach || 0, color: "#94A3B8" },
-  ].filter((s) => s.val > 0 || totalReach === 0);
-
-  // SVG Donut Calculations
-  const radius = 60;
-  const strokeWidth = 20;
-  const circumference = 2 * Math.PI * radius;
-
-  let accumulatedPercent = 0;
-  const donutPaths = segments.map((seg) => {
-    const pct = totalReach > 0 ? seg.val / totalReach : 1 / (segments.length || 1);
-    const strokeDasharray = `${pct * circumference} ${circumference}`;
-    const strokeDashoffset = -accumulatedPercent * circumference;
-    accumulatedPercent += pct;
-
-    return {
-      ...seg,
-      pct,
-      strokeDasharray,
-      strokeDashoffset,
-    };
-  });
-
-  const getMetricVal = (item, metricKey) => {
-    if (!item) return null;
-    if (metricKey === "cpr") {
-      const p = item.purchases || 0;
-      const s = item.spend || 0;
-      return p > 0 ? s / p : null;
+  // Keep metric selection valid if active enabled metrics change
+  useEffect(() => {
+    if (genderMetrics.length > 0) {
+      const exists = genderMetrics.some((m) => m.key === metric);
+      if (!exists) {
+        setMetric(genderMetrics[0].key);
+      }
     }
-    if (metricKey === "roas") {
-      const s = item.spend || 0;
-      const r = item.revenue || 0;
-      return s > 0 ? r / s : null;
-    }
-    return item[metricKey] ?? 0;
-  };
+  }, [genderMetrics, metric]);
 
-  const formatDisplayVal = (val, metricKey) => {
-    if (val === null || val === undefined || isNaN(Number(val))) return "—";
-    const num = Number(val);
-    if (metricKey === "spend" || metricKey === "revenue" || metricKey === "cpr") {
-      return formatCurrency(num, currency);
-    }
-    if (metricKey === "roas") {
-      return `${num.toFixed(2)}x`;
-    }
-    if (metricKey === "ctr") {
-      return formatPercentage(num);
-    }
-    return formatNumber(num);
-  };
+  const activeMetricObj = genderMetrics.find((m) => m.key === metric) || genderMetrics[0] || null;
 
-  const maxVal = Math.max(
-    Number(getMetricVal(maleItem, metric)) || 0,
-    Number(getMetricVal(femaleItem, metric)) || 0,
-    Number(getMetricVal(unknownItem, metric)) || 0,
-    1
+  // Total Metric Sum
+  const totalVal = genderData.reduce((acc, curr) => {
+    let val = Number(curr[metric] || 0);
+    if (metric === "cpr") {
+      val = curr.purchases > 0 ? Number(curr.spend || 0) / Number(curr.purchases) : 0;
+    } else if (metric === "roas") {
+      val = curr.spend > 0 ? Number(curr.revenue || 0) / Number(curr.spend) : 0;
+    }
+    return acc + val;
+  }, 0);
+
+  // Gender Segments calculation
+  const maleItem = genderData.find((d) => String(d.gender).toLowerCase() === "male");
+  const femaleItem = genderData.find((d) => String(d.gender).toLowerCase() === "female");
+  const unknownItem = genderData.find(
+    (d) => String(d.gender).toLowerCase() === "unknown" || (String(d.gender).toLowerCase() !== "male" && String(d.gender).toLowerCase() !== "female")
   );
 
-  const metricOptions = [
-    { id: "reach", label: "Reach" },
-    { id: "spend", label: "Spend" },
-    { id: "impressions", label: "Impressions" },
-    { id: "clicks", label: "Clicks" },
-    { id: "ctr", label: "CTR" },
-    { id: "add_to_cart", label: "Add to Cart" },
-    { id: "initiate_checkout", label: "Checkout Initiated" },
-    { id: "purchases", label: "Purchases" },
-    { id: "cpr", label: "Cost per Result" },
-    { id: "revenue", label: "Revenue" },
-    { id: "roas", label: "ROAS" },
+  const getSegmentVal = (item) => {
+    if (!item) return 0;
+    if (metric === "cpr") {
+      return item.purchases > 0 ? Number(item.spend || 0) / Number(item.purchases) : 0;
+    }
+    if (metric === "roas") {
+      return item.spend > 0 ? Number(item.revenue || 0) / Number(item.spend) : 0;
+    }
+    return Number(item[metric] || 0);
+  };
+
+  const maleVal = getSegmentVal(maleItem);
+  const femaleVal = getSegmentVal(femaleItem);
+  const unknownVal = getSegmentVal(unknownItem);
+
+  const segments = [
+    { label: "Male", val: maleVal, color: "#0A84FF" },
+    { label: "Female", val: femaleVal, color: "#EC4899" },
+    ...(unknownVal > 0 ? [{ label: "Unknown", val: unknownVal, color: "#64748B" }] : []),
   ];
+
+  const maxSegmentVal = Math.max(1, maleVal, femaleVal, unknownVal);
 
   return (
     <div
@@ -104,7 +80,7 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
         gap: "20px",
       }}
     >
-      {/* 1. DONUT CHART - GENDER DISTRIBUTION */}
+      {/* 1. PIE / DONUT BREAKDOWN CARD */}
       <div
         style={{
           backgroundColor: "#FFFFFF",
@@ -117,78 +93,63 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
           boxShadow: "var(--shadow-subtle, 0 1px 3px rgba(15, 23, 42, 0.03))",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
-              Gender Distribution
-            </h4>
-            <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
-              Audience reach share by gender
-            </span>
-          </div>
+        <div>
+          <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
+            Gender Breakdown
+          </h4>
+          <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
+            Share of {activeMetricObj ? activeMetricObj.label.toLowerCase() : "audience"} by gender
+          </span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around", flexWrap: "wrap", gap: "20px", padding: "10px 0" }}>
-          {/* SVG Donut */}
-          <div style={{ position: "relative", width: "160px", height: "160px" }}>
-            <svg width="160" height="160" viewBox="0 0 160 160" style={{ transform: "rotate(-90deg)" }}>
-              {donutPaths.map((seg, idx) => (
-                <circle
-                  key={idx}
-                  cx="80"
-                  cy="80"
-                  r={radius}
-                  fill="transparent"
-                  stroke={seg.color}
-                  strokeWidth={strokeWidth}
-                  strokeDasharray={seg.strokeDasharray}
-                  strokeDashoffset={seg.strokeDashoffset}
-                  style={{
-                    transition: "stroke-width 0.2s ease, opacity 0.2s ease",
-                    cursor: "pointer",
-                    opacity: hoveredSegment && hoveredSegment !== seg.gender ? 0.5 : 1,
-                  }}
-                  onMouseEnter={() => setHoveredSegment(seg.gender)}
-                  onMouseLeave={() => setHoveredSegment(null)}
-                />
-              ))}
-            </svg>
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                pointerEvents: "none",
-              }}
-            >
-              <span style={{ fontSize: "1.1rem", fontWeight: "700", color: "var(--color-text-primary, #0F172A)" }}>
-                {formatNumber(totalReach)}
-              </span>
-              <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)" }}>Total Reach</span>
-            </div>
-          </div>
-
-          {/* Legend */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", flex: 1, minWidth: "140px" }}>
-            {donutPaths.map((seg, idx) => {
-              const pctStr = (seg.pct * 100).toFixed(1);
+        {/* Multi-segment Progress Bar */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div
+            style={{
+              height: "12px",
+              width: "100%",
+              backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
+              borderRadius: "999px",
+              overflow: "hidden",
+              display: "flex",
+            }}
+          >
+            {segments.map((seg) => {
+              const pct = totalVal > 0 ? (seg.val / totalVal) * 100 : 0;
+              if (pct <= 0) return null;
               return (
                 <div
-                  key={idx}
-                  onMouseEnter={() => setHoveredSegment(seg.gender)}
-                  onMouseLeave={() => setHoveredSegment(null)}
+                  key={seg.label}
+                  style={{
+                    width: `${pct}%`,
+                    backgroundColor: seg.color,
+                    height: "100%",
+                    transition: "width 0.3s ease",
+                  }}
+                  title={`${seg.label}: ${pct.toFixed(1)}%`}
+                />
+              );
+            })}
+          </div>
+
+          {/* Segment Details */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {segments.map((seg) => {
+              const pctStr = totalVal > 0 ? ((seg.val / totalVal) * 100).toFixed(1) : "0.0";
+              const formattedVal = activeMetricObj
+                ? formatAudienceMetricValue(seg.val, activeMetricObj.format, currency)
+                : formatNumber(seg.val);
+
+              return (
+                <div
+                  key={seg.label}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    padding: "6px 10px",
-                    borderRadius: "6px",
-                    backgroundColor: hoveredSegment === seg.gender ? "var(--color-surface-subtle, #F1F5F9)" : "transparent",
-                    transition: "background-color 0.15s ease",
-                    cursor: "pointer",
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -202,7 +163,7 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
                       {pctStr}%
                     </strong>
                     <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)" }}>
-                      {formatNumber(seg.val)}
+                      {formattedVal}
                     </span>
                   </div>
                 </div>
@@ -235,14 +196,14 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
             </span>
           </div>
 
-          {/* Metric Selector Pills (Flex Wrap) */}
+          {/* Dynamic Metric Selector Pills (Flex Wrap - No Scrollbar) */}
           <div style={{ display: "flex", flexWrap: "wrap", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "4px", border: "1px solid var(--color-border, #E5E7EB)", gap: "4px" }}>
-            {metricOptions.map((m) => {
-              const active = metric === m.id;
+            {genderMetrics.map((m) => {
+              const active = metric === m.key;
               return (
                 <button
-                  key={m.id}
-                  onClick={() => setMetric(m.id)}
+                  key={m.key}
+                  onClick={() => setMetric(m.key)}
                   style={{
                     padding: "4px 9px",
                     border: "none",
@@ -264,45 +225,40 @@ export const AudienceGenderDistribution = ({ genderData = [], currency = "INR" }
           </div>
         </div>
 
-        {/* Bar Comparison Rows */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "10px" }}>
-          {[
-            { label: "Male", item: maleItem, color: "#0A84FF" },
-            { label: "Female", item: femaleItem, color: "#EC4899" },
-            { label: "Unknown", item: unknownItem, color: "#94A3B8" },
-          ].map((row, idx) => {
-            const rawVal = getMetricVal(row.item, metric);
-            const numVal = Number(rawVal) || 0;
-            const pctFill = Math.min(100, Math.max(0, (numVal / maxVal) * 100));
+        {/* Horizontal Bar Visualizations */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "8px" }}>
+          {segments.map((seg) => {
+            const widthPct = Math.min(100, Math.max(2, (seg.val / maxSegmentVal) * 100));
+            const formattedVal = activeMetricObj
+              ? formatAudienceMetricValue(seg.val, activeMetricObj.format, currency)
+              : formatNumber(seg.val);
 
             return (
-              <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "0.85rem" }}>
+              <div key={seg.label} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.825rem" }}>
                   <span style={{ fontWeight: "600", color: "var(--color-text-primary, #0F172A)" }}>
-                    {row.label}
+                    {seg.label}
                   </span>
-                  <strong style={{ color: "var(--color-text-primary, #0F172A)" }}>
-                    {formatDisplayVal(rawVal, metric)}
-                  </strong>
+                  <span style={{ fontWeight: "700", color: seg.color }}>
+                    {formattedVal}
+                  </span>
                 </div>
-
                 <div
                   style={{
-                    height: "10px",
+                    height: "8px",
                     width: "100%",
                     backgroundColor: "var(--color-surface-subtle, #F1F5F9)",
                     borderRadius: "999px",
                     overflow: "hidden",
-                    border: "1px solid var(--color-border, #E5E7EB)",
                   }}
                 >
                   <div
                     style={{
                       height: "100%",
-                      width: `${pctFill}%`,
-                      backgroundColor: row.color,
+                      width: `${widthPct}%`,
+                      backgroundColor: seg.color,
                       borderRadius: "999px",
-                      transition: "width 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+                      transition: "width 0.3s ease",
                     }}
                   />
                 </div>
