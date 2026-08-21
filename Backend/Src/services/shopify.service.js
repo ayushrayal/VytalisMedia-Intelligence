@@ -64,29 +64,35 @@ const isDuplicateAccountName = (accounts, accountName, excludeAccountName = null
  * @param {string} payload.accountName - Shopify myshopify.com store domain identifier
  * @returns {Promise<Object>} Added Shopify account object
  */
-const addShopifyAccount = async (userId, { shopName, accountName }) => {
-  const user = await User.findById(userId);
+const addShopifyAccount = async (userOrId, { shopName, accountName }) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Add Shopify account failed: User not found for ID ${userId}`);
+    logger.warn(`Add Shopify account failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   const cleanAccountName = accountName.trim();
   const cleanShopName = shopName.trim();
 
-  // Check for duplicate accountName per user
-  if (isDuplicateAccountName(user.integrations.shopify, cleanAccountName)) {
-    logger.warn(`Add Shopify account failed: Duplicate accountName ${cleanAccountName} for user ${userId}`);
+  if (!targetUser.integrations) targetUser.integrations = { meta: [], shopify: [] };
+  if (!targetUser.integrations.shopify) targetUser.integrations.shopify = [];
+
+  // Check for duplicate accountName per target user
+  if (isDuplicateAccountName(targetUser.integrations.shopify, cleanAccountName)) {
+    logger.warn(`Add Shopify account failed: Duplicate accountName ${cleanAccountName} for user ${targetUser._id}`);
     const err = new Error("Shopify account with this accountName already exists");
     err.statusCode = 409;
     throw err;
   }
 
-  const isFirstAccount = user.integrations.shopify.length === 0;
+  const isFirstAccount = targetUser.integrations.shopify.length === 0;
 
-  user.integrations.shopify.push({
+  targetUser.integrations.shopify.push({
     accountName: cleanAccountName,
     shopName: cleanShopName,
     status: "active",
@@ -95,55 +101,65 @@ const addShopifyAccount = async (userId, { shopName, accountName }) => {
 
   // First Account Rule: Automatically set preferred active Shopify account
   if (isFirstAccount) {
-    user.preferences.activeShopifyAccount = cleanAccountName;
+    if (!targetUser.preferences) targetUser.preferences = {};
+    targetUser.preferences.activeShopifyAccount = cleanAccountName;
   }
 
-  await user.save();
+  await targetUser.save();
 
-  const addedAccount = user.integrations.shopify[user.integrations.shopify.length - 1];
+  const addedAccount = targetUser.integrations.shopify[targetUser.integrations.shopify.length - 1];
   return addedAccount;
 };
 
+const { getEffectiveIntegrationContext } = require("../utils/integration-context.util");
+
 /**
  * Retrieves all Shopify accounts and preferred active Shopify account for authenticated user.
+ * Automatically resolves parent Organization/Client integrations for Members.
  *
- * @param {string} userId - Authenticated user ID
+ * @param {string|Object} userOrId - Authenticated user object or ID
  * @returns {Promise<Object>} Object containing accounts array and activeShopifyAccount preference
  */
-const getAllShopifyAccounts = async (userId) => {
-  const user = await User.findById(userId);
+const getAllShopifyAccounts = async (userOrId) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Get Shopify accounts failed: User not found for ID ${userId}`);
+    logger.warn(`Get Shopify accounts failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   return {
-    accounts: user.integrations.shopify,
-    activeShopifyAccount: user.preferences.activeShopifyAccount || null,
+    accounts: targetUser.integrations?.shopify || [],
+    activeShopifyAccount: targetUser.preferences?.activeShopifyAccount || null,
   };
 };
 
 /**
  * Retrieves a single Shopify account by accountName for authenticated user.
  *
- * @param {string} userId - Authenticated user ID
+ * @param {string|Object} userOrId - Authenticated user object or ID
  * @param {string} accountName - Shopify store domain identifier
  * @returns {Promise<Object>} Matched Shopify account object
  */
-const getShopifyAccountById = async (userId, accountName) => {
-  const user = await User.findById(userId);
+const getShopifyAccountById = async (userOrId, accountName) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Get Shopify account failed: User not found for ID ${userId}`);
+    logger.warn(`Get Shopify account failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
-  const account = findShopifyAccount(user.integrations.shopify, accountName);
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
+  const account = findShopifyAccount(targetUser.integrations?.shopify || [], accountName);
   if (!account) {
-    logger.warn(`Get Shopify account failed: Account ${accountName} not found for user ${userId}`);
+    logger.warn(`Get Shopify account failed: Account ${accountName} not found for user ${user._id}`);
     const err = new Error("Shopify account not found");
     err.statusCode = 404;
     throw err;
@@ -156,7 +172,7 @@ const getShopifyAccountById = async (userId, accountName) => {
  * Updates shopName and/or accountName of a Shopify account by accountName.
  * Automatically synchronizes user.preferences.activeShopifyAccount if preferred account's accountName changes.
  *
- * @param {string} userId - Authenticated user ID
+ * @param {string|Object} userOrId - Authenticated user object or ID
  * @param {string} targetAccountNameParam - Current Shopify accountName from URL params
  * @param {Object} payload - Update payload
  * @param {string} [payload.shopName] - Optional new store display name
@@ -164,23 +180,26 @@ const getShopifyAccountById = async (userId, accountName) => {
  * @returns {Promise<Object>} Updated Shopify account object
  */
 const updateShopifyAccount = async (
-  userId,
+  userOrId,
   targetAccountNameParam,
   { shopName, accountName: newAccountName }
 ) => {
-  const user = await User.findById(userId);
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Update Shopify account failed: User not found for ID ${userId}`);
+    logger.warn(`Update Shopify account failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   const cleanParamName = targetAccountNameParam.trim();
-  const account = findShopifyAccount(user.integrations.shopify, cleanParamName);
+  const account = findShopifyAccount(targetUser.integrations?.shopify || [], cleanParamName);
 
   if (!account) {
-    logger.warn(`Update Shopify account failed: Account ${cleanParamName} not found for user ${userId}`);
+    logger.warn(`Update Shopify account failed: Account ${cleanParamName} not found for user ${user._id}`);
     const err = new Error("Shopify account not found");
     err.statusCode = 404;
     throw err;
@@ -191,15 +210,15 @@ const updateShopifyAccount = async (
 
   // Check duplicate if accountName is changing
   if (cleanNewAccountName && cleanNewAccountName !== account.accountName) {
-    if (isDuplicateAccountName(user.integrations.shopify, cleanNewAccountName, cleanParamName)) {
-      logger.warn(`Update Shopify account failed: Duplicate target accountName ${cleanNewAccountName} for user ${userId}`);
+    if (isDuplicateAccountName(targetUser.integrations.shopify, cleanNewAccountName, cleanParamName)) {
+      logger.warn(`Update Shopify account failed: Duplicate target accountName ${cleanNewAccountName} for user ${targetUser._id}`);
       const err = new Error("Shopify account with this accountName already exists");
       err.statusCode = 409;
       throw err;
     }
   }
 
-  const isPreferredAccount = user.preferences.activeShopifyAccount === account.accountName;
+  const isPreferredAccount = targetUser.preferences?.activeShopifyAccount === account.accountName;
 
   if (cleanNewAccountName) {
     account.accountName = cleanNewAccountName;
@@ -211,10 +230,11 @@ const updateShopifyAccount = async (
 
   // Sync preference if preferred account's accountName changed
   if (isPreferredAccount && cleanNewAccountName) {
-    user.preferences.activeShopifyAccount = cleanNewAccountName;
+    if (!targetUser.preferences) targetUser.preferences = {};
+    targetUser.preferences.activeShopifyAccount = cleanNewAccountName;
   }
 
-  await user.save();
+  await targetUser.save();
 
   return account;
 };
@@ -223,43 +243,46 @@ const updateShopifyAccount = async (
  * Deletes a single Shopify account by accountName.
  * Automatically synchronizes user.preferences.activeShopifyAccount if preferred account is deleted.
  *
- * @param {string} userId - Authenticated user ID
+ * @param {string|Object} userOrId - Authenticated user object or ID
  * @param {string} accountName - Shopify store domain identifier
  * @returns {Promise<Object>} Deleted Shopify account object
  */
-const deleteShopifyAccount = async (userId, accountName) => {
-  const user = await User.findById(userId);
+const deleteShopifyAccount = async (userOrId, accountName) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Delete Shopify account failed: User not found for ID ${userId}`);
+    logger.warn(`Delete Shopify account failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   const cleanAccountName = accountName.trim();
-  const index = findShopifyAccountIndex(user.integrations.shopify, cleanAccountName);
+  const index = findShopifyAccountIndex(targetUser.integrations?.shopify || [], cleanAccountName);
 
   if (index === -1) {
-    logger.warn(`Delete Shopify account failed: Account ${cleanAccountName} not found for user ${userId}`);
+    logger.warn(`Delete Shopify account failed: Account ${cleanAccountName} not found for user ${user._id}`);
     const err = new Error("Shopify account not found");
     err.statusCode = 404;
     throw err;
   }
 
-  const isPreferredAccount = user.preferences.activeShopifyAccount === cleanAccountName;
+  const isPreferredAccount = targetUser.preferences?.activeShopifyAccount === cleanAccountName;
 
-  const [deletedAccount] = user.integrations.shopify.splice(index, 1);
+  const [deletedAccount] = targetUser.integrations.shopify.splice(index, 1);
 
   // Delete Synchronization Rule: If preferred account is deleted
   if (isPreferredAccount) {
-    if (user.integrations.shopify.length > 0) {
-      user.preferences.activeShopifyAccount = user.integrations.shopify[0].accountName;
+    if (targetUser.integrations.shopify.length > 0) {
+      targetUser.preferences.activeShopifyAccount = targetUser.integrations.shopify[0].accountName;
     } else {
-      user.preferences.activeShopifyAccount = null;
+      targetUser.preferences.activeShopifyAccount = null;
     }
   }
 
-  await user.save();
+  await targetUser.save();
 
   return deletedAccount;
 };
@@ -267,38 +290,42 @@ const deleteShopifyAccount = async (userId, accountName) => {
 /**
  * Sets preferred active Shopify account for authenticated user.
  *
- * @param {string} userId - Authenticated user ID
+ * @param {string|Object} userOrId - Authenticated user object or ID
  * @param {string} accountName - Target Shopify accountName to activate
  * @returns {Promise<Object>} Object containing activeShopifyAccount and matched account
  */
-const setActiveShopifyAccount = async (userId, accountName) => {
-  const user = await User.findById(userId);
+const setActiveShopifyAccount = async (userOrId, accountName) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Set active Shopify account failed: User not found for ID ${userId}`);
+    logger.warn(`Set active Shopify account failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   const cleanAccountName = accountName.trim();
-  const account = findShopifyAccount(user.integrations.shopify, cleanAccountName);
+  const account = findShopifyAccount(targetUser.integrations?.shopify || [], cleanAccountName);
 
   if (!account) {
-    logger.warn(`Set active Shopify account failed: Account ${cleanAccountName} not found for user ${userId}`);
+    logger.warn(`Set active Shopify account failed: Account ${cleanAccountName} not found for user ${user._id}`);
     const err = new Error("Shopify account not found");
     err.statusCode = 404;
     throw err;
   }
 
-  if (user.preferences.activeShopifyAccount === cleanAccountName) {
+  if (targetUser.preferences?.activeShopifyAccount === cleanAccountName) {
     return {
       activeShopifyAccount: cleanAccountName,
       account,
     };
   }
 
-  user.preferences.activeShopifyAccount = cleanAccountName;
-  await user.save();
+  if (!targetUser.preferences) targetUser.preferences = {};
+  targetUser.preferences.activeShopifyAccount = cleanAccountName;
+  await targetUser.save();
 
   return {
     activeShopifyAccount: cleanAccountName,

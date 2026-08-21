@@ -6,6 +6,7 @@ import {
   Navigate,
   Outlet,
   useNavigate,
+  useOutletContext,
 } from "react-router-dom";
 import { http } from "../lib/http.js";
 import { useRateLimitState } from "../hooks/useRateLimitState.js";
@@ -36,6 +37,8 @@ import GoogleIntegration from "../features/integrations/pages/GoogleIntegration.
 import UserManagement from "../features/admin/pages/UserManagement.jsx";
 import Input from "../components/ui/Input.jsx";
 import Button from "../components/ui/Button.jsx";
+import PermissionRouteGuard from "../components/shared/PermissionRouteGuard.jsx";
+import { PERMISSION_KEYS } from "../config/permission-registry.js";
 
 // ==========================================
 // AUTH FORM COMPONENTS
@@ -66,10 +69,10 @@ const LoginPage = ({ setUser }) => {
       if (res.data && res.data.user) {
         setUser(res.data.user);
 
-        if (res.data.user?.preferences?.activeMetaAccount) {
-          navigate("/overview");
-        } else {
+        if (shouldRedirectToOnboarding(res.data.user)) {
           navigate("/welcome");
+        } else {
+          navigate("/overview");
         }
       }
     } catch (err) {
@@ -218,9 +221,22 @@ const SignupPage = ({ setUser }) => {
   );
 };
 
-// ==========================================
-// ROUTE GUARDS & WRAPPERS
-// ==========================================
+/**
+ * Helper determining whether a user should be redirected to Client Meta onboarding (/welcome).
+ * Rules:
+ * - Members, Admins, and Root Admins NEVER redirect to onboarding.
+ * - Clients redirect to onboarding ONLY if activeMetaAccount preference is missing.
+ */
+const shouldRedirectToOnboarding = (user) => {
+  if (!user) return false;
+  if (user.role === "member" || user.role === "admin" || user.role === "root_admin" || user.isRootAdmin === true) {
+    return false;
+  }
+  if (user.role === "client") {
+    return !user.preferences?.activeMetaAccount;
+  }
+  return false;
+};
 
 const LoadingScreen = () => (
   <div style={{ minHeight: "100vh", backgroundColor: "var(--color-background, #FFFFFF)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-primary, #0A84FF)", fontSize: "1.2rem", fontWeight: "600" }}>
@@ -232,10 +248,10 @@ const PublicRoute = ({ user, authLoading }) => {
   if (authLoading) return <LoadingScreen />;
 
   if (user) {
-    if (user.preferences?.activeMetaAccount) {
-      return <Navigate to="/overview" replace />;
+    if (shouldRedirectToOnboarding(user)) {
+      return <Navigate to="/welcome" replace />;
     }
-    return <Navigate to="/welcome" replace />;
+    return <Navigate to="/overview" replace />;
   }
 
   return <Outlet />;
@@ -250,7 +266,8 @@ const WelcomeRoute = ({ user, authLoading, restoreSession }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.preferences?.activeMetaAccount) {
+  // Members, Admins, and Root Admins or onboarded Clients must never be on /welcome
+  if (!shouldRedirectToOnboarding(user)) {
     return <Navigate to="/overview" replace />;
   }
 
@@ -271,43 +288,45 @@ const ProtectedRoute = ({ user, setUser, authLoading }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (!user.preferences?.activeMetaAccount) {
+  if (shouldRedirectToOnboarding(user)) {
     return <Navigate to="/welcome" replace />;
   }
 
   return <DashboardLayout user={user} setUser={setUser} />;
 };
 
-const AdminRouteGuard = ({ user }) => {
-  if (!user || user.role !== "admin") {
+const AdminRouteGuard = ({ user: directUser }) => {
+  const outletContext = useOutletContext() || {};
+  const user = directUser || outletContext.user || null;
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  // Members are strictly forbidden from accessing User Management
+  if (user.role === "member") {
     return <Navigate to="/overview" replace />;
   }
+
+  // Root Admin, Admin, and Client are allowed to access User Management
+  const isAllowed =
+    user.role === "root_admin" ||
+    user.role === "admin" ||
+    user.isRootAdmin === true ||
+    user.role === "client";
+
+  if (!isAllowed) {
+    return <Navigate to="/overview" replace />;
+  }
+
   return <UserManagement currentUser={user} />;
-};
-
-const ShopifyRouteGuard = ({ user }) => {
-  const isShopifyEnabled = user && (user.role === "admin" || Boolean(user.shopifyEnabled) === true);
-  if (!isShopifyEnabled) {
-    return <Navigate to="/overview" replace />;
-  }
-  return <Outlet />;
-};
-
-const AttributionRouteGuard = ({ user }) => {
-  const isAttributionEnabled = user && (user.role === "admin" || Boolean(user.attributionEnabled) === true);
-  if (!isAttributionEnabled) {
-    return <Navigate to="/overview" replace />;
-  }
-  return <AttributionOverview />;
 };
 
 const FallbackRoute = ({ user, authLoading }) => {
   if (authLoading) return null;
   if (user) {
-    if (user.preferences?.activeMetaAccount) {
-      return <Navigate to="/overview" replace />;
+    if (shouldRedirectToOnboarding(user)) {
+      return <Navigate to="/welcome" replace />;
     }
-    return <Navigate to="/welcome" replace />;
+    return <Navigate to="/overview" replace />;
   }
   return <Navigate to="/login" replace />;
 };
@@ -373,38 +392,39 @@ export const Router = () => {
         {/* Protected Dashboard Shell Routes */}
         <Route element={<ProtectedRoute user={user} setUser={setUser} authLoading={authLoading} />}>
           {/* Global Analytics Overview */}
-          <Route path="/overview" element={<DashboardOverview user={user} />} />
+          <Route path="/overview" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.DASHBOARD_VIEW}><DashboardOverview user={user} /></PermissionRouteGuard>} />
 
           {/* Profile Route */}
           <Route path="/profile" element={<Profile user={user} setUser={setUser} />} />
 
-          {/* Protected Admin Route */}
+          {/* Protected Admin / User Management Routes */}
           <Route path="/admin/users" element={<AdminRouteGuard user={user} />} />
+          <Route path="/user-management" element={<AdminRouteGuard user={user} />} />
           <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
 
           {/* Protected Attribution Route */}
-          <Route path="/attribution" element={<AttributionRouteGuard user={user} />} />
+          <Route path="/attribution" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.ATTRIBUTION_VIEW}><AttributionOverview /></PermissionRouteGuard>} />
 
           {/* Meta Analytics Routes */}
-          <Route path="/meta/overview" element={<MetaOverview />} />
-          <Route path="/meta/campaigns" element={<Campaigns />} />
-          <Route path="/meta/adsets" element={<AdSets />} />
-          <Route path="/meta/creatives" element={<Creatives />} />
-          <Route path="/meta/winning-creatives" element={<WinningCreatives />} />
-          <Route path="/meta/poor-performers" element={<PoorPerformers />} />
-          <Route path="/meta/audience" element={<Audience />} />
-          <Route path="/meta/places" element={<Places />} />
-          <Route path="/meta/compare" element={<MetaCompare />} />
+          <Route path="/meta/overview" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.META_OVERVIEW}><MetaOverview /></PermissionRouteGuard>} />
+          <Route path="/meta/campaigns" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.META_CAMPAIGNS}><Campaigns /></PermissionRouteGuard>} />
+          <Route path="/meta/adsets" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.META_ADSETS}><AdSets /></PermissionRouteGuard>} />
+          <Route path="/meta/creatives" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.META_CREATIVES}><Creatives /></PermissionRouteGuard>} />
+          <Route path="/meta/winning-creatives" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.META_WINNING_CREATIVES}><WinningCreatives /></PermissionRouteGuard>} />
+          <Route path="/meta/poor-performers" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.META_POOR_PERFORMERS}><PoorPerformers /></PermissionRouteGuard>} />
+          <Route path="/meta/audience" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.META_AUDIENCE}><Audience /></PermissionRouteGuard>} />
+          <Route path="/meta/places" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.META_PLACES}><Places /></PermissionRouteGuard>} />
+          <Route path="/meta/compare" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.META_COMPARE}><MetaCompare /></PermissionRouteGuard>} />
           <Route path="/meta" element={<Navigate to="/meta/overview" replace />} />
 
           {/* Protected Shopify Analytics & Integration Routes */}
-          <Route element={<ShopifyRouteGuard user={user} />}>
-            <Route path="/shopify/overview" element={<ShopifyOverview />} />
-            <Route path="/shopify/orders" element={<ShopifyOrders />} />
-            <Route path="/shopify/products" element={<ShopifyProducts />} />
-            <Route path="/shopify/customers" element={<ShopifyCustomers />} />
-            <Route path="/shopify/location" element={<ShopifyLocation />} />
-            <Route path="/shopify/compare" element={<ShopifyCompare />} />
+          <Route element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_VIEW} />}>
+            <Route path="/shopify/overview" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_OVERVIEW}><ShopifyOverview /></PermissionRouteGuard>} />
+            <Route path="/shopify/orders" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_ORDERS}><ShopifyOrders /></PermissionRouteGuard>} />
+            <Route path="/shopify/products" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_PRODUCTS}><ShopifyProducts /></PermissionRouteGuard>} />
+            <Route path="/shopify/customers" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_CUSTOMERS}><ShopifyCustomers /></PermissionRouteGuard>} />
+            <Route path="/shopify/location" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_LOCATION}><ShopifyLocation /></PermissionRouteGuard>} />
+            <Route path="/shopify/compare" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_COMPARE}><ShopifyCompare /></PermissionRouteGuard>} />
             <Route path="/shopify" element={<Navigate to="/shopify/overview" replace />} />
             <Route path="/integrations/shopify" element={<ShopifyAccounts />} />
           </Route>

@@ -14,6 +14,8 @@ const { calculateJitteredTtl } = require("../config/cache.config");
 const ATTRIBUTION_CONSTANTS = require("../config/attribution-constants.config");
 const logger = require("../utils/logger.util");
 
+const { getEffectiveIntegrationContext } = require("../utils/integration-context.util");
+
 /**
  * Extracts verified merchant domains from authenticated user object.
  */
@@ -138,20 +140,23 @@ const getProcessedAttributionOrders = async ({ user, activeShopifyAccount, dateP
  * Returns overall totals, top-level UI groups, 7 channels breakdown, and daily breakdown.
  */
 const getAttributionOverview = async ({ user, query = {} }) => {
-  if (!user || !user.preferences || !user.preferences.activeShopifyAccount) {
-    const error = new Error("No active Shopify account configured");
+  const { integrationUser } = await getEffectiveIntegrationContext(user, query.organizationId);
+  const targetUser = integrationUser || user;
+
+  if (!targetUser || !targetUser.preferences || !targetUser.preferences.activeShopifyAccount) {
+    const error = new Error("No active Shopify account configured for this Organization");
     error.statusCode = 404;
     throw error;
   }
 
-  const activeShopifyAccount = user.preferences.activeShopifyAccount.trim();
+  const activeShopifyAccount = targetUser.preferences.activeShopifyAccount.trim();
   if (!activeShopifyAccount) {
-    const error = new Error("No active Shopify account configured");
+    const error = new Error("No active Shopify account configured for this Organization");
     error.statusCode = 404;
     throw error;
   }
 
-  const userId = user._id ? user._id.toString() : user.id ? user.id.toString() : "anonymous";
+  const userId = targetUser._id ? targetUser._id.toString() : "anonymous";
   const { dateRangeKey, datePreset, dateFrom, dateTo } = resolveAttributionDateParams(query);
 
   // Redis cache key includes userId, activeShopifyAccount, dateRangeKey
@@ -352,20 +357,23 @@ const getAttributionOverview = async ({ user, query = {} }) => {
  * Includes all response-affecting parameters in Redis cache key.
  */
 const getAttributionOrders = async ({ user, query = {} }) => {
-  if (!user || !user.preferences || !user.preferences.activeShopifyAccount) {
-    const error = new Error("No active Shopify account configured");
+  const { integrationUser } = await getEffectiveIntegrationContext(user, query.organizationId);
+  const targetUser = integrationUser || user;
+
+  if (!targetUser || !targetUser.preferences || !targetUser.preferences.activeShopifyAccount) {
+    const error = new Error("No active Shopify account configured for this Organization");
     error.statusCode = 404;
     throw error;
   }
 
-  const activeShopifyAccount = user.preferences.activeShopifyAccount.trim();
+  const activeShopifyAccount = targetUser.preferences.activeShopifyAccount.trim();
   if (!activeShopifyAccount) {
-    const error = new Error("No active Shopify account configured");
+    const error = new Error("No active Shopify account configured for this Organization");
     error.statusCode = 404;
     throw error;
   }
 
-  const userId = user._id ? user._id.toString() : user.id ? user.id.toString() : "anonymous";
+  const userId = targetUser._id ? targetUser._id.toString() : "anonymous";
   const { dateRangeKey, datePreset, dateFrom, dateTo } = resolveAttributionDateParams(query);
 
   const page = Math.max(1, parseInt(query.page, 10) || 1);

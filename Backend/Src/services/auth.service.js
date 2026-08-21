@@ -77,9 +77,11 @@ const signupUser = async ({ name, email, password, accessCode }) => {
   const { refreshToken } = await createRefreshSession(createdUser._id);
 
   const user = await User.findById(createdUser._id);
+  const json = user.toJSON();
+  json.effectivePermissions = await calculateAllEffectivePermissions(user);
 
   return {
-    user,
+    user: json,
     accessToken,
     refreshToken,
   };
@@ -114,9 +116,11 @@ const loginUser = async ({ email, password }) => {
   const { refreshToken } = await createRefreshSession(user._id);
 
   const sanitizedUser = await User.findById(user._id);
+  const json = sanitizedUser.toJSON();
+  json.effectivePermissions = await calculateAllEffectivePermissions(sanitizedUser);
 
   return {
-    user: sanitizedUser,
+    user: json,
     accessToken,
     refreshToken,
   };
@@ -218,11 +222,14 @@ const logoutUser = async ({ refreshToken }) => {
   return true;
 };
 
+const { calculateAllEffectivePermissions } = require("../utils/permission-calculator.util");
+
 /**
  * Retrieves user profile by user ID.
+ * Automatically attaches calculated effectivePermissions.
  *
  * @param {string} userId - User ID from JWT payload
- * @returns {Object} User document
+ * @returns {Object} User document object with effectivePermissions
  */
 const getUserById = async (userId) => {
   const user = await User.findById(userId);
@@ -233,7 +240,9 @@ const getUserById = async (userId) => {
     throw err;
   }
 
-  return user;
+  const json = user.toJSON();
+  json.effectivePermissions = await calculateAllEffectivePermissions(user);
+  return json;
 };
 
 module.exports = {

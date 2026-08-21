@@ -9,7 +9,7 @@ const { sendSuccess } = require("../utils/api-response.util");
 const addAccount = async (req, res, next) => {
   try {
     const { accountId, accountName } = req.body;
-    const account = await metaService.addMetaAccount(req.user._id, {
+    const account = await metaService.addMetaAccount(req.user, {
       accountId,
       accountName,
     });
@@ -26,7 +26,7 @@ const addAccount = async (req, res, next) => {
  */
 const getAllAccounts = async (req, res, next) => {
   try {
-    const result = await metaService.getAllMetaAccounts(req.user._id);
+    const result = await metaService.getAllMetaAccounts(req.user);
 
     return sendSuccess(res, 200, "Meta accounts retrieved successfully", result);
   } catch (error) {
@@ -41,7 +41,7 @@ const getAllAccounts = async (req, res, next) => {
 const getAccountById = async (req, res, next) => {
   try {
     const { accountId } = req.params;
-    const account = await metaService.getMetaAccountById(req.user._id, accountId);
+    const account = await metaService.getMetaAccountById(req.user, accountId);
 
     return sendSuccess(res, 200, "Meta account retrieved successfully", account);
   } catch (error) {
@@ -59,7 +59,7 @@ const updateAccount = async (req, res, next) => {
     const { accountId: newAccountId, accountName } = req.body;
 
     const updatedAccount = await metaService.updateMetaAccount(
-      req.user._id,
+      req.user,
       targetAccountId,
       { accountId: newAccountId, accountName }
     );
@@ -78,7 +78,7 @@ const deleteAccount = async (req, res, next) => {
   try {
     const { accountId } = req.params;
     const deletedAccount = await metaService.deleteMetaAccount(
-      req.user._id,
+      req.user,
       accountId
     );
 
@@ -94,7 +94,7 @@ const deleteAccount = async (req, res, next) => {
  */
 const deleteAllAccounts = async (req, res, next) => {
   try {
-    const result = await metaService.deleteAllMetaAccounts(req.user._id);
+    const result = await metaService.deleteAllMetaAccounts(req.user);
 
     return sendSuccess(
       res,
@@ -165,7 +165,7 @@ const setActiveAccount = async (req, res, next) => {
   try {
     const { accountId } = req.body;
     const result = await metaService.setActiveMetaAccount(
-      req.user._id,
+      req.user,
       accountId
     );
 
@@ -186,7 +186,7 @@ const setActiveAccount = async (req, res, next) => {
  */
 const getCreativeCardPreferences = async (req, res, next) => {
   try {
-    const preferences = await metaService.getCreativeCardPreferences(req.user._id);
+    const preferences = await metaService.getCreativeCardPreferences(req.user);
     return sendSuccess(
       res,
       200,
@@ -206,7 +206,7 @@ const updateCreativeCardPreferences = async (req, res, next) => {
   try {
     const { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates, winningRoasThreshold, poorRoasThreshold } = req.body;
     const updatedPreferences = await metaService.updateCreativeCardPreferences(
-      req.user._id,
+      req.user,
       { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates, winningRoasThreshold, poorRoasThreshold }
     );
     return sendSuccess(

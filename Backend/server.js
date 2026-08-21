@@ -5,6 +5,7 @@ require("dotenv").config();
 const app = require("./Src/app");
 const connectDB = require("./Src/config/db");
 const cacheUtil = require("./Src/utils/cache.util");
+const { runRbacMigration } = require("./Src/utils/migration.util");
 
 const PORT = process.env.PORT || 5000;
 
@@ -12,6 +13,9 @@ const startServer = async () => {
     try {
         // Connect Database
         await connectDB();
+
+        // Run Idempotent RBAC & Organization Migration
+        await runRbacMigration();
 
         // Connect Redis Cache Utility
         await cacheUtil.connect();

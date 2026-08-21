@@ -5,6 +5,8 @@ import { getErrorMessage } from "../../../utils/error.js";
 import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
+import UserPermissionsModal from "../components/UserPermissionsModal.jsx";
+import AddMemberModal from "../components/AddMemberModal.jsx";
 import { AddUserModal } from "../components/AddUserModal.jsx";
 import {
   Users,
@@ -16,18 +18,16 @@ import {
   Search,
   Trash2,
   AlertTriangle,
-  Clock,
-  Layers,
-  ArrowUpDown,
   UserCheck,
   UserX,
   MoreVertical,
-  ChevronDown,
+  Sliders,
+  Building,
+  UserPlus,
+  Check,
+  XCircle,
 } from "lucide-react";
 
-/**
- * Human-readable relative timestamp formatter for lastActiveAt
- */
 const formatLastActive = (dateString) => {
   if (!dateString) return "Never";
   const date = new Date(dateString);
@@ -47,82 +47,55 @@ const formatLastActive = (dateString) => {
   return date.toLocaleDateString();
 };
 
-/**
- * User Management Admin Dashboard Page Component.
- * Polished, Linear/Stripe-style Admin UI with compact dropdown actions,
- * responsive cards, and strict RBAC enforcement.
- */
 export const UserManagement = ({ currentUser }) => {
   const outletContext = useOutletContext() || {};
   const effectiveUser = currentUser || outletContext.user || null;
-  const isRootAdmin = Boolean(effectiveUser?.isRootAdmin === true);
+  const isRootAdmin = Boolean(effectiveUser?.role === "root_admin" || effectiveUser?.isRootAdmin === true);
 
-  const [users, setUsers] = useState([]);
+  // Tab State: "admins" | "clients" | "members"
+  const [activeTab, setActiveTab] = useState(effectiveUser?.role === "client" ? "members" : "clients");
+
+  // Data lists
+  const [admins, setAdmins] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
-  const [updatingUserId, setUpdatingUserId] = useState(null);
   const [feedbackMessage, setFeedbackMessage] = useState("");
 
-  // Search & Sorting state
+  // Search
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortMode, setSortMode] = useState("default"); // "default", "active", "name"
-
-  // Dropdown menu state
   const [openDropdownId, setOpenDropdownId] = useState(null);
 
-  // Responsive state
-  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < 768 : false);
-
-  // Modal states
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Modals
+  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+  const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
+  const [permissionTargetUser, setPermissionTargetUser] = useState(null);
   const [userToDelete, setUserToDelete] = useState(null);
-  const [userToPromote, setUserToPromote] = useState(null);
-  const [userToDemote, setUserToDemote] = useState(null);
-  const [userToMakeRoot, setUserToMakeRoot] = useState(null);
-  const [userToRemoveRoot, setUserToRemoveRoot] = useState(null);
-
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isPromoting, setIsPromoting] = useState(false);
-  const [isDemoting, setIsDemoting] = useState(false);
-  const [isMakingRoot, setIsMakingRoot] = useState(false);
-  const [isRemovingRoot, setIsRemovingRoot] = useState(false);
 
-  // Handle window resize for mobile responsiveness
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  // Quick New Admin State
+  const [adminName, setAdminName] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
 
-  // Handle click outside and Escape key to close action dropdown
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest(".action-menu-container")) {
-        setOpenDropdownId(null);
-      }
-    };
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        setOpenDropdownId(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
-
-  const fetchUsers = useCallback(async () => {
+  const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await http.get("/admin/users");
-      if (res.data && Array.isArray(res.data.users)) {
-        setUsers(res.data.users);
-      }
+
+      const [adminsRes, clientsRes, membersRes] = await Promise.all([
+        http.get("/admin/users/admins").catch(() => ({ data: { admins: [] } })),
+        http.get("/admin/users/clients").catch(() => ({ data: { clients: [] } })),
+        http.get("/admin/users/members").catch(() => ({ data: { members: [] } })),
+      ]);
+
+      if (adminsRes.data?.admins) setAdmins(adminsRes.data.admins);
+      if (clientsRes.data?.clients) setClients(clientsRes.data.clients);
+      if (membersRes.data?.members) setMembers(membersRes.data.members);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -131,196 +104,78 @@ export const UserManagement = ({ currentUser }) => {
   }, []);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchAllData();
+  }, [fetchAllData]);
 
-  // Handle Feature Toggles (Shopify & Attribution)
-  const handleToggleFeature = async (targetUser, featureName, currentVal) => {
-    const newVal = !currentVal;
+  // Handle status toggle (active / disabled)
+  const handleToggleStatus = async (user) => {
+    const newStatus = user.status === "disabled" ? "active" : "disabled";
     try {
-      setUpdatingUserId(`${targetUser._id}_${featureName}`);
-      const payload = { [featureName]: newVal };
-
-      const res = await http.patch(`/admin/users/${targetUser._id}/features`, payload);
-
+      const res = await http.patch(`/admin/users/${user._id}/status`, { status: newStatus });
       if (res.data && res.data.user) {
-        setUsers((prevUsers) =>
-          prevUsers.map((u) => (u._id === targetUser._id ? { ...u, ...res.data.user } : u))
-        );
-        const featureLabel = featureName === "shopifyEnabled" ? "Shopify" : "Attribution";
-        const statusLabel = newVal ? "enabled" : "disabled";
-        setFeedbackMessage(`${featureLabel} ${statusLabel} for ${targetUser.name}`);
+        setFeedbackMessage(`Account status for ${user.name} set to ${newStatus}`);
         setTimeout(() => setFeedbackMessage(""), 3500);
+        fetchAllData();
       }
     } catch (err) {
-      alert(`Failed to update feature access: ${getErrorMessage(err)}`);
-    } finally {
-      setUpdatingUserId(null);
+      alert(`Status update failed: ${getErrorMessage(err)}`);
     }
   };
 
-  // Confirm Promotion (Client -> Admin)
-  const confirmPromoteUser = async () => {
-    if (!userToPromote) return;
-    try {
-      setIsPromoting(true);
-      const res = await http.patch(`/admin/users/${userToPromote._id}/role`, { role: "admin" });
-
-      if (res.data && res.data.user) {
-        setUsers((prevUsers) =>
-          prevUsers.map((u) => (u._id === userToPromote._id ? { ...u, ...res.data.user } : u))
-        );
-        setFeedbackMessage("User promoted to Admin successfully.");
-        setTimeout(() => setFeedbackMessage(""), 3500);
-        setUserToPromote(null);
-      }
-    } catch (err) {
-      if (err.response?.status === 403) {
-        alert("You don't have permission to change user roles.");
-      } else {
-        alert(getErrorMessage(err) || "Failed to promote user.");
-      }
-    } finally {
-      setIsPromoting(false);
-    }
-  };
-
-  // Confirm Demotion (Admin -> Client)
-  const confirmDemoteUser = async () => {
-    if (!userToDemote) return;
-    try {
-      setIsDemoting(true);
-      const res = await http.patch(`/admin/users/${userToDemote._id}/role`, { role: "client" });
-
-      if (res.data && res.data.user) {
-        setUsers((prevUsers) =>
-          prevUsers.map((u) => (u._id === userToDemote._id ? { ...u, ...res.data.user } : u))
-        );
-        setFeedbackMessage("Admin access removed successfully.");
-        setTimeout(() => setFeedbackMessage(""), 3500);
-        setUserToDemote(null);
-      }
-    } catch (err) {
-      if (err.response?.status === 403) {
-        alert("You don't have permission to change user roles.");
-      } else {
-        alert(getErrorMessage(err) || "Failed to remove admin access.");
-      }
-    } finally {
-      setIsDemoting(false);
-    }
-  };
-
-  // Confirm Grant Root Admin Status (Client/Admin -> Root Admin)
-  const confirmMakeRootUser = async () => {
-    if (!userToMakeRoot) return;
-    try {
-      setIsMakingRoot(true);
-      const res = await http.patch(`/admin/users/${userToMakeRoot._id}/root-status`, { isRootAdmin: true });
-
-      if (res.data && res.data.user) {
-        setUsers((prevUsers) =>
-          prevUsers.map((u) => (u._id === userToMakeRoot._id ? { ...u, ...res.data.user } : u))
-        );
-        setFeedbackMessage(`${userToMakeRoot.name} is now a Root Administrator.`);
-        setTimeout(() => setFeedbackMessage(""), 3500);
-        setUserToMakeRoot(null);
-      }
-    } catch (err) {
-      if (err.response?.status === 403) {
-        alert("Only the Root Administrator can modify Root Administrator status.");
-      } else {
-        alert(getErrorMessage(err) || "Failed to grant Root Admin status.");
-      }
-    } finally {
-      setIsMakingRoot(false);
-    }
-  };
-
-  // Confirm Remove Root Admin Status (Root Admin -> Regular Admin)
-  const confirmRemoveRootUser = async () => {
-    if (!userToRemoveRoot) return;
-    try {
-      setIsRemovingRoot(true);
-      const res = await http.patch(`/admin/users/${userToRemoveRoot._id}/root-status`, { isRootAdmin: false });
-
-      if (res.data && res.data.user) {
-        setUsers((prevUsers) =>
-          prevUsers.map((u) => (u._id === userToRemoveRoot._id ? { ...u, ...res.data.user } : u))
-        );
-        setFeedbackMessage(`Root Administrator status removed from ${userToRemoveRoot.name}.`);
-        setTimeout(() => setFeedbackMessage(""), 3500);
-        setUserToRemoveRoot(null);
-      }
-    } catch (err) {
-      if (err.response?.status === 400) {
-        alert("You cannot remove your own Root Administrator status.");
-      } else if (err.response?.status === 403) {
-        alert("Only the Root Administrator can modify Root Administrator status.");
-      } else {
-        alert(getErrorMessage(err) || "Failed to remove Root Admin status.");
-      }
-    } finally {
-      setIsRemovingRoot(false);
-    }
-  };
-
-  // Confirm User Deletion
-  const handleDeleteUser = async () => {
+  // Handle Delete
+  const confirmDeleteUser = async () => {
     if (!userToDelete) return;
     try {
       setIsDeleting(true);
       await http.delete(`/admin/users/${userToDelete._id}`);
-
-      setUsers((prevUsers) => prevUsers.filter((u) => u._id !== userToDelete._id));
-      setFeedbackMessage(`Account for ${userToDelete.name} has been permanently deleted.`);
+      setFeedbackMessage(`User ${userToDelete.name} deleted successfully.`);
       setTimeout(() => setFeedbackMessage(""), 3500);
       setUserToDelete(null);
+      fetchAllData();
     } catch (err) {
-      alert(`Deletion failed: ${getErrorMessage(err)}`);
+      alert(`Delete failed: ${getErrorMessage(err)}`);
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // Filter Users by Search Query
-  const filteredUsers = users.filter((u) => {
-    if (!searchQuery.trim()) return true;
+  // Handle Create Admin
+  const handleCreateAdmin = async (e) => {
+    e.preventDefault();
+    if (!adminName || !adminEmail || !adminPassword) return;
+    try {
+      setCreatingAdmin(true);
+      const res = await http.post("/admin/admins", {
+        name: adminName,
+        email: adminEmail,
+        password: adminPassword,
+      });
+      if (res.data && res.data.admin) {
+        setFeedbackMessage(`Admin ${adminName} created successfully.`);
+        setTimeout(() => setFeedbackMessage(""), 3500);
+        setAdminName("");
+        setAdminEmail("");
+        setAdminPassword("");
+        setIsAddAdminModalOpen(false);
+        fetchAllData();
+      }
+    } catch (err) {
+      alert(`Failed to create Admin: ${getErrorMessage(err)}`);
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
+  const getFilteredList = (list) => {
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase().trim();
-    const nameMatch = u.name?.toLowerCase().includes(q);
-    const emailMatch = u.email?.toLowerCase().includes(q);
-
-    const metaAcc = u.integrations?.meta?.[0];
-    const metaIdMatch = metaAcc?.accountId?.toLowerCase().includes(q);
-    const metaNameMatch = metaAcc?.accountName?.toLowerCase().includes(q);
-
-    return nameMatch || emailMatch || metaIdMatch || metaNameMatch;
-  });
-
-  // Sort Users
-  const sortedUsers = [...filteredUsers].sort((a, b) => {
-    if (sortMode === "name") {
-      return (a.name || "").localeCompare(b.name || "");
-    }
-    if (sortMode === "active") {
-      const timeA = a.lastActiveAt ? new Date(a.lastActiveAt).getTime() : 0;
-      const timeB = b.lastActiveAt ? new Date(b.lastActiveAt).getTime() : 0;
-      return timeB - timeA;
-    }
-    // Default sorting: Root Admin (1) -> Admins (2) -> Clients (3), then lastActiveAt descending
-    const getRolePriority = (u) => {
-      if (u.isRootAdmin) return 1;
-      if (u.role === "admin") return 2;
-      return 3;
-    };
-    const prioA = getRolePriority(a);
-    const prioB = getRolePriority(b);
-    if (prioA !== prioB) return prioA - prioB;
-
-    const timeA = a.lastActiveAt ? new Date(a.lastActiveAt).getTime() : 0;
-    const timeB = b.lastActiveAt ? new Date(b.lastActiveAt).getTime() : 0;
-    return timeB - timeA;
-  });
+    return list.filter(
+      (u) =>
+        u.name?.toLowerCase().includes(q) ||
+        u.email?.toLowerCase().includes(q) ||
+        u.organizationId?.name?.toLowerCase().includes(q)
+    );
+  };
 
   return (
     <div style={{ maxWidth: "1160px", margin: "0 auto", paddingBottom: "48px" }}>
@@ -330,7 +185,7 @@ export const UserManagement = ({ currentUser }) => {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "24px",
+          marginBottom: "20px",
           flexWrap: "wrap",
           gap: "16px",
         }}
@@ -351,66 +206,110 @@ export const UserManagement = ({ currentUser }) => {
             >
               <Users size={20} />
             </div>
-            <h1
-              style={{
-                fontSize: "24px",
-                fontWeight: "800",
-                color: "var(--color-text-primary, #0F2742)",
-                letterSpacing: "-0.5px",
-                margin: 0,
-              }}
-            >
-              User Management
+            <h1 style={{ fontSize: "24px", fontWeight: "800", color: "#0F2742", letterSpacing: "-0.5px", margin: 0 }}>
+              {effectiveUser?.role === "client" ? "Team Management" : "User & Permissions Management"}
             </h1>
           </div>
-          <p style={{ margin: 0, fontSize: "14px", color: "var(--color-text-secondary, #60758F)" }}>
-            Manage user access, roles, and feature visibility.
+          <p style={{ margin: 0, fontSize: "14px", color: "#60758F" }}>
+            {effectiveUser?.role === "client"
+              ? "Manage the members of your organization."
+              : "Admin-controlled hierarchical user roles, member quotas, and granular feature access control."}
           </p>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <button
-            type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            style={{
-              height: "38px",
-              padding: "0 18px",
-              borderRadius: "8px",
-              backgroundColor: "#0A84FF",
-              border: "none",
-              color: "#FFFFFF",
-              fontSize: "13px",
-              fontWeight: "600",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              boxShadow: "0 1px 2px rgba(10, 132, 255, 0.2)",
-              transition: "all 0.15s ease",
-            }}
-          >
-            <Plus size={16} />
-            <span>Add User</span>
-          </button>
+          {activeTab === "clients" && (
+            <button
+              type="button"
+              onClick={() => setIsAddClientModalOpen(true)}
+              style={{
+                height: "38px",
+                padding: "0 18px",
+                borderRadius: "8px",
+                backgroundColor: "#0A84FF",
+                border: "none",
+                color: "#FFFFFF",
+                fontSize: "13px",
+                fontWeight: "600",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 1px 2px rgba(10, 132, 255, 0.2)",
+              }}
+            >
+              <Plus size={16} />
+              <span>Add Client</span>
+            </button>
+          )}
+
+          {activeTab === "members" && (
+            <button
+              type="button"
+              onClick={() => setIsAddMemberModalOpen(true)}
+              style={{
+                height: "38px",
+                padding: "0 18px",
+                borderRadius: "8px",
+                backgroundColor: "#0A84FF",
+                border: "none",
+                color: "#FFFFFF",
+                fontSize: "13px",
+                fontWeight: "600",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 1px 2px rgba(10, 132, 255, 0.2)",
+              }}
+            >
+              <UserPlus size={16} />
+              <span>Add Member</span>
+            </button>
+          )}
+
+          {activeTab === "admins" && isRootAdmin && (
+            <button
+              type="button"
+              onClick={() => setIsAddAdminModalOpen(true)}
+              style={{
+                height: "38px",
+                padding: "0 18px",
+                borderRadius: "8px",
+                backgroundColor: "#7C3AED",
+                border: "none",
+                color: "#FFFFFF",
+                fontSize: "13px",
+                fontWeight: "600",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 1px 2px rgba(124, 58, 237, 0.2)",
+              }}
+            >
+              <Shield size={16} />
+              <span>Create Admin</span>
+            </button>
+          )}
 
           <button
             type="button"
-            onClick={fetchUsers}
+            onClick={fetchAllData}
             disabled={loading}
             style={{
               height: "38px",
               padding: "0 14px",
               borderRadius: "8px",
               backgroundColor: "#FFFFFF",
-              border: "1px solid var(--color-border, #E2E8F0)",
-              color: "var(--color-text-primary, #0F172A)",
+              border: "1px solid #E2E8F0",
+              color: "#0F172A",
               fontSize: "13px",
               fontWeight: "600",
               cursor: loading ? "wait" : "pointer",
               display: "inline-flex",
               alignItems: "center",
               gap: "6px",
-              boxShadow: "0 1px 2px rgba(15, 23, 42, 0.03)",
             }}
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -441,25 +340,95 @@ export const UserManagement = ({ currentUser }) => {
         </div>
       )}
 
-      {/* Toolbar (Search & Sort) */}
+      {/* Tabs Navigation */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "16px",
+          borderBottom: "2px solid #E2E8F0",
           marginBottom: "20px",
-          flexWrap: "wrap",
+          gap: "8px",
         }}
       >
-        {/* Search Bar */}
-        <div style={{ position: "relative", flex: 1, minWidth: "260px" }}>
+        {(isRootAdmin || effectiveUser?.role === "admin") && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("clients")}
+            style={{
+              padding: "10px 18px",
+              border: "none",
+              borderBottom: activeTab === "clients" ? "3px solid #0A84FF" : "3px solid transparent",
+              backgroundColor: "transparent",
+              color: activeTab === "clients" ? "#0A84FF" : "#64748B",
+              fontSize: "14px",
+              fontWeight: "700",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "-2px",
+            }}
+          >
+            <Building size={16} />
+            <span>Clients & Organizations ({clients.length})</span>
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("members")}
+          style={{
+            padding: "10px 18px",
+            border: "none",
+            borderBottom: activeTab === "members" ? "3px solid #0A84FF" : "3px solid transparent",
+            backgroundColor: "transparent",
+            color: activeTab === "members" ? "#0A84FF" : "#64748B",
+            fontSize: "14px",
+            fontWeight: "700",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            marginBottom: "-2px",
+          }}
+        >
+          <Users size={16} />
+          <span>Team Members ({members.length})</span>
+        </button>
+
+        {isRootAdmin && (
+          <button
+            type="button"
+            onClick={() => setActiveTab("admins")}
+            style={{
+              padding: "10px 18px",
+              border: "none",
+              borderBottom: activeTab === "admins" ? "3px solid #7C3AED" : "3px solid transparent",
+              backgroundColor: "transparent",
+              color: activeTab === "admins" ? "#7C3AED" : "#64748B",
+              fontSize: "14px",
+              fontWeight: "700",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "-2px",
+            }}
+          >
+            <Shield size={16} />
+            <span>Admins & Founders ({admins.length})</span>
+          </button>
+        )}
+      </div>
+
+      {/* Toolbar (Search) */}
+      <div style={{ marginBottom: "20px" }}>
+        <div style={{ position: "relative", maxWidth: "400px" }}>
           <Search size={16} color="#94A3B8" style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)" }} />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, email, or Meta account..."
+            placeholder={`Search ${activeTab}...`}
             style={{
               width: "100%",
               height: "40px",
@@ -471,1286 +440,390 @@ export const UserManagement = ({ currentUser }) => {
               fontSize: "13.5px",
               color: "#0F172A",
               outline: "none",
-              boxSizing: "border-box",
-              boxShadow: "0 1px 2px rgba(15, 23, 42, 0.02)",
             }}
           />
         </div>
-
-        {/* Sort Dropdown */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", width: isMobile ? "100%" : "auto" }}>
-          <ArrowUpDown size={14} color="#64748B" />
-          <span style={{ fontSize: "13px", color: "#64748B", fontWeight: "500" }}>Sort by:</span>
-          <select
-            value={sortMode}
-            onChange={(e) => setSortMode(e.target.value)}
-            style={{
-              height: "40px",
-              padding: "0 12px",
-              borderRadius: "10px",
-              border: "1px solid #E2E8F0",
-              backgroundColor: "#FFFFFF",
-              fontSize: "13px",
-              fontWeight: "600",
-              color: "#0F172A",
-              outline: "none",
-              cursor: "pointer",
-              flex: isMobile ? 1 : "none",
-            }}
-          >
-            <option value="default">Hierarchy & Activity (Default)</option>
-            <option value="active">Most Recently Active</option>
-            <option value="name">Alphabetical (Name)</option>
-          </select>
-        </div>
       </div>
 
-      {/* Main Content Area */}
+      {/* Table Content */}
       {isDisplayLoading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           <ContextualLoader isLoading={loading} onComplete={handleComplete} section="user-management" minHeight="auto" />
-          <Skeleton height="70px" />
-          <Skeleton height="70px" />
-          <Skeleton height="70px" />
+          <Skeleton height="60px" />
+          <Skeleton height="60px" />
         </div>
       ) : error ? (
-        <ErrorState message={error} onRetry={fetchUsers} />
-      ) : isMobile ? (
-        /* MOBILE / TABLET CARD VIEW */
-        <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-          {sortedUsers.length === 0 ? (
-            <div style={{ padding: "40px", textAlign: "center", color: "#64748B", fontSize: "14px", backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E2E8F0" }}>
-              No users found matching your search.
-            </div>
-          ) : (
-            sortedUsers.map((u) => {
-              const isTargetRoot = u.isRootAdmin === true;
-              const isTargetAdmin = u.role === "admin";
-              const metaAccount = u.integrations?.meta?.[0];
-              const isSelf = u._id === effectiveUser?._id;
-              const canDelete = !isSelf && !isTargetRoot && (isRootAdmin || !isTargetAdmin);
-
-              const isShopifyUpdating = updatingUserId === `${u._id}_shopifyEnabled`;
-              const isAttributionUpdating = updatingUserId === `${u._id}_attributionEnabled`;
-
-              const hasAvailableActions =
-                isRootAdmin
-                  ? !isSelf // Root admin has actions for all non-self users
-                  : canDelete; // Regular admin can delete client
-
-              return (
-                <div
-                  key={u._id}
-                  style={{
-                    backgroundColor: isTargetRoot ? "rgba(124, 58, 237, 0.02)" : "#FFFFFF",
-                    border: "1px solid #E2E8F0",
-                    borderRadius: "14px",
-                    padding: "16px 18px",
-                    boxShadow: "0 2px 4px rgba(15, 23, 42, 0.03)",
-                  }}
-                >
-                  {/* Card Header */}
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "14px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <div
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "50%",
-                          backgroundColor: isTargetRoot
-                            ? "rgba(124, 58, 237, 0.15)"
-                            : isTargetAdmin
-                            ? "rgba(16, 185, 129, 0.12)"
-                            : "rgba(10, 132, 255, 0.1)",
-                          color: isTargetRoot ? "#7C3AED" : isTargetAdmin ? "#059669" : "#0A84FF",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: "700",
-                          fontSize: "15px",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {u.name ? u.name.charAt(0).toUpperCase() : "U"}
-                      </div>
-                      <div>
-                        <span style={{ fontSize: "15px", fontWeight: "700", color: "#0F2742", display: "block" }}>
-                          {u.name || "User"}
-                        </span>
-                        <span style={{ fontSize: "12px", color: "#64748B", display: "block" }}>
-                          {u.email}
-                        </span>
-                        {metaAccount && (
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginTop: "3px", fontSize: "11px", color: "#6366F1", fontWeight: "600" }}>
-                            <Layers size={11} />
-                            <span>{metaAccount.accountId}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Actions Dropdown Button */}
-                    {hasAvailableActions && (
-                      <div className="action-menu-container" style={{ position: "relative" }}>
-                        <button
-                          type="button"
-                          onClick={() => setOpenDropdownId(openDropdownId === u._id ? null : u._id)}
-                          style={{
-                            width: "32px",
-                            height: "32px",
-                            borderRadius: "8px",
-                            backgroundColor: openDropdownId === u._id ? "#F1F5F9" : "transparent",
-                            border: "1px solid #E2E8F0",
-                            color: "#475569",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <MoreVertical size={16} />
-                        </button>
-
-                        {/* Dropdown Menu */}
-                        {openDropdownId === u._id && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              right: 0,
-                              top: "38px",
-                              width: "180px",
-                              backgroundColor: "#FFFFFF",
-                              border: "1px solid #E2E8F0",
-                              borderRadius: "10px",
-                              boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-                              padding: "6px",
-                              zIndex: 100,
-                            }}
-                          >
-                            {!isTargetAdmin && !isTargetRoot && isRootAdmin && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => { setOpenDropdownId(null); setUserToPromote(u); }}
-                                  style={{
-                                    width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent",
-                                    textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#059669",
-                                    borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px"
-                                  }}
-                                >
-                                  <UserCheck size={14} /> Make Admin
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => { setOpenDropdownId(null); setUserToMakeRoot(u); }}
-                                  style={{
-                                    width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent",
-                                    textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#7C3AED",
-                                    borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px"
-                                  }}
-                                >
-                                  <Crown size={14} /> Make Root Admin
-                                </button>
-                              </>
-                            )}
-
-                            {isTargetAdmin && !isTargetRoot && isRootAdmin && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => { setOpenDropdownId(null); setUserToMakeRoot(u); }}
-                                  style={{
-                                    width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent",
-                                    textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#7C3AED",
-                                    borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px"
-                                  }}
-                                >
-                                  <Crown size={14} /> Make Root Admin
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => { setOpenDropdownId(null); setUserToDemote(u); }}
-                                  style={{
-                                    width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent",
-                                    textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#DC2626",
-                                    borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px"
-                                  }}
-                                >
-                                  <UserX size={14} /> Remove Admin
-                                </button>
-                              </>
-                            )}
-
-                            {isTargetRoot && !isSelf && isRootAdmin && (
-                              <button
-                                type="button"
-                                onClick={() => { setOpenDropdownId(null); setUserToRemoveRoot(u); }}
-                                style={{
-                                  width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent",
-                                  textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#DC2626",
-                                  borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px"
-                                }}
-                              >
-                                <UserX size={14} /> Remove Root Admin
-                              </button>
-                            )}
-
-                            {canDelete && (
-                              <>
-                                {(isRootAdmin && !isTargetRoot) && <div style={{ height: "1px", backgroundColor: "#F1F5F9", margin: "4px 0" }} />}
-                                <button
-                                  type="button"
-                                  onClick={() => { setOpenDropdownId(null); setUserToDelete(u); }}
-                                  style={{
-                                    width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent",
-                                    textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#EF4444",
-                                    borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px"
-                                  }}
-                                >
-                                  <Trash2 size={14} /> Delete User
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Card Details Grid */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", paddingTop: "12px", borderTop: "1px solid #F1F5F9" }}>
-                    <div>
-                      <span style={{ fontSize: "11px", fontWeight: "600", color: "#94A3B8", display: "block", marginBottom: "4px" }}>ROLE</span>
-                      {isTargetRoot ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 8px", backgroundColor: "rgba(124, 58, 237, 0.12)", color: "#7C3AED", fontSize: "11px", fontWeight: "700", borderRadius: "6px" }}>
-                          <Crown size={12} /> Root Admin
-                        </span>
-                      ) : isTargetAdmin ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 8px", backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#059669", fontSize: "11px", fontWeight: "700", borderRadius: "6px" }}>
-                          <Shield size={12} /> Admin
-                        </span>
-                      ) : (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", padding: "3px 8px", backgroundColor: "#F1F5F9", color: "#475569", fontSize: "11px", fontWeight: "600", borderRadius: "6px" }}>
-                          Client
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <span style={{ fontSize: "11px", fontWeight: "600", color: "#94A3B8", display: "block", marginBottom: "4px" }}>LAST ACTIVE</span>
-                      <span style={{ fontSize: "12px", color: u.lastActiveAt ? "#334155" : "#94A3B8", fontWeight: "500" }}>
-                        {formatLastActive(u.lastActiveAt)}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span style={{ fontSize: "11px", fontWeight: "600", color: "#94A3B8", display: "block", marginBottom: "4px" }}>SHOPIFY</span>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleFeature(u, "shopifyEnabled", Boolean(u.shopifyEnabled))}
-                        disabled={isShopifyUpdating || (isTargetRoot && !isRootAdmin)}
-                        style={{
-                          display: "inline-flex", alignItems: "center", gap: "6px", border: "none", backgroundColor: "transparent", cursor: "pointer", padding: 0
-                        }}
-                      >
-                        <span style={{ width: "36px", height: "20px", borderRadius: "10px", backgroundColor: Boolean(u.shopifyEnabled) ? "#0A84FF" : "#CBD5E1", position: "relative" }}>
-                          <span style={{ position: "absolute", top: "2px", left: Boolean(u.shopifyEnabled) ? "18px" : "2px", width: "16px", height: "16px", borderRadius: "50%", backgroundColor: "#FFFFFF", transition: "left 0.2s" }} />
-                        </span>
-                        <span style={{ fontSize: "11px", fontWeight: "700", color: Boolean(u.shopifyEnabled) ? "#0A84FF" : "#64748B" }}>
-                          {Boolean(u.shopifyEnabled) ? "ON" : "OFF"}
-                        </span>
-                      </button>
-                    </div>
-
-                    <div>
-                      <span style={{ fontSize: "11px", fontWeight: "600", color: "#94A3B8", display: "block", marginBottom: "4px" }}>ATTRIBUTION</span>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleFeature(u, "attributionEnabled", Boolean(u.attributionEnabled))}
-                        disabled={isAttributionUpdating || (isTargetRoot && !isRootAdmin)}
-                        style={{
-                          display: "inline-flex", alignItems: "center", gap: "6px", border: "none", backgroundColor: "transparent", cursor: "pointer", padding: 0
-                        }}
-                      >
-                        <span style={{ width: "36px", height: "20px", borderRadius: "10px", backgroundColor: Boolean(u.attributionEnabled) ? "#0A84FF" : "#CBD5E1", position: "relative" }}>
-                          <span style={{ position: "absolute", top: "2px", left: Boolean(u.attributionEnabled) ? "18px" : "2px", width: "16px", height: "16px", borderRadius: "50%", backgroundColor: "#FFFFFF", transition: "left 0.2s" }} />
-                        </span>
-                        <span style={{ fontSize: "11px", fontWeight: "700", color: Boolean(u.attributionEnabled) ? "#0A84FF" : "#64748B" }}>
-                          {Boolean(u.attributionEnabled) ? "ON" : "OFF"}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+        <ErrorState message={error} onRetry={fetchAllData} />
       ) : (
-        /* DESKTOP TABLE VIEW */
         <div
           style={{
             backgroundColor: "#FFFFFF",
-            border: "1px solid var(--color-border, #E8EAED)",
+            border: "1px solid #E2E8F0",
             borderRadius: "16px",
-            overflow: "visible",
-            boxShadow: "0 2px 6px rgba(15, 23, 42, 0.03)",
+            overflow: "hidden",
+            boxShadow: "0 2px 4px rgba(15, 23, 42, 0.03)",
           }}
         >
-          {/* Table Header */}
-          <div
-            style={{
-              padding: "14px 24px",
-              backgroundColor: "#F8FAFC",
-              borderBottom: "1px solid #E2E8F0",
-              borderRadius: "16px 16px 0 0",
-              fontSize: "11.5px",
-              fontWeight: "700",
-              color: "#64748B",
-              display: "grid",
-              gridTemplateColumns: "30% 12% 10% 12% 14% 12%",
-              gap: "12px",
-              alignItems: "center",
-              letterSpacing: "0.5px",
-            }}
-          >
-            <div>USER DETAILS</div>
-            <div>ROLE</div>
-            <div style={{ textAlign: "center" }}>SHOPIFY</div>
-            <div style={{ textAlign: "center" }}>ATTRIBUTION</div>
-            <div>LAST ACTIVE</div>
-            <div style={{ textAlign: "right" }}>ACTIONS</div>
-          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+            <thead>
+              <tr style={{ backgroundColor: "#F8FAFC", borderBottom: "1px solid #E2E8F0", color: "#475569", fontWeight: "700", textTransform: "uppercase", fontSize: "11px", letterSpacing: "0.5px" }}>
+                <th style={{ padding: "14px 20px" }}>User / Name</th>
+                <th style={{ padding: "14px 16px" }}>Role & Status</th>
+                {activeTab === "clients" && <th style={{ padding: "14px 16px" }}>Active Member Quota</th>}
+                {activeTab === "members" && <th style={{ padding: "14px 16px" }}>Organization</th>}
+                <th style={{ padding: "14px 16px" }}>Last Active</th>
+                <th style={{ padding: "14px 20px", textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
 
-          {/* Table Body */}
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {sortedUsers.length === 0 ? (
-              <div style={{ padding: "40px", textAlign: "center", color: "#64748B", fontSize: "14px" }}>
-                No users found matching your search.
-              </div>
-            ) : (
-              sortedUsers.map((u, index) => {
-                const isTargetRoot = u.isRootAdmin === true;
-                const isTargetAdmin = u.role === "admin";
-                const metaAccount = u.integrations?.meta?.[0];
+            <tbody>
+              {activeTab === "clients" &&
+                getFilteredList(clients).map((client) => {
+                  const isFull = client.activeMembersCount >= (client.memberLimit || 5);
+                  const isSelf = client._id === effectiveUser?._id;
 
-                const isShopifyUpdating = updatingUserId === `${u._id}_shopifyEnabled`;
-                const isAttributionUpdating = updatingUserId === `${u._id}_attributionEnabled`;
+                  return (
+                    <tr key={client._id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                      <td style={{ padding: "14px 20px" }}>
+                        <div style={{ fontWeight: "700", color: "#0F2742" }}>{client.name}</div>
+                        <div style={{ fontSize: "12px", color: "#64748B" }}>{client.email}</div>
+                      </td>
 
-                const isSelf = u._id === effectiveUser?._id;
-                const canDelete = !isSelf && !isTargetRoot && (isRootAdmin || !isTargetAdmin);
+                      <td style={{ padding: "14px 16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ padding: "3px 8px", backgroundColor: "#F1F5F9", color: "#475569", fontSize: "11px", fontWeight: "700", borderRadius: "6px" }}>
+                            Client
+                          </span>
+                          <span style={{ padding: "3px 8px", backgroundColor: client.status === "disabled" ? "#FEF2F2" : "#ECFDF5", color: client.status === "disabled" ? "#EF4444" : "#10B981", fontSize: "11px", fontWeight: "700", borderRadius: "6px" }}>
+                            {client.status === "disabled" ? "Disabled" : "Active"}
+                          </span>
+                        </div>
+                      </td>
 
-                const hasAvailableActions =
-                  isRootAdmin
-                    ? !isSelf
-                    : canDelete;
-
-                return (
-                  <div
-                    key={u._id}
-                    style={{
-                      padding: "16px 24px",
-                      minHeight: "80px",
-                      borderBottom: index === sortedUsers.length - 1 ? "none" : "1px solid #F1F5F9",
-                      display: "grid",
-                      gridTemplateColumns: "30% 12% 10% 12% 14% 12%",
-                      gap: "12px",
-                      alignItems: "center",
-                      transition: "background-color 0.15s ease",
-                      backgroundColor: isTargetRoot ? "rgba(124, 58, 237, 0.02)" : "#FFFFFF",
-                      position: "relative",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isTargetRoot) e.currentTarget.style.backgroundColor = "#F8FAFC";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isTargetRoot) e.currentTarget.style.backgroundColor = "#FFFFFF";
-                    }}
-                  >
-                    {/* User Profile Info */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <div
-                        style={{
-                          width: "38px",
-                          height: "38px",
-                          borderRadius: "50%",
-                          backgroundColor: isTargetRoot
-                            ? "rgba(124, 58, 237, 0.15)"
-                            : isTargetAdmin
-                            ? "rgba(16, 185, 129, 0.12)"
-                            : "rgba(10, 132, 255, 0.1)",
-                          color: isTargetRoot ? "#7C3AED" : isTargetAdmin ? "#059669" : "#0A84FF",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: "700",
-                          fontSize: "14.5px",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {u.name ? u.name.charAt(0).toUpperCase() : "U"}
-                      </div>
-
-                      <div style={{ overflow: "hidden" }}>
+                      <td style={{ padding: "14px 16px" }}>
                         <span
                           style={{
-                            fontSize: "14px",
-                            fontWeight: "700",
-                            color: "#0F2742",
-                            display: "block",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {u.name || "User"}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            color: "#64748B",
-                            display: "block",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {u.email}
-                        </span>
-
-                        {metaAccount && (
-                          <div
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              marginTop: "2px",
-                              fontSize: "11px",
-                              color: "#6366F1",
-                              fontWeight: "600",
-                            }}
-                            title={`Meta: ${metaAccount.accountName} (${metaAccount.accountId})`}
-                          >
-                            <Layers size={10} />
-                            <span>{metaAccount.accountId}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Role Badge Column */}
-                    <div>
-                      {isTargetRoot ? (
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            padding: "4px 9px",
-                            backgroundColor: "rgba(124, 58, 237, 0.12)",
-                            color: "#7C3AED",
+                            padding: "4px 10px",
+                            backgroundColor: isFull ? "rgba(239, 68, 68, 0.1)" : "rgba(10, 132, 255, 0.1)",
+                            color: isFull ? "#DC2626" : "#0A84FF",
                             fontSize: "12px",
                             fontWeight: "700",
-                            borderRadius: "6px",
-                            border: "1px solid rgba(124, 58, 237, 0.2)",
-                          }}
-                        >
-                          <Crown size={12} />
-                          Root Admin
-                        </span>
-                      ) : isTargetAdmin ? (
-                        <span
-                          style={{
+                            borderRadius: "8px",
                             display: "inline-flex",
                             alignItems: "center",
-                            gap: "4px",
-                            padding: "4px 9px",
-                            backgroundColor: "rgba(16, 185, 129, 0.1)",
-                            color: "#059669",
-                            fontSize: "12px",
-                            fontWeight: "700",
-                            borderRadius: "6px",
+                            gap: "6px",
                           }}
                         >
-                          <Shield size={12} />
-                          Admin
+                          Members: {client.activeMembersCount || 0} / {client.memberLimit || 5} {isFull ? "(Limit Reached)" : ""}
                         </span>
-                      ) : (
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            padding: "4px 9px",
-                            backgroundColor: "#F1F5F9",
-                            color: "#475569",
-                            fontSize: "12px",
-                            fontWeight: "600",
-                            borderRadius: "6px",
-                          }}
-                        >
-                          Client
-                        </span>
-                      )}
-                    </div>
+                      </td>
 
-                    {/* Shopify Toggle */}
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifySelf: "center", gap: "2px" }}>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleFeature(u, "shopifyEnabled", Boolean(u.shopifyEnabled))}
-                        disabled={isShopifyUpdating || (isTargetRoot && !isRootAdmin)}
-                        style={{
-                          position: "relative",
-                          width: "40px",
-                          height: "22px",
-                          borderRadius: "11px",
-                          backgroundColor: Boolean(u.shopifyEnabled) ? "#0A84FF" : "#CBD5E1",
-                          border: "none",
-                          cursor: isShopifyUpdating ? "wait" : "pointer",
-                          transition: "background-color 0.2s ease",
-                          padding: 0,
-                          outline: "none",
-                          opacity: isShopifyUpdating || (isTargetRoot && !isRootAdmin) ? 0.6 : 1,
-                        }}
-                      >
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: "2px",
-                            left: Boolean(u.shopifyEnabled) ? "20px" : "2px",
-                            width: "18px",
-                            height: "18px",
-                            borderRadius: "50%",
-                            backgroundColor: "#FFFFFF",
-                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2)",
-                            transition: "left 0.2s ease",
-                          }}
-                        />
-                      </button>
-                      <span style={{ fontSize: "10.5px", fontWeight: "700", color: Boolean(u.shopifyEnabled) ? "#0A84FF" : "#64748B" }}>
-                        {Boolean(u.shopifyEnabled) ? "ON" : "OFF"}
-                      </span>
-                    </div>
+                      <td style={{ padding: "14px 16px", color: "#64748B" }}>{formatLastActive(client.lastActiveAt)}</td>
 
-                    {/* Attribution Toggle */}
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifySelf: "center", gap: "2px" }}>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleFeature(u, "attributionEnabled", Boolean(u.attributionEnabled))}
-                        disabled={isAttributionUpdating || (isTargetRoot && !isRootAdmin)}
-                        style={{
-                          position: "relative",
-                          width: "40px",
-                          height: "22px",
-                          borderRadius: "11px",
-                          backgroundColor: Boolean(u.attributionEnabled) ? "#0A84FF" : "#CBD5E1",
-                          border: "none",
-                          cursor: isAttributionUpdating ? "wait" : "pointer",
-                          transition: "background-color 0.2s ease",
-                          padding: 0,
-                          outline: "none",
-                          opacity: isAttributionUpdating || (isTargetRoot && !isRootAdmin) ? 0.6 : 1,
-                        }}
-                      >
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: "2px",
-                            left: Boolean(u.attributionEnabled) ? "20px" : "2px",
-                            width: "18px",
-                            height: "18px",
-                            borderRadius: "50%",
-                            backgroundColor: "#FFFFFF",
-                            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2)",
-                            transition: "left 0.2s ease",
-                          }}
-                        />
-                      </button>
-                      <span style={{ fontSize: "10.5px", fontWeight: "700", color: Boolean(u.attributionEnabled) ? "#0A84FF" : "#64748B" }}>
-                        {Boolean(u.attributionEnabled) ? "ON" : "OFF"}
-                      </span>
-                    </div>
-
-                    {/* Last Active */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <Clock size={13} color="#94A3B8" />
-                      <span
-                        style={{ fontSize: "13px", color: u.lastActiveAt ? "#334155" : "#94A3B8", fontWeight: "500" }}
-                        title={u.lastActiveAt ? new Date(u.lastActiveAt).toLocaleString() : "Never logged in"}
-                      >
-                        {formatLastActive(u.lastActiveAt)}
-                      </span>
-                    </div>
-
-                    {/* Actions Column: Compact Dropdown Menu */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                      {hasAvailableActions ? (
-                        <div className="action-menu-container" style={{ position: "relative" }}>
+                      <td style={{ padding: "14px 20px", textAlign: "right" }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
                           <button
                             type="button"
-                            onClick={() => setOpenDropdownId(openDropdownId === u._id ? null : u._id)}
+                            onClick={() => setPermissionTargetUser(client)}
                             style={{
-                              height: "32px",
-                              padding: "0 10px",
-                              borderRadius: "8px",
-                              backgroundColor: openDropdownId === u._id ? "#F1F5F9" : "#FFFFFF",
-                              border: "1px solid #CBD5E1",
-                              color: "#334155",
-                              fontSize: "12.5px",
+                              padding: "6px 12px",
+                              borderRadius: "6px",
+                              backgroundColor: "rgba(10, 132, 255, 0.1)",
+                              color: "#0A84FF",
+                              border: "none",
                               fontWeight: "600",
+                              fontSize: "12px",
                               cursor: "pointer",
                               display: "inline-flex",
                               alignItems: "center",
                               gap: "4px",
-                              boxShadow: "0 1px 2px rgba(15, 23, 42, 0.03)",
-                              transition: "all 0.15s ease",
                             }}
                           >
-                            <span>Actions</span>
-                            <ChevronDown size={13} style={{ transition: "transform 0.2s ease", transform: openDropdownId === u._id ? "rotate(180deg)" : "none" }} />
+                            <Sliders size={13} /> Permissions
                           </button>
 
-                          {/* Linear/Stripe style Popover Dropdown Menu */}
-                          {openDropdownId === u._id && (
-                            <div
+                          {!isSelf && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStatus(client)}
                               style={{
-                                position: "absolute",
-                                right: 0,
-                                top: "38px",
-                                width: "190px",
-                                backgroundColor: "#FFFFFF",
-                                border: "1px solid #E2E8F0",
-                                borderRadius: "10px",
-                                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-                                padding: "6px",
-                                zIndex: 100,
+                                padding: "6px 10px",
+                                borderRadius: "6px",
+                                backgroundColor: client.status === "disabled" ? "rgba(16, 185, 129, 0.1)" : "rgba(245, 158, 11, 0.1)",
+                                color: client.status === "disabled" ? "#059669" : "#D97706",
+                                border: "none",
+                                fontWeight: "600",
+                                fontSize: "12px",
+                                cursor: "pointer",
                               }}
                             >
-                              {/* Make Admin (Client target, Root Admin viewer) */}
-                              {!isTargetAdmin && !isTargetRoot && isRootAdmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => { setOpenDropdownId(null); setUserToPromote(u); }}
-                                  style={{
-                                    width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent",
-                                    textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#059669",
-                                    borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px",
-                                    transition: "background-color 0.15s ease",
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#F0FDF4")}
-                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                                >
-                                  <UserCheck size={14} />
-                                  <span>Make Admin</span>
-                                </button>
-                              )}
+                              {client.status === "disabled" ? "Enable" : "Disable"}
+                            </button>
+                          )}
 
-                              {/* Make Root Admin (Client or Regular Admin target, Root Admin viewer) */}
-                              {!isTargetRoot && isRootAdmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => { setOpenDropdownId(null); setUserToMakeRoot(u); }}
-                                  style={{
-                                    width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent",
-                                    textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#7C3AED",
-                                    borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px",
-                                    transition: "background-color 0.15s ease",
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#F5F3FF")}
-                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                                >
-                                  <Crown size={14} />
-                                  <span>Make Root Admin</span>
-                                </button>
-                              )}
-
-                              {/* Remove Admin (Regular Admin target, Root Admin viewer) */}
-                              {isTargetAdmin && !isTargetRoot && isRootAdmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => { setOpenDropdownId(null); setUserToDemote(u); }}
-                                  style={{
-                                    width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent",
-                                    textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#DC2626",
-                                    borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px",
-                                    transition: "background-color 0.15s ease",
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#FEF2F2")}
-                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                                >
-                                  <UserX size={14} />
-                                  <span>Remove Admin</span>
-                                </button>
-                              )}
-
-                              {/* Remove Root Admin (Root Admin target, Root Admin viewer) */}
-                              {isTargetRoot && !isSelf && isRootAdmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => { setOpenDropdownId(null); setUserToRemoveRoot(u); }}
-                                  style={{
-                                    width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent",
-                                    textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#DC2626",
-                                    borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px",
-                                    transition: "background-color 0.15s ease",
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#FEF2F2")}
-                                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                                >
-                                  <UserX size={14} />
-                                  <span>Remove Root Admin</span>
-                                </button>
-                              )}
-
-                              {/* Delete User (Destructive Action) */}
-                              {canDelete && (
-                                <>
-                                  {(isRootAdmin && !isTargetRoot) && (
-                                    <div style={{ height: "1px", backgroundColor: "#F1F5F9", margin: "4px 0" }} />
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => { setOpenDropdownId(null); setUserToDelete(u); }}
-                                    style={{
-                                      width: "100%", padding: "8px 12px", border: "none", backgroundColor: "transparent",
-                                      textAlign: "left", fontSize: "13px", fontWeight: "600", color: "#EF4444",
-                                      borderRadius: "6px", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px",
-                                      transition: "background-color 0.15s ease",
-                                    }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#FEF2F2")}
-                                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-                                  >
-                                    <Trash2 size={14} />
-                                    <span>Delete User</span>
-                                  </button>
-                                </>
-                              )}
-                            </div>
+                          {!isSelf && (
+                            <button
+                              type="button"
+                              onClick={() => setUserToDelete(client)}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: "6px",
+                                backgroundColor: "rgba(239, 68, 68, 0.1)",
+                                color: "#DC2626",
+                                border: "none",
+                                fontWeight: "600",
+                                fontSize: "12px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
                           )}
                         </div>
-                      ) : (
-                        <span style={{ fontSize: "12px", color: "#CBD5E1", fontStyle: "italic" }}>No actions</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+              {activeTab === "members" &&
+                getFilteredList(members).map((member) => {
+                  const isSelf = member._id === effectiveUser?._id;
+                  const orgName = member.organizationId?.name || "Unassigned Org";
+
+                  return (
+                    <tr key={member._id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                      <td style={{ padding: "14px 20px" }}>
+                        <div style={{ fontWeight: "700", color: "#0F2742" }}>{member.name}</div>
+                        <div style={{ fontSize: "12px", color: "#64748B" }}>{member.email}</div>
+                      </td>
+
+                      <td style={{ padding: "14px 16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ padding: "3px 8px", backgroundColor: "#F1F5F9", color: "#475569", fontSize: "11px", fontWeight: "700", borderRadius: "6px" }}>
+                            Member
+                          </span>
+                          <span style={{ padding: "3px 8px", backgroundColor: member.status === "disabled" ? "#FEF2F2" : "#ECFDF5", color: member.status === "disabled" ? "#EF4444" : "#10B981", fontSize: "11px", fontWeight: "700", borderRadius: "6px" }}>
+                            {member.status === "disabled" ? "Disabled" : "Active"}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td style={{ padding: "14px 16px", color: "#0F2742", fontWeight: "600" }}>{orgName}</td>
+
+                      <td style={{ padding: "14px 16px", color: "#64748B" }}>{formatLastActive(member.lastActiveAt)}</td>
+
+                      <td style={{ padding: "14px 20px", textAlign: "right" }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                          <button
+                            type="button"
+                            onClick={() => setPermissionTargetUser(member)}
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: "6px",
+                              backgroundColor: "rgba(10, 132, 255, 0.1)",
+                              color: "#0A84FF",
+                              border: "none",
+                              fontWeight: "600",
+                              fontSize: "12px",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            <Sliders size={13} /> Permissions
+                          </button>
+
+                          {!isSelf && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStatus(member)}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: "6px",
+                                backgroundColor: member.status === "disabled" ? "rgba(16, 185, 129, 0.1)" : "rgba(245, 158, 11, 0.1)",
+                                color: member.status === "disabled" ? "#059669" : "#D97706",
+                                border: "none",
+                                fontWeight: "600",
+                                fontSize: "12px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {member.status === "disabled" ? "Enable" : "Disable"}
+                            </button>
+                          )}
+
+                          {!isSelf && (
+                            <button
+                              type="button"
+                              onClick={() => setUserToDelete(member)}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: "6px",
+                                backgroundColor: "rgba(239, 68, 68, 0.1)",
+                                color: "#DC2626",
+                                border: "none",
+                                fontWeight: "600",
+                                fontSize: "12px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+              {activeTab === "admins" &&
+                getFilteredList(admins).map((admin) => {
+                  const isRoot = admin.role === "root_admin" || admin.isRootAdmin;
+                  const isSelf = admin._id === effectiveUser?._id;
+
+                  return (
+                    <tr key={admin._id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                      <td style={{ padding: "14px 20px" }}>
+                        <div style={{ fontWeight: "700", color: "#0F2742" }}>{admin.name}</div>
+                        <div style={{ fontSize: "12px", color: "#64748B" }}>{admin.email}</div>
+                      </td>
+
+                      <td style={{ padding: "14px 16px" }}>
+                        <span
+                          style={{
+                            padding: "4px 10px",
+                            backgroundColor: isRoot ? "rgba(124, 58, 237, 0.1)" : "rgba(16, 185, 129, 0.1)",
+                            color: isRoot ? "#7C3AED" : "#059669",
+                            fontSize: "11px",
+                            fontWeight: "700",
+                            borderRadius: "6px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px",
+                          }}
+                        >
+                          {isRoot ? <Crown size={12} /> : <Shield size={12} />}
+                          {isRoot ? "Root Admin" : "Admin"}
+                        </span>
+                      </td>
+
+                      <td style={{ padding: "14px 16px", color: "#64748B" }}>{formatLastActive(admin.lastActiveAt)}</td>
+
+                      <td style={{ padding: "14px 20px", textAlign: "right" }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                          <button
+                            type="button"
+                            onClick={() => setPermissionTargetUser(admin)}
+                            disabled={isRoot}
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: "6px",
+                              backgroundColor: isRoot ? "#F1F5F9" : "rgba(10, 132, 255, 0.1)",
+                              color: isRoot ? "#94A3B8" : "#0A84FF",
+                              border: "none",
+                              fontWeight: "600",
+                              fontSize: "12px",
+                              cursor: isRoot ? "not-allowed" : "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            <Sliders size={13} /> Permissions
+                          </button>
+
+                          {isRootAdmin && !isRoot && !isSelf && (
+                            <button
+                              type="button"
+                              onClick={() => setUserToDelete(admin)}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: "6px",
+                                backgroundColor: "rgba(239, 68, 68, 0.1)",
+                                color: "#DC2626",
+                                border: "none",
+                                fontWeight: "600",
+                                fontSize: "12px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* Add User Modal */}
+      {/* Add Client Modal */}
       <AddUserModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onUserCreated={(newUser) => {
-          setUsers((prev) => [newUser, ...prev]);
-          setFeedbackMessage(`User account for ${newUser.name} created successfully.`);
-          setTimeout(() => setFeedbackMessage(""), 3500);
-        }}
+        isOpen={isAddClientModalOpen}
+        onClose={() => setIsAddClientModalOpen(false)}
+        onUserCreated={() => fetchAllData()}
       />
 
-      {/* Promote User Confirmation Modal (Client -> Admin) */}
-      {userToPromote && (
+      {/* Add Member Modal */}
+      <AddMemberModal
+        isOpen={isAddMemberModalOpen}
+        onClose={() => setIsAddMemberModalOpen(false)}
+        clients={effectiveUser?.role === "client" ? [effectiveUser] : clients}
+        onMemberCreated={() => fetchAllData()}
+      />
+
+      {/* User Permission Matrix Modal */}
+      <UserPermissionsModal
+        isOpen={Boolean(permissionTargetUser)}
+        onClose={() => setPermissionTargetUser(null)}
+        targetUser={permissionTargetUser}
+        currentUser={effectiveUser}
+        onPermissionsUpdated={() => fetchAllData()}
+      />
+
+      {/* Create Admin Modal (Root Admin Only) */}
+      {isAddAdminModalOpen && (
         <div
           style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(15, 23, 42, 0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "16px",
+            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "16px"
           }}
-          onClick={() => !isPromoting && setUserToPromote(null)}
+          onClick={() => setIsAddAdminModalOpen(false)}
         >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "440px",
-              backgroundColor: "#FFFFFF",
-              borderRadius: "16px",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
-              border: "1px solid #E2E8F0",
-              padding: "24px",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-              <div
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "10px",
-                  backgroundColor: "rgba(16, 185, 129, 0.12)",
-                  color: "#059669",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Shield size={22} />
+          <div style={{ width: "100%", maxWidth: "420px", backgroundColor: "#FFFFFF", borderRadius: "16px", padding: "24px" }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: "0 0 16px 0", fontSize: "17px", fontWeight: "700", color: "#0F2742" }}>Create Administrator Account</h3>
+            <form onSubmit={handleCreateAdmin} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+              <input type="text" placeholder="Full Name" value={adminName} onChange={(e) => setAdminName(e.target.value)} required style={{ height: "40px", padding: "0 12px", borderRadius: "8px", border: "1px solid #CBD5E1" }} />
+              <input type="email" placeholder="Email Address" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} required style={{ height: "40px", padding: "0 12px", borderRadius: "8px", border: "1px solid #CBD5E1" }} />
+              <input type="password" placeholder="Password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} required style={{ height: "40px", padding: "0 12px", borderRadius: "8px", border: "1px solid #CBD5E1" }} />
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "8px" }}>
+                <button type="button" onClick={() => setIsAddAdminModalOpen(false)} style={{ padding: "8px 14px", borderRadius: "8px", border: "1px solid #CBD5E1", backgroundColor: "#FFFFFF" }}>Cancel</button>
+                <button type="submit" disabled={creatingAdmin} style={{ padding: "8px 16px", borderRadius: "8px", border: "none", backgroundColor: "#7C3AED", color: "#FFFFFF", fontWeight: "600" }}>
+                  {creatingAdmin ? "Creating..." : "Create Admin"}
+                </button>
               </div>
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#0F172A" }}>
-                Make User Admin?
-              </h3>
-            </div>
-
-            <p style={{ margin: "0 0 20px 0", fontSize: "14px", color: "#475569", lineHeight: "1.5" }}>
-              Are you sure you want to make <strong style={{ color: "#0F172A" }}>{userToPromote.name}</strong> an administrator? They will receive admin-level access to User Management and enabled features.
-            </p>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "12px" }}>
-              <button
-                type="button"
-                onClick={() => setUserToPromote(null)}
-                disabled={isPromoting}
-                style={{
-                  height: "38px",
-                  padding: "0 16px",
-                  borderRadius: "8px",
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid #CBD5E1",
-                  color: "#475569",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: isPromoting ? "not-allowed" : "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmPromoteUser}
-                disabled={isPromoting}
-                style={{
-                  height: "38px",
-                  padding: "0 18px",
-                  borderRadius: "8px",
-                  backgroundColor: "#059669",
-                  border: "none",
-                  color: "#FFFFFF",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: isPromoting ? "not-allowed" : "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  boxShadow: "0 1px 2px rgba(5, 150, 105, 0.2)",
-                }}
-              >
-                {isPromoting ? "Promoting..." : "Make Admin"}
-              </button>
-            </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* Demote User Confirmation Modal (Admin -> Client) */}
-      {userToDemote && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(15, 23, 42, 0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "16px",
-          }}
-          onClick={() => !isDemoting && setUserToDemote(null)}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "440px",
-              backgroundColor: "#FFFFFF",
-              borderRadius: "16px",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
-              border: "1px solid #E2E8F0",
-              padding: "24px",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-              <div
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "10px",
-                  backgroundColor: "#FEF2F2",
-                  color: "#DC2626",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <UserX size={22} />
-              </div>
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#0F172A" }}>
-                Remove Administrator?
-              </h3>
-            </div>
-
-            <p style={{ margin: "0 0 20px 0", fontSize: "14px", color: "#475569", lineHeight: "1.5" }}>
-              Are you sure you want to remove administrator access from <strong style={{ color: "#0F172A" }}>{userToDemote.name}</strong>?
-            </p>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "12px" }}>
-              <button
-                type="button"
-                onClick={() => setUserToDemote(null)}
-                disabled={isDemoting}
-                style={{
-                  height: "38px",
-                  padding: "0 16px",
-                  borderRadius: "8px",
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid #CBD5E1",
-                  color: "#475569",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: isDemoting ? "not-allowed" : "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDemoteUser}
-                disabled={isDemoting}
-                style={{
-                  height: "38px",
-                  padding: "0 18px",
-                  borderRadius: "8px",
-                  backgroundColor: "#DC2626",
-                  border: "none",
-                  color: "#FFFFFF",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: isDemoting ? "not-allowed" : "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  boxShadow: "0 1px 2px rgba(220, 38, 38, 0.2)",
-                }}
-              >
-                {isDemoting ? "Removing..." : "Remove Admin"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Grant Root Admin Confirmation Modal */}
-      {userToMakeRoot && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(15, 23, 42, 0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "16px",
-          }}
-          onClick={() => !isMakingRoot && setUserToMakeRoot(null)}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "440px",
-              backgroundColor: "#FFFFFF",
-              borderRadius: "16px",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
-              border: "1px solid #E2E8F0",
-              padding: "24px",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-              <div
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "10px",
-                  backgroundColor: "rgba(124, 58, 237, 0.12)",
-                  color: "#7C3AED",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Crown size={22} />
-              </div>
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#0F172A" }}>
-                Make Root Administrator?
-              </h3>
-            </div>
-
-            <p style={{ margin: "0 0 20px 0", fontSize: "14px", color: "#475569", lineHeight: "1.5" }}>
-              This user will receive full administrative privileges. Are you sure you want to make <strong style={{ color: "#0F172A" }}>{userToMakeRoot.name}</strong> a Root Administrator?
-            </p>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "12px" }}>
-              <button
-                type="button"
-                onClick={() => setUserToMakeRoot(null)}
-                disabled={isMakingRoot}
-                style={{
-                  height: "38px",
-                  padding: "0 16px",
-                  borderRadius: "8px",
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid #CBD5E1",
-                  color: "#475569",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: isMakingRoot ? "not-allowed" : "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmMakeRootUser}
-                disabled={isMakingRoot}
-                style={{
-                  height: "38px",
-                  padding: "0 18px",
-                  borderRadius: "8px",
-                  backgroundColor: "#7C3AED",
-                  border: "none",
-                  color: "#FFFFFF",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: isMakingRoot ? "not-allowed" : "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  boxShadow: "0 1px 2px rgba(124, 58, 237, 0.2)",
-                }}
-              >
-                {isMakingRoot ? "Granting..." : "Make Root Admin"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Remove Root Admin Confirmation Modal */}
-      {userToRemoveRoot && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(15, 23, 42, 0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "16px",
-          }}
-          onClick={() => !isRemovingRoot && setUserToRemoveRoot(null)}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "440px",
-              backgroundColor: "#FFFFFF",
-              borderRadius: "16px",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
-              border: "1px solid #E2E8F0",
-              padding: "24px",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-              <div
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "10px",
-                  backgroundColor: "#FEF2F2",
-                  color: "#DC2626",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <UserX size={22} />
-              </div>
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#0F172A" }}>
-                Remove Root Administrator?
-              </h3>
-            </div>
-
-            <p style={{ margin: "0 0 20px 0", fontSize: "14px", color: "#475569", lineHeight: "1.5" }}>
-              Are you sure you want to remove Root Administrator status from <strong style={{ color: "#0F172A" }}>{userToRemoveRoot.name}</strong>? They will remain a regular Administrator.
-            </p>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "12px" }}>
-              <button
-                type="button"
-                onClick={() => setUserToRemoveRoot(null)}
-                disabled={isRemovingRoot}
-                style={{
-                  height: "38px",
-                  padding: "0 16px",
-                  borderRadius: "8px",
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid #CBD5E1",
-                  color: "#475569",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: isRemovingRoot ? "not-allowed" : "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmRemoveRootUser}
-                disabled={isRemovingRoot}
-                style={{
-                  height: "38px",
-                  padding: "0 18px",
-                  borderRadius: "8px",
-                  backgroundColor: "#DC2626",
-                  border: "none",
-                  color: "#FFFFFF",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: isRemovingRoot ? "not-allowed" : "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  boxShadow: "0 1px 2px rgba(220, 38, 38, 0.2)",
-                }}
-              >
-                {isRemovingRoot ? "Removing..." : "Remove Root Admin"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete User Confirmation Modal */}
+      {/* Delete Confirmation Modal */}
       {userToDelete && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(15, 23, 42, 0.6)",
-            backdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "16px",
-          }}
-          onClick={() => !isDeleting && setUserToDelete(null)}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "420px",
-              backgroundColor: "#FFFFFF",
-              borderRadius: "16px",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
-              border: "1px solid #E2E8F0",
-              padding: "24px",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-              <div
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "10px",
-                  backgroundColor: "#FEF2F2",
-                  color: "#EF4444",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <AlertTriangle size={22} />
-              </div>
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#0F172A" }}>
-                Delete User?
-              </h3>
-            </div>
-
-            <p style={{ margin: "0 0 20px 0", fontSize: "14px", color: "#475569", lineHeight: "1.5" }}>
-              Are you sure you want to permanently delete this user? This action cannot be undone.
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "16px" }}>
+          <div style={{ width: "100%", maxWidth: "400px", backgroundColor: "#FFFFFF", borderRadius: "16px", padding: "24px" }}>
+            <h3 style={{ margin: "0 0 10px 0", fontSize: "17px", fontWeight: "700", color: "#0F2742" }}>Delete User Account?</h3>
+            <p style={{ margin: "0 0 20px 0", fontSize: "13.5px", color: "#64748B" }}>
+              Are you sure you want to permanently delete <strong>{userToDelete.name}</strong> ({userToDelete.email})? This action cannot be undone.
             </p>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "12px" }}>
-              <button
-                type="button"
-                onClick={() => setUserToDelete(null)}
-                disabled={isDeleting}
-                style={{
-                  height: "38px",
-                  padding: "0 16px",
-                  borderRadius: "8px",
-                  backgroundColor: "#FFFFFF",
-                  border: "1px solid #CBD5E1",
-                  color: "#475569",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: isDeleting ? "not-allowed" : "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDeleteUser}
-                disabled={isDeleting}
-                style={{
-                  height: "38px",
-                  padding: "0 18px",
-                  borderRadius: "8px",
-                  backgroundColor: "#DC2626",
-                  border: "none",
-                  color: "#FFFFFF",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: isDeleting ? "not-allowed" : "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  boxShadow: "0 1px 2px rgba(220, 38, 38, 0.2)",
-                }}
-              >
-                {isDeleting ? "Deleting..." : "Delete User"}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <button type="button" onClick={() => setUserToDelete(null)} disabled={isDeleting} style={{ padding: "8px 14px", borderRadius: "8px", border: "1px solid #CBD5E1", backgroundColor: "#FFFFFF" }}>Cancel</button>
+              <button type="button" onClick={confirmDeleteUser} disabled={isDeleting} style={{ padding: "8px 16px", borderRadius: "8px", border: "none", backgroundColor: "#EF4444", color: "#FFFFFF", fontWeight: "600" }}>
+                {isDeleting ? "Deleting..." : "Delete Permanently"}
               </button>
             </div>
           </div>

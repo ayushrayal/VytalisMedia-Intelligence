@@ -1,52 +1,49 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("../controllers/admin.controller");
-const { protect, requireAdmin } = require("../middleware/auth.middleware");
+const { protect, requireRootAdmin, requireEffectivePermission } = require("../middleware/auth.middleware");
 
-// Require JWT Authentication and Admin Privileges for all routes in this router
+// All user management routes require JWT Authentication & status verification
 router.use(protect);
-router.use(requireAdmin);
 
 /**
- * @route   GET /api/admin/users
- * @desc    Fetch all registered users with role and feature access flags
- * @access  Private (Admin Only)
+ * Admins Management Routes
  */
-router.get("/users", adminController.getAllUsers);
+router.get("/users/admins", requireEffectivePermission("user_management.admins"), adminController.getAllAdmins);
+router.post("/admins", requireRootAdmin, adminController.createAdmin);
 
 /**
- * @route   POST /api/admin/users
- * @desc    Admin creates a new Client user with assigned Meta account
- * @access  Private (Admin Only)
+ * Clients Management Routes
  */
-router.post("/users", adminController.createUser);
+router.get("/users/clients", requireEffectivePermission("user_management.clients"), adminController.getAllClients);
+router.post("/clients", requireEffectivePermission("user_management.clients"), adminController.createClient);
+// Backward compatibility fallback for POST /api/admin/users
+router.post("/users", requireEffectivePermission("user_management.clients"), adminController.createClient);
 
 /**
- * @route   DELETE /api/admin/users/:userId
- * @desc    Permanently delete a user account
- * @access  Private (Admin Only)
+ * Members Management Routes
  */
-router.delete("/users/:userId", adminController.deleteUser);
+router.get("/users/members", requireEffectivePermission("user_management.members"), adminController.getAllMembers);
+router.post("/members", requireEffectivePermission("user_management.members"), adminController.createMember);
 
 /**
- * @route   PATCH /api/admin/users/:userId/role
- * @desc    Promote client to Admin or demote Admin to Client (Root Admin only)
- * @access  Private (Root Admin Only)
+ * Permissions, Status, & Role Management Routes
  */
-router.patch("/users/:userId/role", adminController.updateUserRole);
+router.patch("/users/:userId/permissions", requireEffectivePermission("user_management.members"), adminController.updateUserPermissions);
+router.patch("/users/:userId/status", requireEffectivePermission("user_management.members"), adminController.updateUserStatus);
+router.patch("/users/:userId/role", requireRootAdmin, adminController.updateUserRole);
+router.delete("/users/:userId", requireEffectivePermission("user_management.members"), adminController.deleteUser);
 
 /**
- * @route   PATCH /api/admin/users/:userId/root-status
- * @desc    Grant or revoke Root Administrator status (Root Admin only)
- * @access  Private (Root Admin Only)
+ * Global System Restrictions Routes
  */
-router.patch("/users/:userId/root-status", adminController.updateUserRootStatus);
+router.get("/global-settings", adminController.getGlobalSettings);
+router.patch("/global-settings", requireRootAdmin, adminController.updateGlobalSettings);
 
 /**
- * @route   PATCH /api/admin/users/:userId/features
- * @desc    Toggle Shopify and Attribution feature access for a specific user
- * @access  Private (Admin Only)
+ * Admin Organization Assignment Routes
  */
-router.patch("/users/:userId/features", adminController.updateUserFeatures);
+router.post("/organizations/:organizationId/admins", requireRootAdmin, adminController.assignAdminToOrganization);
+router.delete("/organizations/:organizationId/admins/:adminId", requireRootAdmin, adminController.unassignAdminFromOrganization);
 
 module.exports = router;

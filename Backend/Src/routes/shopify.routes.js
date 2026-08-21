@@ -8,120 +8,95 @@ const {
   validateAccountIdParam,
 } = require("../validators/shopify.validator");
 const { validateShopifyDataRequest } = require("../validators/shopify-data.validator");
-const { protect, requireShopifyAccess } = require("../middleware/auth.middleware");
+const { protect, requireEffectivePermission } = require("../middleware/auth.middleware");
+const { requireOrganizationAccess } = require("../middleware/organization-auth.middleware");
 
-// Protect all Shopify account and data routes with JWT authentication & Shopify feature access
+// Protect all Shopify account and data routes with JWT authentication & multi-tenant organization isolation
 router.use(protect);
-router.use(requireShopifyAccess);
+router.use(requireOrganizationAccess);
+router.use(requireEffectivePermission("shopify.view"));
 
 /**
  * @route   GET /api/shopify/compare
  * @desc    Fetch Shopify comparison analytics data comparing Period A and Period B
- * @access  Private (Shopify Access required)
+ * @access  Private
  */
-router.get("/compare", shopifyController.getShopifyComparison);
+router.get(
+  "/compare",
+  requireEffectivePermission("shopify.compare"),
+  shopifyController.getShopifyComparison
+);
 
 /**
  * @route   GET /api/shopify/overview
  * @desc    Fetch Shopify overview analytics data
  * @access  Private
  */
-router.get("/overview", validateShopifyDataRequest, shopifyController.getOverview);
+router.get(
+  "/overview",
+  requireEffectivePermission("shopify.overview"),
+  validateShopifyDataRequest,
+  shopifyController.getOverview
+);
 
 /**
  * @route   GET /api/shopify/orders
  * @desc    Fetch Shopify orders analytics data
  * @access  Private
  */
-router.get("/orders", validateShopifyDataRequest, shopifyController.getOrders);
+router.get(
+  "/orders",
+  requireEffectivePermission("shopify.orders"),
+  validateShopifyDataRequest,
+  shopifyController.getOrders
+);
 
 /**
  * @route   GET /api/shopify/products
  * @desc    Fetch Shopify products analytics data
  * @access  Private
  */
-router.get("/products", validateShopifyDataRequest, shopifyController.getProducts);
+router.get(
+  "/products",
+  requireEffectivePermission("shopify.products"),
+  validateShopifyDataRequest,
+  shopifyController.getProducts
+);
 
 /**
  * @route   GET /api/shopify/customers
  * @desc    Fetch Shopify customers analytics data
  * @access  Private
  */
-router.get("/customers", validateShopifyDataRequest, shopifyController.getCustomers);
+router.get(
+  "/customers",
+  requireEffectivePermission("shopify.customers"),
+  validateShopifyDataRequest,
+  shopifyController.getCustomers
+);
 
 /**
  * @route   GET /api/shopify/location
  * @desc    Fetch Shopify location analytics data
  * @access  Private
  */
-router.get("/location", validateShopifyDataRequest, shopifyController.getLocation);
+router.get(
+  "/location",
+  requireEffectivePermission("shopify.location"),
+  validateShopifyDataRequest,
+  shopifyController.getLocation
+);
 
 /**
- * @route   POST /api/shopify/accounts
- * @desc    Add a new Shopify account (requires shopName and accountName)
- * @access  Private
+ * Shopify Integration Account Routes
  */
 router.post("/accounts", validateAddAccount, shopifyController.addAccount);
-
-/**
- * @route   GET /api/shopify/accounts
- * @desc    Retrieve all Shopify accounts and activeShopifyAccount preference for authenticated user
- * @access  Private
- */
 router.get("/accounts", shopifyController.getAllAccounts);
-
-/**
- * @route   PATCH /api/shopify/accounts/active
- * @route   PUT /api/shopify/accounts/active
- * @desc    Set current preferred active Shopify account
- * @access  Private
- */
-router.patch(
-  "/accounts/active",
-  validateSetActiveShopifyAccount,
-  shopifyController.setActiveAccount
-);
-router.put(
-  "/accounts/active",
-  validateSetActiveShopifyAccount,
-  shopifyController.setActiveAccount
-);
-
-/**
- * @route   GET /api/shopify/accounts/:id
- * @desc    Retrieve a single Shopify account by accountName identifier
- * @access  Private
- */
+router.patch("/accounts/active", validateSetActiveShopifyAccount, shopifyController.setActiveAccount);
+router.put("/accounts/active", validateSetActiveShopifyAccount, shopifyController.setActiveAccount);
 router.get("/accounts/:id", validateAccountIdParam, shopifyController.getAccountById);
-
-/**
- * @route   PUT /api/shopify/accounts/:id
- * @route   PATCH /api/shopify/accounts/:id
- * @desc    Update Shopify account display name (shopName) and/or domain identifier (accountName)
- * @access  Private
- */
-router.put(
-  "/accounts/:id",
-  validateAccountIdParam,
-  validateUpdateAccount,
-  shopifyController.updateAccount
-);
-router.patch(
-  "/accounts/:id",
-  validateAccountIdParam,
-  validateUpdateAccount,
-  shopifyController.updateAccount
-);
-
-/**
- * @route   DELETE /api/shopify/accounts/:id
- * @desc    Delete a single Shopify account by accountName identifier
- * @access  Private
- */
-router.delete(
-  "/accounts/:id",
-  validateAccountIdParam,
-  shopifyController.deleteAccount
-);
+router.put("/accounts/:id", validateAccountIdParam, validateUpdateAccount, shopifyController.updateAccount);
+router.patch("/accounts/:id", validateAccountIdParam, validateUpdateAccount, shopifyController.updateAccount);
+router.delete("/accounts/:id", validateAccountIdParam, shopifyController.deleteAccount);
 
 module.exports = router;

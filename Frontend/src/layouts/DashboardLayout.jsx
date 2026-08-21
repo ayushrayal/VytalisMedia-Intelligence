@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import AppLogo from "../components/shared/AppLogo.jsx";
 import LogoutConfirmationModal from "../components/shared/LogoutConfirmationModal.jsx";
+import useEffectivePermissions from "../hooks/useEffectivePermissions.js";
+import { PERMISSION_KEYS } from "../config/permission-registry.js";
 import { http } from "../lib/http.js";
 import {
   LayoutDashboard,
@@ -11,7 +13,6 @@ import {
   Image as ImageIcon,
   Users,
   MapPin,
-  Settings2,
   LogOut,
   User,
   ShoppingCart,
@@ -76,6 +77,7 @@ const analyticsNavigation = [
     key: "overview",
     label: "Overview",
     route: "/overview",
+    permissionKey: PERMISSION_KEYS.DASHBOARD_VIEW,
     icon: LayoutDashboard,
   },
   {
@@ -83,16 +85,17 @@ const analyticsNavigation = [
     label: "Meta",
     icon: MetaIcon,
     basePath: "/meta",
+    permissionKey: PERMISSION_KEYS.META_VIEW,
     children: [
-      { route: "/meta/overview", label: "Overview", icon: BarChart3 },
-      { route: "/meta/campaigns", label: "Campaigns", icon: Megaphone },
-      { route: "/meta/adsets", label: "Ad Sets", icon: Layers },
-      { route: "/meta/creatives", label: "Creatives Gallery", icon: ImageIcon },
-      { route: "/meta/winning-creatives", label: "Winning Creatives", icon: Trophy },
-      { route: "/meta/poor-performers", label: "Poor Performers", icon: TrendingDown },
-      { route: "/meta/audience", label: "Audience", icon: Users },
-      { route: "/meta/places", label: "Places", icon: MapPin },
-      { route: "/meta/compare", label: "Compare", icon: ArrowLeftRight },
+      { route: "/meta/overview", label: "Overview", permissionKey: PERMISSION_KEYS.META_OVERVIEW, icon: BarChart3 },
+      { route: "/meta/campaigns", label: "Campaigns", permissionKey: PERMISSION_KEYS.META_CAMPAIGNS, icon: Megaphone },
+      { route: "/meta/adsets", label: "Ad Sets", permissionKey: PERMISSION_KEYS.META_ADSETS, icon: Layers },
+      { route: "/meta/creatives", label: "Creatives Gallery", permissionKey: PERMISSION_KEYS.META_CREATIVES, icon: ImageIcon },
+      { route: "/meta/winning-creatives", label: "Winning Creatives", permissionKey: PERMISSION_KEYS.META_WINNING_CREATIVES, icon: Trophy },
+      { route: "/meta/poor-performers", label: "Poor Performers", permissionKey: PERMISSION_KEYS.META_POOR_PERFORMERS, icon: TrendingDown },
+      { route: "/meta/audience", label: "Audience", permissionKey: PERMISSION_KEYS.META_AUDIENCE, icon: Users },
+      { route: "/meta/places", label: "Places", permissionKey: PERMISSION_KEYS.META_PLACES, icon: MapPin },
+      { route: "/meta/compare", label: "Compare", permissionKey: PERMISSION_KEYS.META_COMPARE, icon: ArrowLeftRight },
     ],
   },
   {
@@ -100,20 +103,21 @@ const analyticsNavigation = [
     label: "Shopify",
     icon: ShopifyIcon,
     basePath: "/shopify",
+    permissionKey: PERMISSION_KEYS.SHOPIFY_VIEW,
     children: [
-      { route: "/shopify/overview", label: "Overview", icon: BarChart3 },
-      { route: "/shopify/orders", label: "Orders", icon: ShoppingCart },
-      { route: "/shopify/products", label: "Products", icon: Package },
-      { route: "/shopify/customers", label: "Customers", icon: Users },
-      { route: "/shopify/location", label: "Location", icon: MapPin },
-      { route: "/shopify/compare", label: "Compare", icon: ArrowLeftRight },
+      { route: "/shopify/overview", label: "Overview", permissionKey: PERMISSION_KEYS.SHOPIFY_OVERVIEW, icon: BarChart3 },
+      { route: "/shopify/orders", label: "Orders", permissionKey: PERMISSION_KEYS.SHOPIFY_ORDERS, icon: ShoppingCart },
+      { route: "/shopify/products", label: "Products", permissionKey: PERMISSION_KEYS.SHOPIFY_PRODUCTS, icon: Package },
+      { route: "/shopify/customers", label: "Customers", permissionKey: PERMISSION_KEYS.SHOPIFY_CUSTOMERS, icon: Users },
+      { route: "/shopify/location", label: "Location", permissionKey: PERMISSION_KEYS.SHOPIFY_LOCATION, icon: MapPin },
+      { route: "/shopify/compare", label: "Compare", permissionKey: PERMISSION_KEYS.SHOPIFY_COMPARE, icon: ArrowLeftRight },
     ],
   },
-
   {
     key: "attribution",
     label: "Attribution",
     route: "/attribution",
+    permissionKey: PERMISSION_KEYS.ATTRIBUTION_VIEW,
     icon: Target,
   },
 ];
@@ -122,19 +126,20 @@ const analyticsNavigation = [
  * Configuration-driven Integrations Navigation Data
  */
 const integrationsNavigation = [
-  { route: "/integrations/meta", label: "Meta", icon: MetaIcon },
-  { route: "/integrations/shopify", label: "Shopify", icon: ShopifyIcon },
-  { route: "/integrations/google", label: "Google", icon: GoogleIcon },
+  { route: "/integrations/meta", label: "Meta", permissionKey: PERMISSION_KEYS.META_VIEW, icon: MetaIcon },
+  { route: "/integrations/shopify", label: "Shopify", permissionKey: PERMISSION_KEYS.SHOPIFY_VIEW, icon: ShopifyIcon },
+  { route: "/integrations/google", label: "Google", permissionKey: null, icon: GoogleIcon },
 ];
 
 /**
  * DashboardLayout wrapper for overall dashboard analytics & integration pages.
- * Features hidden scrollbar styling with fully functional scroll behavior.
  */
 export const DashboardLayout = ({ user, setUser }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const logoutTriggerRef = useRef(null);
+
+  const { hasPermission } = useEffectivePermissions(user);
 
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -179,6 +184,23 @@ export const DashboardLayout = ({ user, setUser }) => {
     await handleLogout();
   };
 
+  const userHiddenFeatures = Array.isArray(user?.preferences?.hiddenFeatures)
+    ? user.preferences.hiddenFeatures
+    : [];
+
+  const isFeatureHiddenInSidebar = (key, permKey) => {
+    if (!userHiddenFeatures || userHiddenFeatures.length === 0) return false;
+    return userHiddenFeatures.includes(key) || (permKey && userHiddenFeatures.includes(permKey));
+  };
+
+  const canAccessUserManagement =
+    user &&
+    user.role !== "member" &&
+    (user.role === "root_admin" ||
+      user.role === "admin" ||
+      user.isRootAdmin ||
+      (user.role === "client" && hasPermission("user_management.members")));
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--color-background, #F8FAFC)", color: "var(--color-text-primary, #0F172A)" }}>
       {/* Fixed Desktop Sidebar with Hidden Scrollbar */}
@@ -210,11 +232,10 @@ export const DashboardLayout = ({ user, setUser }) => {
             flex: 1,
             paddingTop: "18px",
             overflowY: "auto",
-            scrollbarWidth: "none", /* Firefox */
-            msOverflowStyle: "none", /* IE and Edge */
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
           }}
         >
-          {/* Inline CSS to hide WebKit scrollbar */}
           <style>{`
             .no-scrollbar::-webkit-scrollbar {
               display: none;
@@ -240,12 +261,15 @@ export const DashboardLayout = ({ user, setUser }) => {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               {analyticsNavigation.map((group) => {
+                // Check personal navigation preference hiding
+                if (isFeatureHiddenInSidebar(group.key, group.permissionKey)) {
+                  return null;
+                }
+
                 // Single Item (Global Overview or Attribution)
                 if (group.route) {
-                  // Attribution navigation rule: NOT rendered if attribution is not enabled
-                  if (group.key === "attribution") {
-                    const isAttributionEnabled = user?.role === "admin" || Boolean(user?.attributionEnabled) === true;
-                    if (!isAttributionEnabled) return null;
+                  if (group.permissionKey && !hasPermission(group.permissionKey)) {
+                    return null;
                   }
 
                   const IconComponent = group.icon;
@@ -275,9 +299,14 @@ export const DashboardLayout = ({ user, setUser }) => {
                 }
 
                 // Collapsible Provider Group (Meta, Shopify)
-                if (group.key === "shopify") {
-                  const isShopifyEnabled = user?.role === "admin" || Boolean(user?.shopifyEnabled) === true;
-                  if (!isShopifyEnabled) return null;
+                // Filter child routes by permission
+                const visibleChildren = (group.children || []).filter((child) =>
+                  hasPermission(child.permissionKey)
+                );
+
+                // If module is disabled OR has 0 accessible children, hide entire group!
+                if (!hasPermission(group.permissionKey) || visibleChildren.length === 0) {
+                  return null;
                 }
 
                 const isExpanded = expandedGroups[group.key] ?? true;
@@ -286,7 +315,6 @@ export const DashboardLayout = ({ user, setUser }) => {
 
                 return (
                   <div key={group.key} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                    {/* Collapsible Header Button with Provider Branding Icon */}
                     <button
                       type="button"
                       onClick={() => toggleGroup(group.key)}
@@ -318,10 +346,9 @@ export const DashboardLayout = ({ user, setUser }) => {
                       )}
                     </button>
 
-                    {/* Collapsible Children Item List */}
                     {isExpanded && (
                       <div style={{ display: "flex", flexDirection: "column", gap: "2px", paddingLeft: "14px" }}>
-                        {group.children.map((child) => {
+                        {visibleChildren.map((child) => {
                           const ChildIcon = child.icon;
                           return (
                             <NavLink
@@ -373,9 +400,8 @@ export const DashboardLayout = ({ user, setUser }) => {
             </span>
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               {integrationsNavigation.map((item) => {
-                if (item.route === "/integrations/shopify") {
-                  const isShopifyEnabled = user?.role === "admin" || Boolean(user?.shopifyEnabled) === true;
-                  if (!isShopifyEnabled) return null;
+                if (item.permissionKey && !hasPermission(item.permissionKey)) {
+                  return null;
                 }
 
                 const IconComponent = item.icon;
@@ -406,8 +432,8 @@ export const DashboardLayout = ({ user, setUser }) => {
             </div>
           </div>
 
-          {/* ADMINISTRATION SECTION (ADMIN ONLY) */}
-          {user?.role === "admin" && (
+          {/* ADMINISTRATION SECTION */}
+          {canAccessUserManagement && (
             <div style={{ marginBottom: "20px" }}>
               <span
                 style={{

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { getMetaAccounts, setActiveMetaAccount } from "../services/meta.api.js";
 import { getErrorMessage } from "../../../utils/error.js";
 import { Link2, RefreshCw, ChevronDown } from "lucide-react";
@@ -12,6 +12,9 @@ import metaLogoImg from "../../../assets/mobile.png";
  */
 export const AccountSwitcher = ({ onAccountSwitched }) => {
   const navigate = useNavigate();
+  const outletContext = useOutletContext() || {};
+  const isMember = outletContext.user?.role === "member";
+
   const [accounts, setAccounts] = useState([]);
   const [activeAccount, setActiveAccount] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -69,27 +72,31 @@ export const AccountSwitcher = ({ onAccountSwitched }) => {
   if (error || accounts.length === 0) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <span style={{ fontSize: "12px", color: "#DC2626", fontWeight: "600" }}>No Connected Accounts</span>
-        <button
-          onClick={() => navigate("/settings/accounts")}
-          style={{
-            background: "#FFFFFF",
-            border: "1px solid #E5E7EB",
-            borderRadius: "8px",
-            height: "36px",
-            padding: "0 10px",
-            fontSize: "12px",
-            color: "#0A84FF",
-            fontWeight: "600",
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "4px",
-          }}
-        >
-          <Link2 size={13} />
-          Connect Account
-        </button>
+        <span style={{ fontSize: "12px", color: isMember ? "#64748B" : "#DC2626", fontWeight: "600" }}>
+          {isMember ? "No Meta Account Connected" : "No Connected Accounts"}
+        </span>
+        {!isMember && (
+          <button
+            onClick={() => navigate("/settings/accounts")}
+            style={{
+              background: "#FFFFFF",
+              border: "1px solid #E5E7EB",
+              borderRadius: "8px",
+              height: "36px",
+              padding: "0 10px",
+              fontSize: "12px",
+              color: "#0A84FF",
+              fontWeight: "600",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+          >
+            <Link2 size={13} />
+            Connect Account
+          </button>
+        )}
       </div>
     );
   }

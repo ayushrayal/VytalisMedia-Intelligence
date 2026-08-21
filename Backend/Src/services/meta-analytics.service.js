@@ -13,6 +13,8 @@ const { META_ENDPOINTS } = require("../config/meta-endpoints.config");
 const { calculateJitteredTtl } = require("../config/cache.config");
 const logger = require("../utils/logger.util");
 
+const { getEffectiveIntegrationContext } = require("../utils/integration-context.util");
+
 /**
  * Fetches Meta analytics data for a specific endpoint with Redis caching.
  *
@@ -23,15 +25,18 @@ const logger = require("../utils/logger.util");
  * @returns {Promise<Object>} Object containing data array and meta metadata
  */
 const getAnalyticsData = async ({ user, endpoint, query = {} }) => {
+  const { integrationUser } = await getEffectiveIntegrationContext(user, query.organizationId);
+  const targetUser = integrationUser || user;
+
   // 1. Validate authenticated user & activeMetaAccount preference
-  if (!user || !user.preferences || !user.preferences.activeMetaAccount) {
-    const error = new Error("No active Meta account selected");
+  if (!targetUser || !targetUser.preferences || !targetUser.preferences.activeMetaAccount) {
+    const error = new Error("No active Meta account selected for this Organization");
     error.statusCode = 400;
     throw error;
   }
 
-  const activeMetaAccount = user.preferences.activeMetaAccount;
-  const userId = user._id ? user._id.toString() : user.id ? user.id.toString() : "anonymous";
+  const activeMetaAccount = targetUser.preferences.activeMetaAccount;
+  const userId = targetUser._id ? targetUser._id.toString() : "anonymous";
 
   // 2. Validate endpoint configuration
   const endpointConfig = META_ENDPOINTS[endpoint];
@@ -124,14 +129,17 @@ const getAnalyticsData = async ({ user, endpoint, query = {} }) => {
  * @returns {Promise<Object>} Object containing campaign details and meta metadata
  */
 const getCampaignDetails = async ({ user, campaignId, query = {} }) => {
-  if (!user || !user.preferences || !user.preferences.activeMetaAccount) {
-    const error = new Error("No active Meta account selected");
+  const { integrationUser } = await getEffectiveIntegrationContext(user, query.organizationId);
+  const targetUser = integrationUser || user;
+
+  if (!targetUser || !targetUser.preferences || !targetUser.preferences.activeMetaAccount) {
+    const error = new Error("No active Meta account selected for this Organization");
     error.statusCode = 400;
     throw error;
   }
 
-  const activeMetaAccount = user.preferences.activeMetaAccount;
-  const userId = user._id ? user._id.toString() : user.id ? user.id.toString() : "anonymous";
+  const activeMetaAccount = targetUser.preferences.activeMetaAccount;
+  const userId = targetUser._id ? targetUser._id.toString() : "anonymous";
 
   const { dateRangeKey, datePreset, dateFrom, dateTo } = normalizeDateParams({
     datePreset: query.datePreset,

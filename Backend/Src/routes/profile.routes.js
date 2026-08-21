@@ -34,4 +34,11 @@ router.get("/kpi-preferences", profileController.getKpiPreferences);
  */
 router.put("/kpi-preferences", profileController.updateKpiPreferences);
 
+/**
+ * @route   PUT /api/profile/navigation-preferences
+ * @desc    Update personal navigation UI preferences (hiddenFeatures)
+ * @access  Private
+ */
+router.put("/navigation-preferences", profileController.updateNavigationPreferences);
+
 module.exports = router;

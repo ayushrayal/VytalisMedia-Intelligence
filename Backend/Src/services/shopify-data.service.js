@@ -12,6 +12,8 @@ const { SHOPIFY_ENDPOINTS } = require("../config/shopify-endpoints.config");
 const { calculateJitteredTtl } = require("../config/cache.config");
 const logger = require("../utils/logger.util");
 
+const { getEffectiveIntegrationContext } = require("../utils/integration-context.util");
+
 /**
  * Fetches Shopify analytics data for a specific endpoint with Redis caching.
  *
@@ -22,21 +24,24 @@ const logger = require("../utils/logger.util");
  * @returns {Promise<Object>} Object containing data array and meta metadata
  */
 const getShopifyData = async ({ user, endpoint, query = {} }) => {
+  const { integrationUser } = await getEffectiveIntegrationContext(user, query.organizationId);
+  const targetUser = integrationUser || user;
+
   // 1. Validate authenticated user & activeShopifyAccount preference
-  if (!user || !user.preferences || !user.preferences.activeShopifyAccount) {
-    const error = new Error("No active Shopify account configured");
+  if (!targetUser || !targetUser.preferences || !targetUser.preferences.activeShopifyAccount) {
+    const error = new Error("No active Shopify account configured for this Organization");
     error.statusCode = 404;
     throw error;
   }
 
-  const activeShopifyAccount = user.preferences.activeShopifyAccount.trim();
+  const activeShopifyAccount = targetUser.preferences.activeShopifyAccount.trim();
   if (!activeShopifyAccount) {
-    const error = new Error("No active Shopify account configured");
+    const error = new Error("No active Shopify account configured for this Organization");
     error.statusCode = 404;
     throw error;
   }
 
-  const userId = user._id ? user._id.toString() : user.id ? user.id.toString() : "anonymous";
+  const userId = targetUser._id ? targetUser._id.toString() : "anonymous";
 
   // 2. Validate endpoint configuration
   const endpointConfig = SHOPIFY_ENDPOINTS[endpoint];

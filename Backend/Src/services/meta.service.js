@@ -64,29 +64,35 @@ const isDuplicateAccountId = (accounts, accountId, excludeAccountId = null) => {
  * @param {string} payload.accountName - Meta account display name
  * @returns {Promise<Object>} Added Meta account object
  */
-const addMetaAccount = async (userId, { accountId, accountName }) => {
-  const user = await User.findById(userId);
+const addMetaAccount = async (userOrId, { accountId, accountName }) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Add Meta account failed: User not found for ID ${userId}`);
+    logger.warn(`Add Meta account failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   const cleanAccountId = accountId.trim();
   const cleanAccountName = accountName.trim();
 
-  // Check for duplicate accountId per user
-  if (isDuplicateAccountId(user.integrations.meta, cleanAccountId)) {
-    logger.warn(`Add Meta account failed: Duplicate accountId ${cleanAccountId} for user ${userId}`);
+  // Check for duplicate accountId per target integration user
+  if (!targetUser.integrations) targetUser.integrations = { meta: [], shopify: [] };
+  if (!targetUser.integrations.meta) targetUser.integrations.meta = [];
+
+  if (isDuplicateAccountId(targetUser.integrations.meta, cleanAccountId)) {
+    logger.warn(`Add Meta account failed: Duplicate accountId ${cleanAccountId} for user ${targetUser._id}`);
     const err = new Error("Meta account with this accountId already exists");
     err.statusCode = 409;
     throw err;
   }
 
-  const isFirstAccount = user.integrations.meta.length === 0;
+  const isFirstAccount = targetUser.integrations.meta.length === 0;
 
-  user.integrations.meta.push({
+  targetUser.integrations.meta.push({
     accountId: cleanAccountId,
     accountName: cleanAccountName,
     connectedAt: new Date(),
@@ -94,55 +100,65 @@ const addMetaAccount = async (userId, { accountId, accountName }) => {
 
   // First Account Rule: Automatically set preferred active Meta account
   if (isFirstAccount) {
-    user.preferences.activeMetaAccount = cleanAccountId;
+    if (!targetUser.preferences) targetUser.preferences = {};
+    targetUser.preferences.activeMetaAccount = cleanAccountId;
   }
 
-  await user.save();
+  await targetUser.save();
 
-  const addedAccount = user.integrations.meta[user.integrations.meta.length - 1];
+  const addedAccount = targetUser.integrations.meta[targetUser.integrations.meta.length - 1];
   return addedAccount;
 };
 
+const { getEffectiveIntegrationContext } = require("../utils/integration-context.util");
+
 /**
  * Retrieves all Meta accounts and preferred active Meta account for authenticated user.
+ * Automatically resolves parent Organization/Client integrations for Members.
  *
- * @param {string} userId - Authenticated user ID
+ * @param {string|Object} userOrId - Authenticated user object or ID
  * @returns {Promise<Object>} Object containing accounts array and activeMetaAccount preference
  */
-const getAllMetaAccounts = async (userId) => {
-  const user = await User.findById(userId);
+const getAllMetaAccounts = async (userOrId) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Get Meta accounts failed: User not found for ID ${userId}`);
+    logger.warn(`Get Meta accounts failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   return {
-    accounts: user.integrations.meta,
-    activeMetaAccount: user.preferences.activeMetaAccount || null,
+    accounts: targetUser.integrations?.meta || [],
+    activeMetaAccount: targetUser.preferences?.activeMetaAccount || null,
   };
 };
 
 /**
  * Retrieves a single Meta account by accountId for authenticated user.
  *
- * @param {string} userId - Authenticated user ID
+ * @param {string|Object} userOrId - Authenticated user object or ID
  * @param {string} accountId - Meta account ID
  * @returns {Promise<Object>} Matched Meta account object
  */
-const getMetaAccountById = async (userId, accountId) => {
-  const user = await User.findById(userId);
+const getMetaAccountById = async (userOrId, accountId) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Get Meta account failed: User not found for ID ${userId}`);
+    logger.warn(`Get Meta account failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
-  const account = findMetaAccount(user.integrations.meta, accountId);
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
+  const account = findMetaAccount(targetUser.integrations?.meta || [], accountId);
   if (!account) {
-    logger.warn(`Get Meta account failed: Account ${accountId} not found for user ${userId}`);
+    logger.warn(`Get Meta account failed: Account ${accountId} not found for user ${user._id}`);
     const err = new Error("Meta account not found");
     err.statusCode = 404;
     throw err;
@@ -155,27 +171,30 @@ const getMetaAccountById = async (userId, accountId) => {
  * Updates accountName and/or accountId of a Meta account by accountId.
  * Automatically synchronizes user.preferences.activeMetaAccount if preferred account's accountId changes.
  *
- * @param {string} userId - Authenticated user ID
+ * @param {string|Object} userOrId - Authenticated user object or ID
  * @param {string} accountIdParam - Current Meta account ID from URL params
  * @param {Object} payload - Update payload
  * @param {string} [payload.accountId] - Optional new account ID
  * @param {string} [payload.accountName] - Optional new display name
  * @returns {Promise<Object>} Updated Meta account object
  */
-const updateMetaAccount = async (userId, accountIdParam, { accountId: newAccountId, accountName }) => {
-  const user = await User.findById(userId);
+const updateMetaAccount = async (userOrId, accountIdParam, { accountId: newAccountId, accountName }) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Update Meta account failed: User not found for ID ${userId}`);
+    logger.warn(`Update Meta account failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   const cleanParamId = accountIdParam.trim();
-  const account = findMetaAccount(user.integrations.meta, cleanParamId);
+  const account = findMetaAccount(targetUser.integrations?.meta || [], cleanParamId);
 
   if (!account) {
-    logger.warn(`Update Meta account failed: Account ${cleanParamId} not found for user ${userId}`);
+    logger.warn(`Update Meta account failed: Account ${cleanParamId} not found for user ${user._id}`);
     const err = new Error("Meta account not found");
     err.statusCode = 404;
     throw err;
@@ -186,15 +205,15 @@ const updateMetaAccount = async (userId, accountIdParam, { accountId: newAccount
 
   // Check duplicate if accountId is changing
   if (cleanNewAccountId && cleanNewAccountId !== account.accountId) {
-    if (isDuplicateAccountId(user.integrations.meta, cleanNewAccountId, cleanParamId)) {
-      logger.warn(`Update Meta account failed: Duplicate target accountId ${cleanNewAccountId} for user ${userId}`);
+    if (isDuplicateAccountId(targetUser.integrations.meta, cleanNewAccountId, cleanParamId)) {
+      logger.warn(`Update Meta account failed: Duplicate target accountId ${cleanNewAccountId} for user ${targetUser._id}`);
       const err = new Error("Meta account with this accountId already exists");
       err.statusCode = 409;
       throw err;
     }
   }
 
-  const isPreferredAccount = user.preferences.activeMetaAccount === account.accountId;
+  const isPreferredAccount = targetUser.preferences?.activeMetaAccount === account.accountId;
 
   if (cleanNewAccountId) {
     account.accountId = cleanNewAccountId;
@@ -206,10 +225,11 @@ const updateMetaAccount = async (userId, accountIdParam, { accountId: newAccount
 
   // Sync preference if preferred account's accountId changed
   if (isPreferredAccount && cleanNewAccountId) {
-    user.preferences.activeMetaAccount = cleanNewAccountId;
+    if (!targetUser.preferences) targetUser.preferences = {};
+    targetUser.preferences.activeMetaAccount = cleanNewAccountId;
   }
 
-  await user.save();
+  await targetUser.save();
 
   return account;
 };
@@ -218,43 +238,46 @@ const updateMetaAccount = async (userId, accountIdParam, { accountId: newAccount
  * Deletes a single Meta account by accountId.
  * Automatically synchronizes user.preferences.activeMetaAccount if preferred account is deleted.
  *
- * @param {string} userId - Authenticated user ID
+ * @param {string|Object} userOrId - Authenticated user object or ID
  * @param {string} accountId - Meta account ID
  * @returns {Promise<Object>} Deleted Meta account object
  */
-const deleteMetaAccount = async (userId, accountId) => {
-  const user = await User.findById(userId);
+const deleteMetaAccount = async (userOrId, accountId) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Delete Meta account failed: User not found for ID ${userId}`);
+    logger.warn(`Delete Meta account failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   const cleanAccountId = accountId.trim();
-  const index = findMetaAccountIndex(user.integrations.meta, cleanAccountId);
+  const index = findMetaAccountIndex(targetUser.integrations?.meta || [], cleanAccountId);
 
   if (index === -1) {
-    logger.warn(`Delete Meta account failed: Account ${cleanAccountId} not found for user ${userId}`);
+    logger.warn(`Delete Meta account failed: Account ${cleanAccountId} not found for user ${user._id}`);
     const err = new Error("Meta account not found");
     err.statusCode = 404;
     throw err;
   }
 
-  const isPreferredAccount = user.preferences.activeMetaAccount === cleanAccountId;
+  const isPreferredAccount = targetUser.preferences?.activeMetaAccount === cleanAccountId;
 
-  const [deletedAccount] = user.integrations.meta.splice(index, 1);
+  const [deletedAccount] = targetUser.integrations.meta.splice(index, 1);
 
   // Delete Synchronization Rule: If preferred account is deleted
   if (isPreferredAccount) {
-    if (user.integrations.meta.length > 0) {
-      user.preferences.activeMetaAccount = user.integrations.meta[0].accountId;
+    if (targetUser.integrations.meta.length > 0) {
+      targetUser.preferences.activeMetaAccount = targetUser.integrations.meta[0].accountId;
     } else {
-      user.preferences.activeMetaAccount = null;
+      targetUser.preferences.activeMetaAccount = null;
     }
   }
 
-  await user.save();
+  await targetUser.save();
 
   return deletedAccount;
 };
@@ -263,23 +286,26 @@ const deleteMetaAccount = async (userId, accountId) => {
  * Deletes all Meta accounts for authenticated user.
  * Resets user.preferences.activeMetaAccount to null.
  *
- * @param {string} userId - Authenticated user ID
+ * @param {string|Object} userOrId - Authenticated user object or ID
  * @returns {Promise<Object>} Object containing deletedCount
  */
-const deleteAllMetaAccounts = async (userId) => {
-  const user = await User.findById(userId);
+const deleteAllMetaAccounts = async (userOrId) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Delete all Meta accounts failed: User not found for ID ${userId}`);
+    logger.warn(`Delete all Meta accounts failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
-  const deletedCount = user.integrations.meta.length;
-  user.integrations.meta = [];
-  user.preferences.activeMetaAccount = null;
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
 
-  await user.save();
+  const deletedCount = targetUser.integrations?.meta?.length || 0;
+  if (targetUser.integrations) targetUser.integrations.meta = [];
+  if (targetUser.preferences) targetUser.preferences.activeMetaAccount = null;
+
+  await targetUser.save();
 
   return { deletedCount };
 };
@@ -287,38 +313,42 @@ const deleteAllMetaAccounts = async (userId) => {
 /**
  * Sets preferred active Meta account for authenticated user.
  *
- * @param {string} userId - Authenticated user ID
+ * @param {string|Object} userOrId - Authenticated user object or ID
  * @param {string} accountId - Target Meta account ID to activate
  * @returns {Promise<Object>} Object containing activeMetaAccount and matched account
  */
-const setActiveMetaAccount = async (userId, accountId) => {
-  const user = await User.findById(userId);
+const setActiveMetaAccount = async (userOrId, accountId) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
-    logger.warn(`Set active Meta account failed: User not found for ID ${userId}`);
+    logger.warn(`Set active Meta account failed: User not found`);
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   const cleanAccountId = accountId.trim();
-  const account = findMetaAccount(user.integrations.meta, cleanAccountId);
+  const account = findMetaAccount(targetUser.integrations?.meta || [], cleanAccountId);
 
   if (!account) {
-    logger.warn(`Set active Meta account failed: Account ${cleanAccountId} not found for user ${userId}`);
+    logger.warn(`Set active Meta account failed: Account ${cleanAccountId} not found for user ${user._id}`);
     const err = new Error("Meta account not found");
     err.statusCode = 404;
     throw err;
   }
 
-  if (user.preferences.activeMetaAccount === cleanAccountId) {
+  if (targetUser.preferences?.activeMetaAccount === cleanAccountId) {
     return {
       activeMetaAccount: cleanAccountId,
       account,
     };
   }
 
-  user.preferences.activeMetaAccount = cleanAccountId;
-  await user.save();
+  if (!targetUser.preferences) targetUser.preferences = {};
+  targetUser.preferences.activeMetaAccount = cleanAccountId;
+  await targetUser.save();
 
   return {
     activeMetaAccount: cleanAccountId,
@@ -329,18 +359,21 @@ const setActiveMetaAccount = async (userId, accountId) => {
 /**
  * Retrieves customizable creative card KPI preferences for authenticated user.
  */
-const getCreativeCardPreferences = async (userId) => {
-  const user = await User.findById(userId);
+const getCreativeCardPreferences = async (userOrId) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   const defaultPrimary = ["spend", "purchases", "cost_per_result", "purchase_roas"];
   const defaultVideo = ["hook_rate", "hold_rate"];
 
-  const prefs = user.preferences?.creativeCardPreferences || {};
+  const prefs = targetUser.preferences?.creativeCardPreferences || {};
 
   return {
     primaryMetrics: Array.isArray(prefs.primaryMetrics) && prefs.primaryMetrics.length > 0
@@ -360,22 +393,25 @@ const getCreativeCardPreferences = async (userId) => {
 /**
  * Updates customizable creative card KPI preferences for authenticated user.
  */
-const updateCreativeCardPreferences = async (userId, { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates, winningRoasThreshold, poorRoasThreshold }) => {
-  const user = await User.findById(userId);
+const updateCreativeCardPreferences = async (userOrId, { primaryMetrics, videoMetrics, showFacebookLink, showInstagramLink, showHookHoldRates, winningRoasThreshold, poorRoasThreshold }) => {
+  const user = typeof userOrId === "object" ? userOrId : await User.findById(userOrId);
   if (!user) {
     const err = new Error("User not found");
     err.statusCode = 404;
     throw err;
   }
 
+  const { integrationUser } = await getEffectiveIntegrationContext(user);
+  const targetUser = integrationUser || user;
+
   const defaultPrimary = ["spend", "purchases", "cost_per_result", "purchase_roas"];
   const defaultVideo = ["hook_rate", "hold_rate"];
 
-  if (!user.preferences) {
-    user.preferences = {};
+  if (!targetUser.preferences) {
+    targetUser.preferences = {};
   }
 
-  user.preferences.creativeCardPreferences = {
+  targetUser.preferences.creativeCardPreferences = {
     primaryMetrics: Array.isArray(primaryMetrics) && primaryMetrics.length > 0
       ? primaryMetrics.slice(0, 4)
       : defaultPrimary,
@@ -389,9 +425,9 @@ const updateCreativeCardPreferences = async (userId, { primaryMetrics, videoMetr
     poorRoasThreshold: poorRoasThreshold !== undefined && !isNaN(Number(poorRoasThreshold)) ? Number(poorRoasThreshold) : 1.0,
   };
 
-  await user.save();
+  await targetUser.save();
 
-  return user.preferences.creativeCardPreferences;
+  return targetUser.preferences.creativeCardPreferences;
 };
 
 module.exports = {

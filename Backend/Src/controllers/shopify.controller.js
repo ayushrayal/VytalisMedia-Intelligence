@@ -9,7 +9,7 @@ const { sendSuccess } = require("../utils/api-response.util");
 const addAccount = async (req, res, next) => {
   try {
     const { shopName, accountName } = req.body;
-    const account = await shopifyService.addShopifyAccount(req.user._id, {
+    const account = await shopifyService.addShopifyAccount(req.user, {
       shopName,
       accountName,
     });
@@ -26,7 +26,7 @@ const addAccount = async (req, res, next) => {
  */
 const getAllAccounts = async (req, res, next) => {
   try {
-    const result = await shopifyService.getAllShopifyAccounts(req.user._id);
+    const result = await shopifyService.getAllShopifyAccounts(req.user);
 
     return sendSuccess(res, 200, "Shopify accounts retrieved successfully", result);
   } catch (error) {
@@ -41,7 +41,7 @@ const getAllAccounts = async (req, res, next) => {
 const getAccountById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const account = await shopifyService.getShopifyAccountById(req.user._id, id);
+    const account = await shopifyService.getShopifyAccountById(req.user, id);
 
     return sendSuccess(res, 200, "Shopify account retrieved successfully", account);
   } catch (error) {
@@ -59,7 +59,7 @@ const updateAccount = async (req, res, next) => {
     const { shopName, accountName: newAccountName } = req.body;
 
     const updatedAccount = await shopifyService.updateShopifyAccount(
-      req.user._id,
+      req.user,
       targetAccountName,
       { shopName, accountName: newAccountName }
     );
@@ -78,7 +78,7 @@ const deleteAccount = async (req, res, next) => {
   try {
     const { id } = req.params;
     const deletedAccount = await shopifyService.deleteShopifyAccount(
-      req.user._id,
+      req.user,
       id
     );
 
@@ -96,7 +96,7 @@ const setActiveAccount = async (req, res, next) => {
   try {
     const { accountName } = req.body;
     const result = await shopifyService.setActiveShopifyAccount(
-      req.user._id,
+      req.user,
       accountName
     );
 

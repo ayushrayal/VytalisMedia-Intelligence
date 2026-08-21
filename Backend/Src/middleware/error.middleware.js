@@ -10,6 +10,16 @@ const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || "Internal Server Error";
 
+  console.error("[GLOBAL BACKEND ERROR]", {
+    message: err.message,
+    stack: err.stack,
+    name: err.name,
+    statusCode: statusCode,
+    url: req.originalUrl,
+    method: req.method,
+    user: req.user ? { id: String(req.user._id), role: req.user.role } : null,
+  });
+
   logger.error(`[Global Error Handler] Status: ${statusCode} - Message: ${message}`);
   if (process.env.NODE_ENV !== "production" && err.stack) {
     logger.error(err.stack);

@@ -2,6 +2,7 @@ const User = require("../models/user.model");
 const { verifyAccessToken } = require("../utils/jwt.util");
 const { sendError } = require("../utils/api-response.util");
 const logger = require("../utils/logger.util");
+const { calculateEffectivePermission } = require("../utils/permission-calculator.util");
 
 /**
  * Express middleware to protect routes using JWT authentication.
@@ -14,9 +15,8 @@ const protect = async (req, res, next) => {
   if (req.cookies && req.cookies.access_token) {
     token = req.cookies.access_token;
   }
-  
+
   // 2. Temporary migration fallback: Bearer Authorization Header
-  // DEPRECATED / TEMPORARY MIGRATION FALLBACK FOR TESTING & API TOOLS
   if (
     !token &&
     req.headers.authorization &&
@@ -39,6 +39,12 @@ const protect = async (req, res, next) => {
       return sendError(res, 401, "Not authorized, user not found");
     }
 
+    // 3. User Status Check
+    if (user.status === "disabled") {
+      logger.warn(`Authentication failed: Disabled user ${user._id} attempted login/access`);
+      return sendError(res, 403, "Your account has been disabled.");
+    }
+
     req.user = user;
 
     // Throttled lastActiveAt update (updates once every 5 minutes during active API usage)
@@ -58,11 +64,23 @@ const protect = async (req, res, next) => {
 };
 
 /**
- * Express middleware to restrict access to Admin-only API endpoints.
- * Requires authenticated user database role === "admin".
+ * Express middleware to restrict access to Root Admin-only API endpoints.
+ */
+const requireRootAdmin = (req, res, next) => {
+  const isRoot = req.user && (req.user.role === "root_admin" || req.user.isRootAdmin === true);
+  if (!isRoot) {
+    logger.warn(`Root Admin access denied for user ${req.user?._id || "unknown"}`);
+    return sendError(res, 403, "Only the Root Administrator can perform this action.");
+  }
+  next();
+};
+
+/**
+ * Express middleware to restrict access to Admin-level API endpoints (Root Admin or Admin).
  */
 const requireAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
+  const isAdmin = req.user && (req.user.role === "root_admin" || req.user.role === "admin" || req.user.isRootAdmin === true);
+  if (!isAdmin) {
     logger.warn(`Admin access denied for user ${req.user?._id || "unknown"}`);
     return sendError(res, 403, "You don't have permission to access User Management.");
   }
@@ -70,34 +88,78 @@ const requireAdmin = (req, res, next) => {
 };
 
 /**
- * Express middleware to restrict access to Attribution API endpoints.
- * Allowed if user is admin OR req.user.attributionEnabled === true.
+ * Express middleware factory enforcing effective permission checks.
+ *
+ * @param {string} permissionKey - Key from permission registry (e.g. "meta.places")
  */
-const requireAttributionAccess = (req, res, next) => {
-  const isAllowed = req.user && (req.user.role === "admin" || Boolean(req.user.attributionEnabled) === true);
-  if (!isAllowed) {
-    logger.warn(`Attribution access denied for user ${req.user?._id || "unknown"}`);
-    return sendError(res, 403, "This feature is not enabled for your account.");
-  }
-  next();
+const requireEffectivePermission = (permissionKey) => {
+  return async (req, res, next) => {
+    try {
+      if (!req.user) {
+        return sendError(res, 401, "Authentication required");
+      }
+
+      // STEP 1: ROOT ADMIN BYPASS MUST HAPPEN FIRST!
+      if (req.user.role === "root_admin" || req.user.isRootAdmin === true) {
+        req.effectivePermission = {
+          allowed: true,
+          permissionKey,
+          source: "root",
+          locked: false,
+          lockReason: null,
+          reason: "Allowed by Root Admin authority.",
+        };
+        return next();
+      }
+
+      const evalResult = await calculateEffectivePermission(req.user, permissionKey);
+
+      if (!evalResult.allowed) {
+        logger.warn(
+          `Permission denied for user ${req.user._id} on '${permissionKey}': reason=${evalResult.reason}, lockReason=${evalResult.lockReason}`
+        );
+
+        let userMessage = "Your account does not have permission to access this feature.";
+        if (evalResult.lockReason === "disabled_by_root_admin") {
+          userMessage = "This feature has been globally disabled by the Root Administrator.";
+        } else if (evalResult.lockReason === "disabled_by_admin") {
+          userMessage = "This feature has been disabled by your supervising Administrator.";
+        } else if (evalResult.lockReason === "disabled_by_client") {
+          userMessage = "This feature has been disabled by your Client Organization.";
+        } else if (evalResult.lockReason === "organization_disabled") {
+          userMessage = "Your Client Organization has been disabled.";
+        }
+
+        return sendError(res, 403, userMessage, {
+          permissionKey,
+          lockReason: evalResult.lockReason,
+        });
+      }
+
+      req.effectivePermission = evalResult;
+      next();
+    } catch (error) {
+      logger.error(`Error calculating effective permission for ${permissionKey}: ${error.message}`);
+      next(error);
+    }
+  };
 };
 
 /**
- * Express middleware to restrict access to Shopify API endpoints.
- * Allowed if user is admin OR req.user.shopifyEnabled === true.
+ * Legacy compatibility helper for Attribution API access
  */
-const requireShopifyAccess = (req, res, next) => {
-  const isAllowed = req.user && (req.user.role === "admin" || Boolean(req.user.shopifyEnabled) === true);
-  if (!isAllowed) {
-    logger.warn(`Shopify access denied for user ${req.user?._id || "unknown"}`);
-    return sendError(res, 403, "This feature is not enabled for your account.");
-  }
-  next();
-};
+const requireAttributionAccess = requireEffectivePermission("attribution.view");
+
+/**
+ * Legacy compatibility helper for Shopify API access
+ */
+const requireShopifyAccess = requireEffectivePermission("shopify.view");
 
 module.exports = {
   protect,
+  requireRootAdmin,
   requireAdmin,
+  requireEffectivePermission,
   requireAttributionAccess,
   requireShopifyAccess,
 };

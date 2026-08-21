@@ -147,9 +147,47 @@ const updateKpiPreferences = async (req, res, next) => {
   }
 };
 
+/**
+ * PUT /api/profile/navigation-preferences
+ * Save authenticated user's personal navigation UI preferences (hiddenFeatures array)
+ */
+const updateNavigationPreferences = async (req, res, next) => {
+  try {
+    const { hiddenFeatures } = req.body || {};
+
+    if (!Array.isArray(hiddenFeatures)) {
+      return sendError(res, 400, "hiddenFeatures must be an array of feature keys.");
+    }
+
+    if (!req.user.preferences) {
+      req.user.preferences = {};
+    }
+
+    req.user.preferences.hiddenFeatures = hiddenFeatures.filter(
+      (item) => typeof item === "string"
+    );
+
+    await req.user.save();
+    logger.info(`Navigation preferences updated for user ${req.user._id}`);
+
+    return sendSuccess(
+      res,
+      200,
+      "Navigation preferences updated successfully",
+      {
+        user: req.user.toJSON ? req.user.toJSON() : req.user,
+        hiddenFeatures: req.user.preferences.hiddenFeatures,
+      }
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getProfile,
   upgradeRole,
   getKpiPreferences,
   updateKpiPreferences,
+  updateNavigationPreferences,
 };

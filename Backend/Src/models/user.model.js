@@ -20,6 +20,14 @@ const shopifyIntegrationSchema = new mongoose.Schema({
   lastSyncedAt: { type: Date, default: null },
 });
 
+const permissionEntrySchema = new mongoose.Schema(
+  {
+    key: { type: String, required: true },
+    allowed: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -41,8 +49,31 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["client", "admin"],
+      enum: ["root_admin", "admin", "client", "member"],
       default: "client",
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: ["active", "disabled"],
+      default: "active",
+      index: true,
+    },
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      default: null,
+      index: true,
+    },
+    assignedClientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true,
+    },
+    assignedPermissions: {
+      type: [permissionEntrySchema],
+      default: [],
     },
     shopifyEnabled: {
       type: Boolean,
@@ -77,6 +108,10 @@ const userSchema = new mongoose.Schema(
     preferences: {
       activeMetaAccount: { type: String, default: null },
       activeShopifyAccount: { type: String, default: null },
+      hiddenFeatures: {
+        type: [String],
+        default: [],
+      },
       creativeCardPreferences: {
         primaryMetrics: {
           type: [String],
@@ -123,17 +158,47 @@ userSchema.methods.matchPassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Transform toJSON to guarantee password and __v are omitted and defaults applied for legacy docs
+// Transform toJSON to guarantee password and __v are omitted and assignedPermissions formatted as dictionary
 userSchema.set("toJSON", {
   transform: (doc, ret) => {
     delete ret.password;
     delete ret.__v;
     delete ret.rbacMigrated;
-    ret.role = ret.role || "client";
+    
+    // Map isRootAdmin -> role === "root_admin"
+    if (ret.isRootAdmin === true) {
+      ret.role = "root_admin";
+    } else if (!ret.role) {
+      ret.role = "client";
+    }
+
+    ret.status = ret.status || "active";
+    ret.organizationId = ret.organizationId || null;
+    ret.assignedClientId = ret.assignedClientId || null;
     ret.shopifyEnabled = Boolean(ret.shopifyEnabled);
     ret.attributionEnabled = Boolean(ret.attributionEnabled);
-    ret.isRootAdmin = Boolean(ret.isRootAdmin);
+    ret.isRootAdmin = Boolean(ret.isRootAdmin || ret.role === "root_admin");
     ret.lastActiveAt = ret.lastActiveAt || null;
+
+    // Convert assignedPermissions array [{ key, allowed }] to dictionary object { "meta.campaigns": true }
+    const permMap = {};
+    if (Array.isArray(ret.assignedPermissions)) {
+      ret.assignedPermissions.forEach((entry) => {
+        if (entry && entry.key) {
+          permMap[entry.key] = Boolean(entry.allowed);
+        }
+      });
+    } else if (ret.assignedPermissions instanceof Map) {
+      ret.assignedPermissions.forEach((val, key) => {
+        permMap[key] = Boolean(val);
+      });
+    } else if (ret.assignedPermissions && typeof ret.assignedPermissions === "object") {
+      Object.entries(ret.assignedPermissions).forEach(([k, v]) => {
+        permMap[k] = Boolean(v);
+      });
+    }
+    ret.assignedPermissions = permMap;
+
     return ret;
   },
 });

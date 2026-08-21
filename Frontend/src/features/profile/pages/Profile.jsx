@@ -162,7 +162,7 @@ export const Profile = ({ user, setUser }) => {
               >
                 {user?.name || "Vytalis User"}
               </span>
-              {user?.isRootAdmin ? (
+              {user?.role === "root_admin" || user?.isRootAdmin ? (
                 <span
                   style={{
                     display: "inline-flex",
@@ -178,9 +178,9 @@ export const Profile = ({ user, setUser }) => {
                   }}
                 >
                   <Crown size={13} />
-                  Root Administrator
+                  Root Admin
                 </span>
-              ) : isAdmin ? (
+              ) : user?.role === "admin" ? (
                 <span
                   style={{
                     display: "inline-flex",
@@ -195,7 +195,21 @@ export const Profile = ({ user, setUser }) => {
                   }}
                 >
                   <Shield size={13} />
-                  Administrator
+                  Admin Account
+                </span>
+              ) : user?.role === "member" ? (
+                <span
+                  style={{
+                    padding: "3px 9px",
+                    backgroundColor: "#EFF6FF",
+                    color: "#1D4ED8",
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    borderRadius: "6px",
+                    border: "1px solid #BFDBFE",
+                  }}
+                >
+                  Member Account
                 </span>
               ) : (
                 <span
@@ -294,235 +308,131 @@ export const Profile = ({ user, setUser }) => {
         </div>
       </div>
 
-      {/* CARD 2: UPGRADE YOUR ROLE (CLIENT ONLY) */}
-      {user?.role !== "admin" && (
-        <div
+      {/* CARD 2: PERSONAL SIDEBAR NAVIGATION PREFERENCES */}
+      <SidebarNavigationPreferences user={user} setUser={setUser} />
+    </div>
+  );
+};
+
+const SidebarNavigationPreferences = ({ user, setUser }) => {
+  const hiddenFeatures = Array.isArray(user?.preferences?.hiddenFeatures)
+    ? user.preferences.hiddenFeatures
+    : [];
+
+  const [savingKey, setSavingKey] = useState(null);
+
+  const features = [
+    { key: "meta", label: "Meta Analytics", perm: "meta.view" },
+    { key: "shopify", label: "Shopify Analytics", perm: "shopify.view" },
+    { key: "attribution", label: "Attribution Engine", perm: "attribution.view" },
+    { key: "overview", label: "Overview Dashboard", perm: "dashboard.view" },
+  ];
+
+  const handleToggleHide = async (featureKey) => {
+    let nextHidden;
+    if (hiddenFeatures.includes(featureKey)) {
+      nextHidden = hiddenFeatures.filter((k) => k !== featureKey);
+    } else {
+      nextHidden = [...hiddenFeatures, featureKey];
+    }
+
+    try {
+      setSavingKey(featureKey);
+      const res = await http.put("/profile/navigation-preferences", {
+        hiddenFeatures: nextHidden,
+      });
+      if (res.data && setUser) {
+        setUser((prev) => ({
+          ...prev,
+          preferences: {
+            ...(prev?.preferences || {}),
+            hiddenFeatures: nextHidden,
+          },
+        }));
+      }
+    } catch (err) {
+      alert("Failed to update navigation preference: " + (err.message || "Unknown error"));
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: "#FFFFFF",
+        border: "1px solid var(--color-border, #E8EAED)",
+        borderRadius: "16px",
+        padding: "28px",
+        boxShadow: "0 2px 6px rgba(15, 23, 42, 0.03)",
+      }}
+    >
+      <div style={{ marginBottom: "18px" }}>
+        <h2
           style={{
-            backgroundColor: "#FFFFFF",
-            border: "1px solid var(--color-border, #E8EAED)",
-            borderRadius: "16px",
-            padding: "28px",
-            boxShadow: "0 2px 6px rgba(15, 23, 42, 0.03)",
+            fontSize: "16px",
+            fontWeight: "700",
+            color: "var(--color-text-primary, #0F2742)",
+            margin: "0 0 4px 0",
+            letterSpacing: "-0.2px",
           }}
         >
-          <div style={{ marginBottom: "20px" }}>
-            <h2
-              style={{
-                fontSize: "16px",
-                fontWeight: "700",
-                color: "var(--color-text-primary, #0F2742)",
-                margin: "0 0 4px 0",
-                letterSpacing: "-0.2px",
-              }}
-            >
-              Upgrade Your Role
-            </h2>
-            <p style={{ margin: 0, fontSize: "13.5px", color: "var(--color-text-secondary, #60758F)" }}>
-              Have an administrator access key? Upgrade your account.
-            </p>
-          </div>
+          Personal Navigation Preferences
+        </h2>
+        <p style={{ margin: 0, fontSize: "13px", color: "var(--color-text-secondary, #60758F)", lineHeight: "1.4" }}>
+          Customize feature visibility in your sidebar navigation. Hiding a feature only removes it from your sidebar UI and does not revoke your authorization or authority to grant it to others.
+        </p>
+      </div>
 
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "20px",
-              backgroundColor: "#F8FAFC",
-              border: "1px solid #E2E8F0",
-              borderRadius: "12px",
-              flexWrap: "wrap",
-              gap: "16px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-              <div
-                style={{
-                  width: "42px",
-                  height: "42px",
-                  borderRadius: "10px",
-                  backgroundColor: "rgba(10, 132, 255, 0.1)",
-                  color: "#0A84FF",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <KeyRound size={22} />
-              </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        {features.map((item) => {
+          const isHidden = hiddenFeatures.includes(item.key);
+          const isSaving = savingKey === item.key;
 
-              <div>
-                <span
-                  style={{
-                    fontSize: "15px",
-                    fontWeight: "700",
-                    color: "var(--color-text-primary, #0F2742)",
-                    display: "block",
-                  }}
-                >
-                  Administrator Privilege Upgrade
-                </span>
-                <p
-                  style={{
-                    margin: "3px 0 0 0",
-                    fontSize: "13px",
-                    color: "var(--color-text-secondary, #60758F)",
-                  }}
-                >
-                  Unlock administrative permissions and platform management capabilities.
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <Button variant="primary" size="sm" onClick={handleOpenModal}>
-                Upgrade Your Role
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* UPGRADE ROLE MODAL */}
-      {isModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(15, 23, 42, 0.4)",
-            backdropFilter: "blur(4px)",
-            WebkitBackdropFilter: "blur(4px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: "20px",
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) handleCloseModal();
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "440px",
-              backgroundColor: "#FFFFFF",
-              borderRadius: "16px",
-              padding: "28px",
-              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05)",
-              border: "1px solid var(--color-border, #E8EAED)",
-              position: "relative",
-            }}
-          >
-            {/* Modal Header */}
+          return (
             <div
+              key={item.key}
               style={{
+                padding: "12px 16px",
+                borderRadius: "10px",
+                border: "1px solid #E2E8F0",
+                backgroundColor: isHidden ? "#F8FAFC" : "#FFFFFF",
                 display: "flex",
-                alignItems: "flex-start",
+                alignItems: "center",
                 justifyContent: "space-between",
-                marginBottom: "16px",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div
-                  style={{
-                    width: "36px",
-                    height: "36px",
-                    borderRadius: "10px",
-                    backgroundColor: "rgba(10, 132, 255, 0.1)",
-                    color: "#0A84FF",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Shield size={20} />
-                </div>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: "18px",
-                    fontWeight: "700",
-                    color: "var(--color-text-primary, #0F2742)",
-                  }}
-                >
-                  Upgrade Your Role
-                </h3>
+              <div>
+                <span style={{ fontSize: "14px", fontWeight: "600", color: "#0F2742", display: "block" }}>
+                  {item.label}
+                </span>
+                <span style={{ fontSize: "12px", color: isHidden ? "#94A3B8" : "#059669" }}>
+                  {isHidden ? "Hidden from sidebar (Direct URL accessible)" : "Visible in sidebar"}
+                </span>
               </div>
 
               <button
                 type="button"
-                onClick={handleCloseModal}
+                onClick={() => handleToggleHide(item.key)}
+                disabled={isSaving}
                 style={{
-                  background: "none",
-                  border: "none",
-                  color: "#64748B",
-                  cursor: "pointer",
-                  padding: "4px",
-                  borderRadius: "6px",
+                  padding: "6px 14px",
+                  borderRadius: "8px",
+                  border: isHidden ? "1px solid #CBD5E1" : "1px solid rgba(10, 132, 255, 0.3)",
+                  backgroundColor: isHidden ? "#F1F5F9" : "#0A84FF",
+                  color: isHidden ? "#475569" : "#FFFFFF",
+                  fontSize: "12.5px",
+                  fontWeight: "600",
+                  cursor: isSaving ? "wait" : "pointer",
+                  transition: "all 0.15s ease",
                 }}
               >
-                <X size={18} />
+                {isSaving ? "Updating..." : isHidden ? "Show in Sidebar" : "Hide from Sidebar"}
               </button>
             </div>
-
-            <p
-              style={{
-                margin: "0 0 20px 0",
-                fontSize: "13.5px",
-                color: "var(--color-text-secondary, #60758F)",
-                lineHeight: "1.5",
-              }}
-            >
-              Enter your Administrator Access Key to upgrade your account role to Administrator.
-            </p>
-
-            {modalError && (
-              <div
-                style={{
-                  padding: "10px 14px",
-                  backgroundColor: "rgba(229, 72, 77, 0.10)",
-                  border: "1px solid rgba(229, 72, 77, 0.25)",
-                  borderRadius: "10px",
-                  color: "#E5484D",
-                  fontSize: "13px",
-                  fontWeight: "500",
-                  marginBottom: "16px",
-                }}
-              >
-                {modalError}
-              </div>
-            )}
-
-            {/* Form */}
-            <form onSubmit={handleUpgradeRole}>
-              <div style={{ marginBottom: "20px" }}>
-                <Input
-                  label="Administrator Access Key"
-                  type="password"
-                  value={upgradeKey}
-                  onChange={(e) => setUpgradeKey(e.target.value)}
-                  placeholder="Enter administrator access key"
-                  required
-                />
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "10px" }}>
-                <Button variant="outline" onClick={handleCloseModal} disabled={isSubmitting}>
-                  Cancel
-                </Button>
-                <Button type="submit" variant="primary" isLoading={isSubmitting}>
-                  Upgrade Account
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 };

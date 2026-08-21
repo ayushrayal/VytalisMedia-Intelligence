@@ -11,24 +11,51 @@ const {
   validateAnalyticsRequest,
   validateCampaignDetailsRequest,
 } = require("../validators/meta-analytics.validator");
-const { protect } = require("../middleware/auth.middleware");
+const { protect, requireEffectivePermission } = require("../middleware/auth.middleware");
+const { requireOrganizationAccess } = require("../middleware/organization-auth.middleware");
 
-// Protect all Meta account and analytics routes with JWT authentication
+// Protect all Meta routes with JWT authentication & multi-tenant organization isolation
 router.use(protect);
+router.use(requireOrganizationAccess);
+
+/**
+ * Dynamic permission check middleware for /analytics/:endpoint
+ */
+const requireMetaEndpointPermission = (req, res, next) => {
+  const endpoint = req.params.endpoint ? req.params.endpoint.toLowerCase() : "";
+  const permKeyMap = {
+    overview: "meta.overview",
+    campaigns: "meta.campaigns",
+    adsets: "meta.adsets",
+    creatives: "meta.creatives",
+    audience: "meta.audience",
+    places: "meta.places",
+  };
+  const permKey = permKeyMap[endpoint] || "meta.view";
+  return requireEffectivePermission(permKey)(req, res, next);
+};
 
 /**
  * @route   GET /api/meta/preferences/creative-card
  * @desc    Fetch customizable creative card KPI preferences
  * @access  Private
  */
-router.get("/preferences/creative-card", metaController.getCreativeCardPreferences);
+router.get(
+  "/preferences/creative-card",
+  requireEffectivePermission("meta.creatives"),
+  metaController.getCreativeCardPreferences
+);
 
 /**
  * @route   PUT /api/meta/preferences/creative-card
  * @desc    Update customizable creative card KPI preferences
  * @access  Private
  */
-router.put("/preferences/creative-card", metaController.updateCreativeCardPreferences);
+router.put(
+  "/preferences/creative-card",
+  requireEffectivePermission("meta.creatives"),
+  metaController.updateCreativeCardPreferences
+);
 
 /**
  * @route   GET /api/meta/campaigns/:campaignId/details
@@ -37,6 +64,7 @@ router.put("/preferences/creative-card", metaController.updateCreativeCardPrefer
  */
 router.get(
   "/campaigns/:campaignId/details",
+  requireEffectivePermission("meta.campaigns"),
   validateCampaignDetailsRequest,
   metaController.getCampaignDetails
 );
@@ -46,7 +74,11 @@ router.get(
  * @desc    Fetch Meta comparison analytics data comparing Period A and Period B
  * @access  Private
  */
-router.get("/compare", metaController.getMetaComparison);
+router.get(
+  "/compare",
+  requireEffectivePermission("meta.compare"),
+  metaController.getMetaComparison
+);
 
 /**
  * @route   GET /api/meta/analytics/:endpoint
@@ -56,68 +88,33 @@ router.get("/compare", metaController.getMetaComparison);
 router.get(
   "/analytics/:endpoint",
   validateAnalyticsRequest,
+  requireMetaEndpointPermission,
   metaController.getAnalyticsData
 );
 
 /**
- * @route   POST /api/meta/accounts
- * @desc    Add a new Meta account
- * @access  Private
+ * Account Integration Routes (require meta.view permission)
  */
-router.post("/accounts", validateAddAccount, metaController.addAccount);
-
-/**
- * @route   GET /api/meta/accounts
- * @desc    Retrieve all Meta accounts for authenticated user
- * @access  Private
- */
-router.get("/accounts", metaController.getAllAccounts);
-
-/**
- * @route   DELETE /api/meta/accounts
- * @desc    Delete all Meta accounts for authenticated user
- * @access  Private
- */
-router.delete("/accounts", metaController.deleteAllAccounts);
-
-/**
- * @route   PATCH /api/meta/accounts/active
- * @desc    Set current preferred active Meta account
- * @access  Private
- */
+router.post("/accounts", requireEffectivePermission("meta.view"), validateAddAccount, metaController.addAccount);
+router.get("/accounts", requireEffectivePermission("meta.view"), metaController.getAllAccounts);
+router.delete("/accounts", requireEffectivePermission("meta.view"), metaController.deleteAllAccounts);
 router.patch(
   "/accounts/active",
-  protect,
+  requireEffectivePermission("meta.view"),
   validateSetActiveMetaAccount,
   metaController.setActiveAccount
 );
-
-/**
- * @route   GET /api/meta/accounts/:accountId
- * @desc    Retrieve a single Meta account by accountId
- * @access  Private
- */
-router.get("/accounts/:accountId", validateAccountIdParam, metaController.getAccountById);
-
-/**
- * @route   PATCH /api/meta/accounts/:accountId
- * @desc    Update Meta account display name
- * @access  Private
- */
+router.get("/accounts/:accountId", requireEffectivePermission("meta.view"), validateAccountIdParam, metaController.getAccountById);
 router.patch(
   "/accounts/:accountId",
+  requireEffectivePermission("meta.view"),
   validateAccountIdParam,
   validateUpdateAccount,
   metaController.updateAccount
 );
-
-/**
- * @route   DELETE /api/meta/accounts/:accountId
- * @desc    Delete a single Meta account by accountId
- * @access  Private
- */
 router.delete(
   "/accounts/:accountId",
+  requireEffectivePermission("meta.view"),
   validateAccountIdParam,
   metaController.deleteAccount
 );
