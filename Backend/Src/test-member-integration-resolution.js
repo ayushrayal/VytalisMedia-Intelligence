@@ -65,8 +65,9 @@ const runMemberIntegrationSuite = async () => {
       console.log(`     Account [${i+1}]: Domain=${acc.accountName}, Shop=${acc.shopName}`);
     });
 
-    if (shopifyRes.accounts.length === 0) {
-      throw new Error("Member returned 0 Shopify accounts even though Client has connected accounts!");
+    const expectedShopifyCount = integrationUser.integrations?.shopify?.length || 0;
+    if (shopifyRes.accounts.length !== expectedShopifyCount) {
+      throw new Error(`Member returned ${shopifyRes.accounts.length} Shopify accounts, expected ${expectedShopifyCount}!`);
     }
     console.log(`   -> SHOPIFY USES SAME MEMBER -> CLIENT RESOLUTION PERFECTLY!`);
 

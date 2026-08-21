@@ -55,10 +55,16 @@ export const UserManagement = ({ currentUser }) => {
   // Tab State: "admins" | "clients" | "members"
   const [activeTab, setActiveTab] = useState(effectiveUser?.role === "client" ? "members" : "clients");
 
-  // Data lists
+  // Summary counts state
+  const [userCounts, setUserCounts] = useState({ admins: 0, clients: 0, members: 0 });
+
+  // Data lists & Pagination State
   const [admins, setAdmins] = useState([]);
   const [clients, setClients] = useState([]);
   const [members, setMembers] = useState([]);
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 25, totalPages: 1, hasNextPage: false, hasPrevPage: false });
+  const [page, setPage] = useState(1);
+
   const [loading, setLoading] = useState(true);
   const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
@@ -66,9 +72,10 @@ export const UserManagement = ({ currentUser }) => {
 
   // Search
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [openDropdownId, setOpenDropdownId] = useState(null);
 
-  // Modals
+  // Modals state
   const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
@@ -76,36 +83,76 @@ export const UserManagement = ({ currentUser }) => {
   const [userToDelete, setUserToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Quick New Admin State
+  // Quick New Admin Form State
   const [adminName, setAdminName] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [creatingAdmin, setCreatingAdmin] = useState(false);
 
-  const fetchAllData = useCallback(async () => {
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Fetch summary counts
+  const fetchCounts = useCallback(async () => {
+    try {
+      const res = await http.get("/admin/users/counts");
+      if (res.data?.counts) {
+        setUserCounts(res.data.counts);
+      }
+    } catch (e) {
+      // Non-fatal fallback
+    }
+  }, []);
+
+  // Fetch active tab paginated data
+  const fetchTabData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [adminsRes, clientsRes, membersRes] = await Promise.all([
-        http.get("/admin/users/admins").catch(() => ({ data: { admins: [] } })),
-        http.get("/admin/users/clients").catch(() => ({ data: { clients: [] } })),
-        http.get("/admin/users/members").catch(() => ({ data: { members: [] } })),
-      ]);
+      const params = { page, limit: 25 };
+      if (debouncedSearch) params.search = debouncedSearch;
 
-      if (adminsRes.data?.admins) setAdmins(adminsRes.data.admins);
-      if (clientsRes.data?.clients) setClients(clientsRes.data.clients);
-      if (membersRes.data?.members) setMembers(membersRes.data.members);
+      const endpoint = `/admin/users/${activeTab}`;
+      const res = await http.get(endpoint, { params });
+
+      const data = res.data || {};
+      if (activeTab === "admins" && data.admins) {
+        setAdmins(data.admins);
+      } else if (activeTab === "clients" && data.clients) {
+        setClients(data.clients);
+      } else if (activeTab === "members" && data.members) {
+        setMembers(data.members);
+      }
+
+      if (data.pagination) {
+        setPagination(data.pagination);
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeTab, page, debouncedSearch]);
 
   useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+    fetchCounts();
+  }, [fetchCounts]);
+
+  useEffect(() => {
+    fetchTabData();
+  }, [fetchTabData]);
+
+  const refreshAll = useCallback(() => {
+    fetchCounts();
+    fetchTabData();
+  }, [fetchCounts, fetchTabData]);
 
   // Handle status toggle (active / disabled)
   const handleToggleStatus = async (user) => {
@@ -115,7 +162,7 @@ export const UserManagement = ({ currentUser }) => {
       if (res.data && res.data.user) {
         setFeedbackMessage(`Account status for ${user.name} set to ${newStatus}`);
         setTimeout(() => setFeedbackMessage(""), 3500);
-        fetchAllData();
+        refreshAll();
       }
     } catch (err) {
       alert(`Status update failed: ${getErrorMessage(err)}`);
@@ -131,7 +178,7 @@ export const UserManagement = ({ currentUser }) => {
       setFeedbackMessage(`User ${userToDelete.name} deleted successfully.`);
       setTimeout(() => setFeedbackMessage(""), 3500);
       setUserToDelete(null);
-      fetchAllData();
+      refreshAll();
     } catch (err) {
       alert(`Delete failed: ${getErrorMessage(err)}`);
     } finally {
@@ -157,7 +204,7 @@ export const UserManagement = ({ currentUser }) => {
         setAdminEmail("");
         setAdminPassword("");
         setIsAddAdminModalOpen(false);
-        fetchAllData();
+        refreshAll();
       }
     } catch (err) {
       alert(`Failed to create Admin: ${getErrorMessage(err)}`);
@@ -166,16 +213,12 @@ export const UserManagement = ({ currentUser }) => {
     }
   };
 
-  const getFilteredList = (list) => {
-    if (!searchQuery.trim()) return list;
-    const q = searchQuery.toLowerCase().trim();
-    return list.filter(
-      (u) =>
-        u.name?.toLowerCase().includes(q) ||
-        u.email?.toLowerCase().includes(q) ||
-        u.organizationId?.name?.toLowerCase().includes(q)
-    );
+  const getActiveList = () => {
+    if (activeTab === "admins") return admins;
+    if (activeTab === "clients") return clients;
+    return members;
   };
+
 
   return (
     <div style={{ maxWidth: "1160px", margin: "0 auto", paddingBottom: "48px" }}>
@@ -295,7 +338,7 @@ export const UserManagement = ({ currentUser }) => {
 
           <button
             type="button"
-            onClick={fetchAllData}
+            onClick={refreshAll}
             disabled={loading}
             style={{
               height: "38px",
@@ -352,7 +395,7 @@ export const UserManagement = ({ currentUser }) => {
         {(isRootAdmin || effectiveUser?.role === "admin") && (
           <button
             type="button"
-            onClick={() => setActiveTab("clients")}
+            onClick={() => { setActiveTab("clients"); setPage(1); }}
             style={{
               padding: "10px 18px",
               border: "none",
@@ -369,13 +412,13 @@ export const UserManagement = ({ currentUser }) => {
             }}
           >
             <Building size={16} />
-            <span>Clients & Organizations ({clients.length})</span>
+            <span>Clients & Organizations ({userCounts.clients || clients.length})</span>
           </button>
         )}
 
         <button
           type="button"
-          onClick={() => setActiveTab("members")}
+          onClick={() => { setActiveTab("members"); setPage(1); }}
           style={{
             padding: "10px 18px",
             border: "none",
@@ -392,13 +435,13 @@ export const UserManagement = ({ currentUser }) => {
           }}
         >
           <Users size={16} />
-          <span>Team Members ({members.length})</span>
+          <span>Team Members ({userCounts.members || members.length})</span>
         </button>
 
         {isRootAdmin && (
           <button
             type="button"
-            onClick={() => setActiveTab("admins")}
+            onClick={() => { setActiveTab("admins"); setPage(1); }}
             style={{
               padding: "10px 18px",
               border: "none",
@@ -415,7 +458,7 @@ export const UserManagement = ({ currentUser }) => {
             }}
           >
             <Shield size={16} />
-            <span>Admins & Founders ({admins.length})</span>
+            <span>Admins & Founders ({userCounts.admins || admins.length})</span>
           </button>
         )}
       </div>
@@ -453,7 +496,8 @@ export const UserManagement = ({ currentUser }) => {
           <Skeleton height="60px" />
         </div>
       ) : error ? (
-        <ErrorState message={error} onRetry={fetchAllData} />
+        <ErrorState message={error} onRetry={refreshAll} />
+
       ) : (
         <div
           style={{
@@ -478,7 +522,7 @@ export const UserManagement = ({ currentUser }) => {
 
             <tbody>
               {activeTab === "clients" &&
-                getFilteredList(clients).map((client) => {
+                clients.map((client) => {
                   const isFull = client.activeMembersCount >= (client.memberLimit || 5);
                   const isSelf = client._id === effectiveUser?._id;
 
@@ -586,7 +630,7 @@ export const UserManagement = ({ currentUser }) => {
                 })}
 
               {activeTab === "members" &&
-                getFilteredList(members).map((member) => {
+                members.map((member) => {
                   const isSelf = member._id === effectiveUser?._id;
                   const orgName = member.organizationId?.name || "Unassigned Org";
 
@@ -678,7 +722,7 @@ export const UserManagement = ({ currentUser }) => {
                 })}
 
               {activeTab === "admins" &&
-                getFilteredList(admins).map((admin) => {
+                admins.map((admin) => {
                   const isRoot = admin.role === "root_admin" || admin.isRootAdmin;
                   const isSelf = admin._id === effectiveUser?._id;
 
@@ -758,14 +802,69 @@ export const UserManagement = ({ currentUser }) => {
                 })}
             </tbody>
           </table>
+
+          {/* Pagination Controls Bar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "12px 20px",
+              backgroundColor: "#F8FAFC",
+              borderTop: "1px solid #E2E8F0",
+              fontSize: "13px",
+              color: "#64748B",
+            }}
+          >
+            <div>
+              Showing page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages || 1}</strong> ({pagination.total || 0} total records)
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                type="button"
+                disabled={!pagination.hasPrevPage || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "6px",
+                  border: "1px solid #CBD5E1",
+                  backgroundColor: pagination.hasPrevPage ? "#FFFFFF" : "#F1F5F9",
+                  color: pagination.hasPrevPage ? "#0F172A" : "#94A3B8",
+                  fontWeight: "600",
+                  fontSize: "12px",
+                  cursor: pagination.hasPrevPage ? "pointer" : "not-allowed",
+                }}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                disabled={!pagination.hasNextPage || loading}
+                onClick={() => setPage((p) => p + 1)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "6px",
+                  border: "1px solid #CBD5E1",
+                  backgroundColor: pagination.hasNextPage ? "#FFFFFF" : "#F1F5F9",
+                  color: pagination.hasNextPage ? "#0F172A" : "#94A3B8",
+                  fontWeight: "600",
+                  fontSize: "12px",
+                  cursor: pagination.hasNextPage ? "pointer" : "not-allowed",
+                }}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
+
       )}
 
       {/* Add Client Modal */}
       <AddUserModal
         isOpen={isAddClientModalOpen}
         onClose={() => setIsAddClientModalOpen(false)}
-        onUserCreated={() => fetchAllData()}
+        onUserCreated={() => refreshAll()}
       />
 
       {/* Add Member Modal */}
@@ -773,7 +872,7 @@ export const UserManagement = ({ currentUser }) => {
         isOpen={isAddMemberModalOpen}
         onClose={() => setIsAddMemberModalOpen(false)}
         clients={effectiveUser?.role === "client" ? [effectiveUser] : clients}
-        onMemberCreated={() => fetchAllData()}
+        onMemberCreated={() => refreshAll()}
       />
 
       {/* User Permission Matrix Modal */}
@@ -782,7 +881,7 @@ export const UserManagement = ({ currentUser }) => {
         onClose={() => setPermissionTargetUser(null)}
         targetUser={permissionTargetUser}
         currentUser={effectiveUser}
-        onPermissionsUpdated={() => fetchAllData()}
+        onPermissionsUpdated={() => refreshAll()}
       />
 
       {/* Create Admin Modal (Root Admin Only) */}

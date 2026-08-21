@@ -144,6 +144,12 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+// Compound indexes for fast list queries, sorting, and batch counts
+userSchema.index({ role: 1, status: 1, createdAt: -1 });
+userSchema.index({ organizationId: 1, role: 1, status: 1 });
+userSchema.index({ assignedClientId: 1, role: 1, status: 1 });
+userSchema.index({ name: 1, email: 1 });
+
 // Hash password before saving if modified
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) {

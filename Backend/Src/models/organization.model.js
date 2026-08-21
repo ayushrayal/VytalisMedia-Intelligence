@@ -30,6 +30,8 @@ const organizationSchema = new mongoose.Schema(
   }
 );
 
+organizationSchema.index({ ownerId: 1, status: 1 });
+
 organizationSchema.set("toJSON", {
   transform: (doc, ret) => {
     delete ret.__v;

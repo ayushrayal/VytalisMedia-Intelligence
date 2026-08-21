@@ -9,6 +9,7 @@ router.use(protect);
 /**
  * Admins Management Routes
  */
+router.get("/users/counts", adminController.getUserCounts);
 router.get("/users/admins", requireEffectivePermission("user_management.admins"), adminController.getAllAdmins);
 router.post("/admins", requireRootAdmin, adminController.createAdmin);
 

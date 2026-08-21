@@ -4,37 +4,139 @@ const Organization = require("../models/organization.model");
 const AdminAssignment = require("../models/admin-assignment.model");
 const GlobalSettings = require("../models/global-settings.model");
 const { getDefaultPermissions, ALL_PERMISSION_KEYS } = require("../config/permission-registry");
-const { invalidateGlobalSettingsCache, calculateAllEffectivePermissions } = require("../utils/permission-calculator.util");
+const {
+  calculateEffectivePermission,
+  calculateAllEffectivePermissions,
+  invalidateGlobalSettingsCache,
+  invalidateUserPermissionCache,
+  invalidateOrgPermissionCache,
+  invalidateGlobalPermissionCache,
+} = require("../utils/permission-calculator.util");
 const { formatPermissionsArray } = require("../utils/migration.util");
 const { logAuditEvent } = require("../utils/audit-logger.util");
 const { sendSuccess, sendError } = require("../utils/api-response.util");
+const { createTimer } = require("../utils/performance-timer.util");
 const logger = require("../utils/logger.util");
 
 /**
+ * GET /api/admin/users/counts
+ * Retrieve fast summary user counts by category for UI tabs.
+ */
+const getUserCounts = async (req, res, next) => {
+  const timer = createTimer("getUserCounts");
+  try {
+    let clientQuery = { role: "client" };
+    let memberQuery = { role: "member" };
+    let adminQuery = { role: { $in: ["admin", "root_admin"] } };
+
+    if (req.user.role === "client") {
+      memberQuery = {
+        role: "member",
+        $or: [
+          { assignedClientId: req.user._id },
+          ...(req.user.organizationId ? [{ organizationId: req.user.organizationId }] : []),
+        ],
+      };
+    }
+
+    const [adminCount, clientCount, memberCount] = await timer.timeMongo(() =>
+      Promise.all([
+        User.countDocuments(adminQuery),
+        User.countDocuments(clientQuery),
+        User.countDocuments(memberQuery),
+      ])
+    );
+
+    timer.attachServerTimingHeader(res);
+    return sendSuccess(res, 200, "User counts retrieved successfully", {
+      counts: {
+        admins: adminCount,
+        clients: clientCount,
+        members: memberCount,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * GET /api/admin/users/admins
- * Retrieve list of all Admins and Root Admins.
+ * Retrieve paginated list of all Admins and Root Admins.
  */
 const getAllAdmins = async (req, res, next) => {
+  const timer = createTimer("getAllAdmins");
   try {
-    const admins = await User.find({ role: { $in: ["admin", "root_admin"] } })
-      .select("-password")
-      .sort({ createdAt: -1 });
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
+    const skip = (page - 1) * limit;
+    const search = req.query.search ? req.query.search.trim() : "";
 
-    const sanitizedAdmins = await Promise.all(
-      admins.map(async (admin) => {
-        const json = admin.toJSON();
-        // Fetch count of assigned active organizations for this admin
-        const assignments = await AdminAssignment.find({ adminId: admin._id, status: "active" })
-          .populate("organizationId", "name ownerId")
-          .lean();
-        json.assignedOrganizations = assignments.map((a) => a.organizationId).filter(Boolean);
-        json.effectivePermissions = await calculateAllEffectivePermissions(admin);
-        return json;
-      })
+    let filter = { role: { $in: ["admin", "root_admin"] } };
+
+    if (search) {
+      const cleanSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.$or = [
+        { name: { $regex: `^${cleanSearch}`, $options: "i" } },
+        { email: { $regex: `^${cleanSearch}`, $options: "i" } },
+      ];
+    }
+
+    const [total, admins] = await timer.timeMongo(() =>
+      Promise.all([
+        User.countDocuments(filter),
+        User.find(filter)
+          .select("name email role status isRootAdmin lastActiveAt createdAt")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ])
     );
+
+    const adminIds = admins.map((a) => a._id);
+    let adminAssignmentsMap = {};
+
+    if (adminIds.length > 0) {
+      const assignments = await timer.timeMongo(() =>
+        AdminAssignment.find({ adminId: { $in: adminIds }, status: "active" })
+          .populate("organizationId", "name ownerId")
+          .lean()
+      );
+      assignments.forEach((a) => {
+        const aId = a.adminId.toString();
+        if (!adminAssignmentsMap[aId]) adminAssignmentsMap[aId] = [];
+        if (a.organizationId) adminAssignmentsMap[aId].push(a.organizationId);
+      });
+    }
+
+    const sanitizedAdmins = await timer.timePermCalc(async () => {
+      return await Promise.all(
+        admins.map(async (admin) => {
+          const assignedOrganizations = adminAssignmentsMap[admin._id.toString()] || [];
+          const effectivePermissions = await calculateAllEffectivePermissions(admin);
+          return {
+            ...admin,
+            assignedOrganizations,
+            effectivePermissions,
+          };
+        })
+      );
+    });
+
+    const totalPages = Math.ceil(total / limit) || 1;
+    timer.attachServerTimingHeader(res);
 
     return sendSuccess(res, 200, "Admins retrieved successfully", {
       admins: sanitizedAdmins,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
     });
   } catch (error) {
     next(error);
@@ -89,57 +191,101 @@ const createAdmin = async (req, res, next) => {
 
 /**
  * GET /api/admin/users/clients
- * Retrieve list of Clients with organization details and active member counts.
+ * Retrieve paginated list of Clients with organization details and active member counts.
  */
 const getAllClients = async (req, res, next) => {
+  const timer = createTimer("getAllClients");
   try {
-    let query = { role: "client" };
-    // Root Admin and Admin get global access to all clients in the platform.
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
+    const skip = (page - 1) * limit;
+    const search = req.query.search ? req.query.search.trim() : "";
 
-    const clients = await User.find(query)
-      .select("-password")
-      .populate("organizationId", "name ownerId memberLimit status")
-      .sort({ createdAt: -1 });
+    let filter = { role: "client" };
 
-    const sanitizedClients = await Promise.all(
-      clients.map(async (client) => {
-        const json = client.toJSON();
-        let orgId = client.organizationId ? client.organizationId._id : null;
+    if (search) {
+      const cleanSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.$or = [
+        { name: { $regex: `^${cleanSearch}`, $options: "i" } },
+        { email: { $regex: `^${cleanSearch}`, $options: "i" } },
+      ];
+    }
 
-        let activeMembersCount = 0;
-        let memberLimit = 5;
-
-        if (orgId) {
-          activeMembersCount = await User.countDocuments({
-            organizationId: orgId,
-            role: "member",
-            status: "active",
-          });
-          if (client.organizationId && client.organizationId.memberLimit) {
-            memberLimit = client.organizationId.memberLimit;
-          }
-        }
-
-        // Fetch assigned admins
-        let assignedAdmins = [];
-        if (orgId) {
-          const assignments = await AdminAssignment.find({ organizationId: orgId, status: "active" })
-            .populate("adminId", "name email")
-            .lean();
-          assignedAdmins = assignments.map((a) => a.adminId).filter(Boolean);
-        }
-
-        json.activeMembersCount = activeMembersCount;
-        json.memberLimit = memberLimit;
-        json.assignedAdmins = assignedAdmins;
-        json.effectivePermissions = await calculateAllEffectivePermissions(client);
-
-        return json;
-      })
+    const [total, clients] = await timer.timeMongo(() =>
+      Promise.all([
+        User.countDocuments(filter),
+        User.find(filter)
+          .select("name email role status organizationId assignedClientId shopifyEnabled attributionEnabled isRootAdmin lastActiveAt createdAt")
+          .populate("organizationId", "name ownerId memberLimit status")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ])
     );
+
+    const orgIds = clients.map((c) => (c.organizationId ? c.organizationId._id : null)).filter(Boolean);
+
+    let memberCountsMap = {};
+    let adminAssignmentsMap = {};
+
+    if (orgIds.length > 0) {
+      const [memberCounts, assignments] = await timer.timeMongo(() =>
+        Promise.all([
+          User.aggregate([
+            { $match: { organizationId: { $in: orgIds }, role: "member", status: "active" } },
+            { $group: { _id: "$organizationId", count: { $sum: 1 } } },
+          ]),
+          AdminAssignment.find({ organizationId: { $in: orgIds }, status: "active" })
+            .populate("adminId", "name email")
+            .lean(),
+        ])
+      );
+
+      memberCounts.forEach((m) => {
+        memberCountsMap[m._id.toString()] = m.count;
+      });
+
+      assignments.forEach((a) => {
+        const oId = a.organizationId.toString();
+        if (!adminAssignmentsMap[oId]) adminAssignmentsMap[oId] = [];
+        if (a.adminId) adminAssignmentsMap[oId].push(a.adminId);
+      });
+    }
+
+    const sanitizedClients = await timer.timePermCalc(async () => {
+      return await Promise.all(
+        clients.map(async (client) => {
+          const orgIdStr = client.organizationId ? client.organizationId._id.toString() : null;
+          const activeMembersCount = orgIdStr ? memberCountsMap[orgIdStr] || 0 : 0;
+          const memberLimit = (client.organizationId && client.organizationId.memberLimit) || 5;
+          const assignedAdmins = orgIdStr ? adminAssignmentsMap[orgIdStr] || [] : [];
+          const effectivePermissions = await calculateAllEffectivePermissions(client);
+
+          return {
+            ...client,
+            activeMembersCount,
+            memberLimit,
+            assignedAdmins,
+            effectivePermissions,
+          };
+        })
+      );
+    });
+
+    const totalPages = Math.ceil(total / limit) || 1;
+    timer.attachServerTimingHeader(res);
 
     return sendSuccess(res, 200, "Clients retrieved successfully", {
       clients: sanitizedClients,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
     });
   } catch (error) {
     next(error);
@@ -243,14 +389,20 @@ const createClient = async (req, res, next) => {
 
 /**
  * GET /api/admin/users/members
- * Retrieve list of Members under accessible Client organizations.
+ * Retrieve paginated list of Members under accessible Client organizations.
  */
 const getAllMembers = async (req, res, next) => {
+  const timer = createTimer("getAllMembers");
   try {
-    let query = { role: "member" };
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
+    const skip = (page - 1) * limit;
+    const search = req.query.search ? req.query.search.trim() : "";
+
+    let filter = { role: "member" };
 
     if (req.user.role === "client") {
-      query = {
+      filter = {
         role: "member",
         $or: [
           { assignedClientId: req.user._id },
@@ -259,27 +411,64 @@ const getAllMembers = async (req, res, next) => {
       };
     }
 
-    const members = await User.find(query)
-      .select("-password")
-      .populate("organizationId", "name ownerId status")
-      .populate("assignedClientId", "name email")
-      .sort({ createdAt: -1 });
+    if (search) {
+      const cleanSearch = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const searchOr = [
+        { name: { $regex: `^${cleanSearch}`, $options: "i" } },
+        { email: { $regex: `^${cleanSearch}`, $options: "i" } },
+      ];
+      if (filter.$or) {
+        filter = { $and: [filter, { $or: searchOr }] };
+      } else {
+        filter.$or = searchOr;
+      }
+    }
 
-    const sanitizedMembers = await Promise.all(
-      members.map(async (member) => {
-        const json = member.toJSON();
-        json.effectivePermissions = await calculateAllEffectivePermissions(member);
-        return json;
-      })
+    const [total, members] = await timer.timeMongo(() =>
+      Promise.all([
+        User.countDocuments(filter),
+        User.find(filter)
+          .select("name email role status organizationId assignedClientId lastActiveAt createdAt")
+          .populate("organizationId", "name ownerId status")
+          .populate("assignedClientId", "name email")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+      ])
     );
+
+    const sanitizedMembers = await timer.timePermCalc(async () => {
+      return await Promise.all(
+        members.map(async (member) => {
+          const effectivePermissions = await calculateAllEffectivePermissions(member);
+          return {
+            ...member,
+            effectivePermissions,
+          };
+        })
+      );
+    });
+
+    const totalPages = Math.ceil(total / limit) || 1;
+    timer.attachServerTimingHeader(res);
 
     return sendSuccess(res, 200, "Members retrieved successfully", {
       members: sanitizedMembers,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
     });
   } catch (error) {
     next(error);
   }
 };
+
 
 /**
  * POST /api/admin/members
@@ -510,6 +699,10 @@ const updateUserPermissions = async (req, res, next) => {
     }));
 
     await targetUser.save();
+    await invalidateUserPermissionCache(targetUser._id);
+    if (targetUser.role === "client" && targetUser.organizationId) {
+      await invalidateOrgPermissionCache(targetUser.organizationId);
+    }
 
     await logAuditEvent({
       actorId: req.user._id,
@@ -581,6 +774,10 @@ const updateUserStatus = async (req, res, next) => {
     const oldStatus = targetUser.status;
     targetUser.status = status;
     await targetUser.save();
+    await invalidateUserPermissionCache(targetUser._id);
+    if (targetUser.organizationId) {
+      await invalidateOrgPermissionCache(targetUser.organizationId);
+    }
 
     const actionType = status === "disabled" ? "USER_DISABLED" : "USER_ENABLED";
     await logAuditEvent({
@@ -644,7 +841,7 @@ const updateGlobalSettings = async (req, res, next) => {
     settings.updatedBy = req.user._id;
     await settings.save();
 
-    invalidateGlobalSettingsCache();
+    await invalidateGlobalPermissionCache();
 
     await logAuditEvent({
       actorId: req.user._id,
@@ -690,6 +887,8 @@ const assignAdminToOrganization = async (req, res, next) => {
       { upsert: true, new: true }
     );
 
+    await invalidateOrgPermissionCache(organizationId);
+
     await logAuditEvent({
       actorId: req.user._id,
       targetUserId: adminId,
@@ -716,6 +915,8 @@ const unassignAdminFromOrganization = async (req, res, next) => {
       { status: "inactive" },
       { new: true }
     );
+
+    await invalidateOrgPermissionCache(organizationId);
 
     await logAuditEvent({
       actorId: req.user._id,
@@ -783,6 +984,10 @@ const deleteUser = async (req, res, next) => {
     }
 
     await User.findByIdAndDelete(userId);
+    await invalidateUserPermissionCache(userId);
+    if (targetUser.organizationId) {
+      await invalidateOrgPermissionCache(targetUser.organizationId);
+    }
 
     await logAuditEvent({
       actorId: req.user._id,
@@ -833,6 +1038,7 @@ const updateUserRole = async (req, res, next) => {
     const oldRole = targetUser.role;
     targetUser.role = role;
     await targetUser.save();
+    await invalidateUserPermissionCache(userId);
 
     await logAuditEvent({
       actorId: req.user._id,
@@ -856,6 +1062,7 @@ const updateUserRole = async (req, res, next) => {
 };
 
 module.exports = {
+  getUserCounts,
   getAllAdmins,
   createAdmin,
   getAllClients,
@@ -871,3 +1078,4 @@ module.exports = {
   deleteUser,
   updateUserRole,
 };
+
