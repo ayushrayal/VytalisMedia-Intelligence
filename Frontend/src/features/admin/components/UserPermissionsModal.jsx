@@ -85,19 +85,40 @@ export const UserPermissionsModal = ({
         initialMap[key] = false;
       });
 
+      let foundAssigned = false;
       if (targetUser.assignedPermissions) {
-        if (typeof targetUser.assignedPermissions.get === "function") {
+        if (Array.isArray(targetUser.assignedPermissions)) {
+          targetUser.assignedPermissions.forEach((p) => {
+            if (p && p.key && ALL_PERMISSION_KEYS.includes(p.key)) {
+              initialMap[p.key] = Boolean(p.allowed);
+              foundAssigned = true;
+            }
+          });
+        } else if (typeof targetUser.assignedPermissions.get === "function") {
           targetUser.assignedPermissions.forEach((val, key) => {
-            initialMap[key] = Boolean(val);
+            if (ALL_PERMISSION_KEYS.includes(key)) {
+              initialMap[key] = Boolean(val);
+              foundAssigned = true;
+            }
           });
         } else if (typeof targetUser.assignedPermissions === "object") {
           Object.entries(targetUser.assignedPermissions).forEach(([k, v]) => {
             if (ALL_PERMISSION_KEYS.includes(k)) {
               initialMap[k] = Boolean(v);
+              foundAssigned = true;
             }
           });
         }
       }
+
+      if (!foundAssigned && targetUser.effectivePermissions) {
+        Object.entries(targetUser.effectivePermissions).forEach(([k, v]) => {
+          if (ALL_PERMISSION_KEYS.includes(k) && v) {
+            initialMap[k] = Boolean(v.allowed);
+          }
+        });
+      }
+
       setAssignedPermissions(initialMap);
 
       if (isViewerRootAdmin) {

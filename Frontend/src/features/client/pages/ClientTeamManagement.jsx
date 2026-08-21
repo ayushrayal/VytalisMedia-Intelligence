@@ -567,7 +567,12 @@ export const ClientTeamManagement = ({ currentUser }) => {
         targetUser={permissionTargetUser}
         currentUser={effectiveUser}
         customEndpoint={permissionTargetUser ? `/client/team/${permissionTargetUser._id}/permissions` : null}
-        onPermissionsUpdated={() => fetchTeamData()}
+        onPermissionsUpdated={(updatedUser) => {
+          fetchTeamData();
+          if (updatedUser && updatedUser._id === permissionTargetUser?._id) {
+            setPermissionTargetUser(updatedUser);
+          }
+        }}
       />
 
       {/* Delete Confirmation Modal */}

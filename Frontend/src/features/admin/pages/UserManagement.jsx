@@ -890,7 +890,12 @@ export const UserManagement = ({ currentUser }) => {
         onClose={() => setPermissionTargetUser(null)}
         targetUser={permissionTargetUser}
         currentUser={effectiveUser}
-        onPermissionsUpdated={() => refreshAll()}
+        onPermissionsUpdated={(updatedUser) => {
+          refreshAll();
+          if (updatedUser && updatedUser._id === permissionTargetUser?._id) {
+            setPermissionTargetUser(updatedUser);
+          }
+        }}
       />
 
       {/* Create Admin Modal (Root Admin Only) */}
