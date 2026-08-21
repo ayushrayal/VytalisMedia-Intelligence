@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { getCampaignDetails } from "../services/meta.api.js";
 import StatusBadge from "./StatusBadge.jsx";
 import AdSetAccordionList from "./AdSetAccordionList.jsx";
+import CampaignBreakdownsTab from "./CampaignBreakdownsTab.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
-import { X, Image as ImageIcon, Layers, BarChart3, ChevronRight } from "lucide-react";
+import { X, Image as ImageIcon, Layers, BarChart3, PieChart, ChevronRight } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
@@ -302,6 +303,7 @@ export const CampaignDetailsDrawer = ({
             { id: "adsets", label: `Ad Sets ${adSets.length ? `(${adSets.length})` : ""}`, icon: Layers },
             { id: "creatives", label: `Creatives ${creatives.length ? `(${creatives.length})` : ""}`, icon: ImageIcon },
             { id: "performance", label: "Performance", icon: BarChart3 },
+            { id: "breakdowns", label: "Breakdowns", icon: PieChart },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             const TabIcon = tab.icon;
@@ -681,6 +683,15 @@ export const CampaignDetailsDrawer = ({
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* TAB 4: CAMPAIGN BREAKDOWNS (AGE, GENDER, PLACEMENT) */}
+              {activeTab === "breakdowns" && (
+                <CampaignBreakdownsTab
+                  campaignId={campaignId}
+                  dateParams={dateParams}
+                  currency={currency}
+                />
               )}
             </>
           )}

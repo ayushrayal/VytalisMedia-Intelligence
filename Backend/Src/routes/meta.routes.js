@@ -10,6 +10,7 @@ const {
 const {
   validateAnalyticsRequest,
   validateCampaignDetailsRequest,
+  validateCampaignBreakdownsRequest,
 } = require("../validators/meta-analytics.validator");
 const { protect, requireEffectivePermission } = require("../middleware/auth.middleware");
 const { requireOrganizationAccess } = require("../middleware/organization-auth.middleware");
@@ -67,6 +68,18 @@ router.get(
   requireEffectivePermission("meta.campaigns"),
   validateCampaignDetailsRequest,
   metaController.getCampaignDetails
+);
+
+/**
+ * @route   GET /api/meta/campaigns/:campaignId/breakdowns
+ * @desc    Fetch campaign-scoped breakdown insights (age, gender, placement)
+ * @access  Private
+ */
+router.get(
+  "/campaigns/:campaignId/breakdowns",
+  requireEffectivePermission("meta.campaigns"),
+  validateCampaignBreakdownsRequest,
+  metaController.getCampaignBreakdowns
 );
 
 /**

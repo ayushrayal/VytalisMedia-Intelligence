@@ -339,9 +339,129 @@ const getMetaComparison = async ({ user, query = {} }) => {
   };
 };
 
+/**
+ * Fetches campaign-scoped breakdown insights (age, gender, placement).
+ *
+ * @param {Object} options
+ * @param {Object} options.user - Authenticated user object
+ * @param {string} options.campaignId - Target campaign ID
+ * @param {string} options.breakdown - Breakdown category ("age" | "gender" | "placement")
+ * @param {Object} options.query - Raw query parameters ({ datePreset, dateFrom, dateTo })
+ * @returns {Promise<Object>} Object containing breakdown data and meta metadata
+ */
+const getCampaignBreakdowns = async ({ user, campaignId, breakdown = "age", query = {} }) => {
+  const { integrationUser } = await getEffectiveIntegrationContext(user, query.organizationId);
+  const targetUser = integrationUser || user;
+
+  if (!targetUser || !targetUser.preferences || !targetUser.preferences.activeMetaAccount) {
+    const error = new Error("No active Meta account selected for this Organization");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const activeMetaAccount = targetUser.preferences.activeMetaAccount;
+  const userId = targetUser._id ? targetUser._id.toString() : "anonymous";
+  const cleanBreakdown = (breakdown || "age").toLowerCase().trim();
+
+  const { dateRangeKey, datePreset, dateFrom, dateTo } = normalizeDateParams({
+    datePreset: query.datePreset,
+    dateFrom: query.dateFrom,
+    dateTo: query.dateTo,
+  });
+
+  // Security Verification: Ensure campaignId belongs to authorized activeMetaAccount
+  let verifiedCampaigns = await facebookAdapter.fetchCampaigns({
+    activeMetaAccount,
+    campaignId,
+    datePreset,
+    dateFrom,
+    dateTo,
+  });
+
+  let isAuthorized = Array.isArray(verifiedCampaigns) && verifiedCampaigns.some(
+    (c) => String(c.campaign_id || c.id) === String(campaignId) || String(c.campaign) === String(campaignId)
+  );
+
+  if (!isAuthorized) {
+    const wideCheck = await facebookAdapter.fetchCampaigns({
+      activeMetaAccount,
+      campaignId,
+      datePreset: "last_90d",
+    });
+    isAuthorized = Array.isArray(wideCheck) && wideCheck.some(
+      (c) => String(c.campaign_id || c.id) === String(campaignId) || String(c.campaign) === String(campaignId)
+    );
+  }
+
+  if (!isAuthorized) {
+    const error = new Error("Access denied. The requested campaign does not belong to your authorized Meta account.");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const cacheKey = `meta:${userId}:${activeMetaAccount}:campaign_breakdowns:${campaignId}:${cleanBreakdown}:${dateRangeKey}`;
+
+  try {
+    const cached = await cacheUtil.get(cacheKey);
+    if (cached && cached.data) {
+      return {
+        data: cached.data,
+        meta: {
+          cachedAt: cached.cachedAt,
+          expiresAt: cached.expiresAt,
+          source: "redis",
+        },
+      };
+    }
+  } catch (cacheErr) {
+    logger.warn(`[Redis ERROR] Cache lookup failed for key ${cacheKey}: ${cacheErr.message}`);
+  }
+
+  const rawData = await facebookAdapter.fetchCampaignBreakdowns({
+    activeMetaAccount,
+    campaignId,
+    breakdown: cleanBreakdown,
+    datePreset,
+    dateFrom,
+    dateTo,
+  });
+
+  const payloadData = {
+    campaignId,
+    breakdown: cleanBreakdown,
+    rows: rawData || [],
+  };
+
+  const baseTtl = 300; // 5 minutes
+  const jitteredTtl = calculateJitteredTtl(baseTtl);
+
+  const now = new Date();
+  const cachedAt = now.toISOString();
+  const expiresAt = new Date(now.getTime() + jitteredTtl * 1000).toISOString();
+
+  const cachePayload = {
+    data: payloadData,
+    cachedAt,
+    expiresAt,
+    source: "windsor",
+  };
+
+  await cacheUtil.set(cacheKey, cachePayload, jitteredTtl);
+
+  return {
+    data: payloadData,
+    meta: {
+      cachedAt,
+      expiresAt,
+      source: "windsor",
+    },
+  };
+};
+
 module.exports = {
   getAnalyticsData,
   getCampaignDetails,
+  getCampaignBreakdowns,
   getMetaComparison,
 };
 

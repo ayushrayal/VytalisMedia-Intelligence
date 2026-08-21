@@ -86,6 +86,11 @@ export const getCampaignDetails = async (campaignId, params = {}) => {
   return await http.get(`/meta/campaigns/${encodeURIComponent(campaignId)}/details${query}`);
 };
 
+export const getCampaignBreakdowns = async (campaignId, params = {}) => {
+  const query = buildQueryString(params);
+  return await http.get(`/meta/campaigns/${encodeURIComponent(campaignId)}/breakdowns${query}`);
+};
+
 export const getPlaces = async (params = {}) => {
   const query = buildQueryString(params);
   return await http.get(`/meta/analytics/places${query}`);

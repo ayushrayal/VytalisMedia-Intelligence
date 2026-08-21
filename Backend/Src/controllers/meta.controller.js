@@ -242,6 +242,32 @@ const getMetaComparison = async (req, res, next) => {
   }
 };
 
+/**
+ * Handles request for campaign-scoped breakdown insights (age, gender, placement).
+ * Endpoint: GET /api/meta/campaigns/:campaignId/breakdowns
+ */
+const getCampaignBreakdowns = async (req, res, next) => {
+  try {
+    const { campaignId } = req.params;
+    const result = await metaAnalyticsService.getCampaignBreakdowns({
+      user: req.user,
+      campaignId,
+      breakdown: req.query.breakdown || "age",
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Campaign breakdown retrieved successfully.",
+      result.data,
+      result.meta
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   addAccount,
   getAllAccounts,
@@ -251,6 +277,7 @@ module.exports = {
   deleteAllAccounts,
   getAnalyticsData,
   getCampaignDetails,
+  getCampaignBreakdowns,
   getMetaComparison,
   setActiveAccount,
   getCreativeCardPreferences,

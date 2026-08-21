@@ -638,6 +638,211 @@ const fetchCampaignDetails = async ({ activeMetaAccount, campaignId, datePreset,
   };
 };
 
+/**
+ * Format helper for Placement platform_position dimension.
+ */
+const formatPlacementLabel = (row) => {
+  if (!row || typeof row !== "object") return "Unknown Placement";
+  const pos = (row.platform_position || row.placement || "").toString().trim();
+  const platform = (row.publisher_platform || "").toString().trim();
+
+  if (pos) {
+    const normPos = pos.toLowerCase();
+    const map = {
+      facebook_feed: "Facebook Feed",
+      feed: platform.toLowerCase() === "instagram" ? "Instagram Feed" : "Facebook Feed",
+      instagram_feed: "Instagram Feed",
+      instagram_reels: "Instagram Reels",
+      facebook_reels: "Facebook Reels",
+      reels: platform.toLowerCase() === "instagram" ? "Instagram Reels" : "Facebook Reels",
+      instagram_stories: "Instagram Stories",
+      facebook_stories: "Facebook Stories",
+      stories: platform.toLowerCase() === "instagram" ? "Instagram Stories" : "Facebook Stories",
+      audience_network: "Audience Network",
+      an_classic: "Audience Network",
+      right_hand_column: "Facebook Right Column",
+      instant_article: "Facebook Instant Articles",
+      marketplace: "Facebook Marketplace",
+      search: "Facebook Search Results",
+      explore: "Instagram Explore",
+    };
+
+    if (map[normPos]) return map[normPos];
+
+    return normPos
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }
+
+  if (platform) {
+    const pNorm = platform.toLowerCase();
+    if (pNorm === "facebook") return "Facebook";
+    if (pNorm === "instagram") return "Instagram";
+    if (pNorm === "audience_network") return "Audience Network";
+    if (pNorm === "messenger") return "Messenger";
+    return platform.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  }
+
+  return "Unknown Placement";
+};
+
+const formatGenderLabel = (rawGender) => {
+  if (!rawGender) return "Unknown";
+  const g = String(rawGender).toLowerCase().trim();
+  if (g === "male" || g === "m") return "Male";
+  if (g === "female" || g === "f") return "Female";
+  return "Unknown";
+};
+
+const formatAgeLabel = (rawAge) => {
+  if (!rawAge) return "Unknown";
+  return String(rawAge).trim();
+};
+
+/**
+ * Fetches campaign-scoped breakdown data (age, gender, placement) from Windsor.
+ */
+const fetchCampaignBreakdowns = async ({
+  activeMetaAccount,
+  campaignId,
+  breakdown = "age",
+  datePreset,
+  dateFrom,
+  dateTo,
+}) => {
+  const fieldsMap = {
+    age: [
+      "age",
+      "spend",
+      "impressions",
+      "reach",
+      "clicks",
+      "currency",
+      "actions_purchase",
+      "action_values_purchase",
+    ],
+    gender: [
+      "gender",
+      "spend",
+      "impressions",
+      "reach",
+      "clicks",
+      "currency",
+      "actions_purchase",
+      "action_values_purchase",
+    ],
+    placement: [
+      "publisher_platform",
+      "platform_position",
+      "spend",
+      "impressions",
+      "reach",
+      "clicks",
+      "currency",
+      "actions_purchase",
+      "action_values_purchase",
+    ],
+  };
+
+  const cleanBreakdown = (breakdown || "age").toLowerCase().trim();
+  const fields = fieldsMap[cleanBreakdown] || fieldsMap.age;
+
+  const filters = buildAccountFilter(activeMetaAccount);
+  if (campaignId) {
+    filters.push(["campaign_id", "eq", campaignId]);
+  }
+
+  const rawData = await windsorProvider.fetchData({
+    connector: WINDSOR_CONSTANTS.CONNECTOR_FACEBOOK,
+    fields,
+    datePreset,
+    dateFrom,
+    dateTo,
+    filters,
+  });
+
+  return normalizeAndAggregateBreakdowns(rawData, cleanBreakdown);
+};
+
+const normalizeAndAggregateBreakdowns = (rawData, breakdown) => {
+  if (!Array.isArray(rawData) || rawData.length === 0) return [];
+
+  const groupedMap = new Map();
+
+  for (const row of rawData) {
+    if (!row || typeof row !== "object") continue;
+
+    let label = "Unknown";
+    if (breakdown === "age") {
+      label = formatAgeLabel(row.age);
+    } else if (breakdown === "gender") {
+      label = formatGenderLabel(row.gender);
+    } else if (breakdown === "placement") {
+      label = formatPlacementLabel(row);
+    }
+
+    if (!groupedMap.has(label)) {
+      groupedMap.set(label, []);
+    }
+    groupedMap.get(label).push(row);
+  }
+
+  const helperSum = (rows, extractor) => {
+    let hasVal = false;
+    let total = 0;
+    for (const r of rows) {
+      const v = extractor(r);
+      if (v !== null && v !== undefined && !isNaN(Number(v))) {
+        hasVal = true;
+        total += Number(v);
+      }
+    }
+    return hasVal ? total : null;
+  };
+
+  const results = [];
+
+  for (const [label, rows] of groupedMap.entries()) {
+    const spend = helperSum(rows, (r) => getNumericOrNull(r.spend));
+    const impressions = helperSum(rows, (r) => getNumericOrNull(r.impressions));
+    const purchases = helperSum(rows, (r) =>
+      getNumericOrNull(r.actions_omni_purchase ?? r.actions_purchase ?? r.purchases)
+    );
+    const purchaseValue = helperSum(rows, (r) =>
+      getNumericOrNull(r.action_values_omni_purchase ?? r.action_values_purchase ?? r.purchase_conversion_value)
+    );
+
+    // Reach: Non-additive. NEVER fabricate or estimate. Return null if not provided by source.
+    const reachVals = rows
+      .map((r) => getNumericOrNull(r.reach))
+      .filter((v) => v !== null && v !== undefined && !isNaN(v));
+
+    const reach = reachVals.length > 0 ? Math.max(...reachVals) : null;
+
+    // ROAS: Must NEVER be summed. Always calculated from aggregated totals: purchaseValue / spend.
+    const roas =
+      spend !== null && spend > 0 && purchaseValue !== null && purchaseValue > 0
+        ? purchaseValue / spend
+        : null;
+
+    results.push({
+      label,
+      reach: reach !== null ? Math.round(reach) : null,
+      impressions: impressions !== null ? Math.round(impressions) : 0,
+      spend: spend !== null ? Number(spend.toFixed(2)) : 0,
+      purchases: purchases !== null ? Math.round(purchases) : 0,
+      purchaseValue: purchaseValue !== null ? Number(purchaseValue.toFixed(2)) : 0,
+      roas: roas !== null ? Number(roas.toFixed(2)) : null,
+    });
+  }
+
+  // Sort breakdown data by Spend HIGH -> LOW by default
+  results.sort((a, b) => (b.spend || 0) - (a.spend || 0));
+
+  return results;
+};
+
 module.exports = {
   fetchOverview,
   fetchCampaigns,
@@ -646,6 +851,7 @@ module.exports = {
   fetchAudience,
   fetchPlaces,
   fetchCampaignDetails,
+  fetchCampaignBreakdowns,
   normalizeAndAggregateAdSets,
 };
 
