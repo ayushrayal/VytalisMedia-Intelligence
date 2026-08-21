@@ -146,6 +146,17 @@ const requireEffectivePermission = (permissionKey) => {
 };
 
 /**
+ * Express middleware to restrict access to Client-only API endpoints.
+ */
+const requireClient = (req, res, next) => {
+  if (!req.user || req.user.role !== "client") {
+    logger.warn(`Client access denied for user ${req.user?._id || "unknown"}`);
+    return sendError(res, 403, "Access denied. Only Client users can access Team Management.");
+  }
+  next();
+};
+
+/**
  * Legacy compatibility helper for Attribution API access
  */
 const requireAttributionAccess = requireEffectivePermission("attribution.view");
@@ -159,7 +170,9 @@ module.exports = {
   protect,
   requireRootAdmin,
   requireAdmin,
+  requireClient,
   requireEffectivePermission,
   requireAttributionAccess,
   requireShopifyAccess,
 };
+

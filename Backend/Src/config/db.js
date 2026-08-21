@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 
 const User = require("../models/user.model");
 
+const { getNextSequenceValue } = require("../models/counter.model");
+
 const runRbacMigration = async () => {
   try {
     const nonAdminResult = await User.updateMany(
@@ -33,6 +35,26 @@ const runRbacMigration = async () => {
   }
 };
 
+const runRootAdminRankMigration = async () => {
+  try {
+    const unrankedRootAdmins = await User.find({
+      $or: [{ role: "root_admin" }, { isRootAdmin: true }],
+      rootAdminRank: { $eq: null },
+    }).sort({ createdAt: 1 });
+
+    if (unrankedRootAdmins.length > 0) {
+      for (const rootAdmin of unrankedRootAdmins) {
+        const nextRank = await getNextSequenceValue("rootAdminRank");
+        rootAdmin.rootAdminRank = nextRank;
+        await rootAdmin.save();
+        console.log(`✅ Root Admin Rank Migration: Assigned rank #${nextRank} to Root Admin ${rootAdmin.email}`);
+      }
+    }
+  } catch (err) {
+    console.error("⚠️ Root Admin Rank Migration Error (non-fatal):", err.message);
+  }
+};
+
 const connectDB = async () => {
   try {
     const options = {
@@ -44,6 +66,7 @@ const connectDB = async () => {
     };
     await mongoose.connect(process.env.MONGODB_URI, options);
     await runRbacMigration();
+    await runRootAdminRankMigration();
   } catch (error) {
     console.error("❌ MongoDB Connection Failed");
     console.error(error.message);
@@ -51,5 +74,6 @@ const connectDB = async () => {
     process.exit(1);
   }
 };
+
 
 module.exports = connectDB;

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+
 import { http } from "../../../lib/http.js";
 import { getErrorMessage } from "../../../utils/error.js";
 import { PERMISSION_KEYS, PERMISSION_LABELS } from "../../../config/permission-registry.js";
@@ -53,14 +54,17 @@ const PERMISSION_SECTIONS = [
   },
 ];
 
+const ALL_PERMISSION_KEYS = Object.values(PERMISSION_KEYS);
+
 export const UserPermissionsModal = ({
   isOpen,
   onClose,
   targetUser,
   currentUser,
   onPermissionsUpdated,
+  customEndpoint,
 }) => {
-  const isViewerRootAdmin = Boolean(currentUser?.role === "root_admin" || currentUser?.isRootAdmin);
+  const isViewerRootAdmin = Boolean(currentUser?.role === "root_admin" || currentUser?.isRootAdmin === true);
 
   const [activeTab, setActiveTab] = useState("matrix"); // "matrix" | "global"
   const [assignedPermissions, setAssignedPermissions] = useState({});
@@ -70,44 +74,54 @@ export const UserPermissionsModal = ({
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (isOpen && targetUser) {
-      // Extract assignedPermissions map/object from targetUser
-      let permsObj = {};
+  const loadPermissionsData = useCallback(async () => {
+    if (!targetUser) return;
+    try {
+      setLoading(true);
+      setError("");
+
+      const initialMap = {};
+      ALL_PERMISSION_KEYS.forEach((key) => {
+        initialMap[key] = false;
+      });
+
       if (targetUser.assignedPermissions) {
         if (typeof targetUser.assignedPermissions.get === "function") {
           targetUser.assignedPermissions.forEach((val, key) => {
-            permsObj[key] = Boolean(val);
+            initialMap[key] = Boolean(val);
           });
         } else if (typeof targetUser.assignedPermissions === "object") {
-          permsObj = { ...targetUser.assignedPermissions };
+          Object.entries(targetUser.assignedPermissions).forEach(([k, v]) => {
+            if (ALL_PERMISSION_KEYS.includes(k)) {
+              initialMap[k] = Boolean(v);
+            }
+          });
         }
       }
-      setAssignedPermissions(permsObj);
-      setError("");
-      setFeedback("");
-    }
-  }, [isOpen, targetUser]);
+      setAssignedPermissions(initialMap);
 
-  useEffect(() => {
-    if (isOpen && isViewerRootAdmin) {
-      fetchGlobalSettings();
-    }
-  }, [isOpen, isViewerRootAdmin]);
-
-  const fetchGlobalSettings = async () => {
-    try {
-      setLoading(true);
-      const res = await http.get("/admin/global-settings");
-      if (res.data && res.data.globalSettings) {
-        setGlobalDeniedPermissions(res.data.globalSettings.globalDeniedPermissions || []);
+      if (isViewerRootAdmin) {
+        try {
+          const res = await http.get("/admin/global-settings");
+          if (res.data?.globalSettings?.globalDeniedPermissions) {
+            setGlobalDeniedPermissions(res.data.globalSettings.globalDeniedPermissions);
+          }
+        } catch (e) {
+          // non-fatal
+        }
       }
     } catch (err) {
-      // non-fatal
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  };
+  }, [targetUser, isViewerRootAdmin]);
+
+  useEffect(() => {
+    if (isOpen && targetUser) {
+      loadPermissionsData();
+    }
+  }, [isOpen, targetUser, loadPermissionsData]);
 
   if (!isOpen || !targetUser) return null;
 
@@ -141,7 +155,8 @@ export const UserPermissionsModal = ({
           setTimeout(() => setFeedback(""), 3500);
         }
       } else {
-        const res = await http.patch(`/admin/users/${targetUser._id}/permissions`, {
+        const endpoint = customEndpoint || `/admin/users/${targetUser._id}/permissions`;
+        const res = await http.patch(endpoint, {
           permissions: assignedPermissions,
         });
         if (res.data && res.data.user) {

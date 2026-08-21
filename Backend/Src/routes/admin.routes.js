@@ -1,10 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("../controllers/admin.controller");
-const { protect, requireRootAdmin, requireEffectivePermission } = require("../middleware/auth.middleware");
+const { protect, requireRootAdmin, requireAdmin, requireEffectivePermission } = require("../middleware/auth.middleware");
 
-// All user management routes require JWT Authentication & status verification
+// All user management routes require JWT Authentication & Admin/RootAdmin authority
 router.use(protect);
+router.use(requireAdmin);
+
 
 /**
  * Admins Management Routes

@@ -35,7 +35,9 @@ import AttributionOverview from "../features/attribution/pages/AttributionOvervi
 import Profile from "../features/profile/pages/Profile.jsx";
 import GoogleIntegration from "../features/integrations/pages/GoogleIntegration.jsx";
 import UserManagement from "../features/admin/pages/UserManagement.jsx";
+import ClientTeamManagement from "../features/client/pages/ClientTeamManagement.jsx";
 import Input from "../components/ui/Input.jsx";
+
 import Button from "../components/ui/Button.jsx";
 import PermissionRouteGuard from "../components/shared/PermissionRouteGuard.jsx";
 import { PERMISSION_KEYS } from "../config/permission-registry.js";
@@ -301,17 +303,10 @@ const AdminRouteGuard = ({ user: directUser }) => {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // Members are strictly forbidden from accessing User Management
-  if (user.role === "member") {
-    return <Navigate to="/overview" replace />;
-  }
-
-  // Root Admin, Admin, and Client are allowed to access User Management
-  const isAllowed =
-    user.role === "root_admin" ||
-    user.role === "admin" ||
-    user.isRootAdmin === true ||
-    user.role === "client";
+  // Only Root Admin and Admin can access User Management
+  const isAllowed = Boolean(
+    user && (user.role === "root_admin" || user.role === "admin" || user.isRootAdmin === true)
+  );
 
   if (!isAllowed) {
     return <Navigate to="/overview" replace />;
@@ -319,6 +314,25 @@ const AdminRouteGuard = ({ user: directUser }) => {
 
   return <UserManagement currentUser={user} />;
 };
+
+const ClientRouteGuard = ({ user: directUser }) => {
+  const outletContext = useOutletContext() || {};
+  const user = directUser || outletContext.user || null;
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  if (user.role === "client") {
+    return <ClientTeamManagement currentUser={user} />;
+  }
+
+  if (user.role === "root_admin" || user.role === "admin" || user.isRootAdmin === true) {
+    return <Navigate to="/admin/users" replace />;
+  }
+
+  return <Navigate to="/overview" replace />;
+};
+
+
 
 const FallbackRoute = ({ user, authLoading }) => {
   if (authLoading) return null;
@@ -401,6 +415,11 @@ export const Router = () => {
           <Route path="/admin/users" element={<AdminRouteGuard user={user} />} />
           <Route path="/user-management" element={<AdminRouteGuard user={user} />} />
           <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
+
+          {/* Protected Client Team Management Routes */}
+          <Route path="/team" element={<ClientRouteGuard user={user} />} />
+          <Route path="/team-management" element={<ClientRouteGuard user={user} />} />
+
 
           {/* Protected Attribution Route */}
           <Route path="/attribution" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.ATTRIBUTION_VIEW}><AttributionOverview /></PermissionRouteGuard>} />

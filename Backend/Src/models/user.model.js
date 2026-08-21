@@ -87,6 +87,15 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    rootAdminRank: {
+      type: Number,
+    },
+
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     lastActiveAt: {
       type: Date,
       default: null,
@@ -149,6 +158,8 @@ userSchema.index({ role: 1, status: 1, createdAt: -1 });
 userSchema.index({ organizationId: 1, role: 1, status: 1 });
 userSchema.index({ assignedClientId: 1, role: 1, status: 1 });
 userSchema.index({ name: 1, email: 1 });
+userSchema.index({ rootAdminRank: 1 }, { unique: true, sparse: true });
+
 
 // Hash password before saving if modified
 userSchema.pre("save", async function () {
@@ -184,6 +195,8 @@ userSchema.set("toJSON", {
     ret.shopifyEnabled = Boolean(ret.shopifyEnabled);
     ret.attributionEnabled = Boolean(ret.attributionEnabled);
     ret.isRootAdmin = Boolean(ret.isRootAdmin || ret.role === "root_admin");
+    ret.rootAdminRank = typeof ret.rootAdminRank === "number" ? ret.rootAdminRank : null;
+    ret.createdBy = ret.createdBy || null;
     ret.lastActiveAt = ret.lastActiveAt || null;
 
     // Convert assignedPermissions array [{ key, allowed }] to dictionary object { "meta.campaigns": true }

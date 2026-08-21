@@ -193,13 +193,9 @@ export const DashboardLayout = ({ user, setUser }) => {
     return userHiddenFeatures.includes(key) || (permKey && userHiddenFeatures.includes(permKey));
   };
 
-  const canAccessUserManagement =
-    user &&
-    user.role !== "member" &&
-    (user.role === "root_admin" ||
-      user.role === "admin" ||
-      user.isRootAdmin ||
-      (user.role === "client" && hasPermission("user_management.members")));
+  const canAccessUserManagement = Boolean(
+    user && (user.role === "root_admin" || user.role === "admin" || user.isRootAdmin === true)
+  );
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--color-background, #F8FAFC)", color: "var(--color-text-primary, #0F172A)" }}>
@@ -473,6 +469,48 @@ export const DashboardLayout = ({ user, setUser }) => {
               </div>
             </div>
           )}
+
+          {user?.role === "client" && (
+            <div style={{ marginBottom: "20px" }}>
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: "700",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.6px",
+                  color: "var(--color-text-muted, #94A3B8)",
+                  padding: "0 10px",
+                  display: "block",
+                  marginBottom: "6px",
+                }}
+              >
+                Administration
+              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                <NavLink
+                  to="/team"
+                  style={({ isActive }) => ({
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "8px 10px",
+                    borderRadius: "var(--radius-nav, 6px)",
+                    textDecoration: "none",
+                    backgroundColor: isActive ? "var(--color-surface-subtle, #F1F5F9)" : "transparent",
+                    color: isActive ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
+                    fontSize: "13px",
+                    fontWeight: isActive ? "600" : "500",
+                    transition: "all 0.15s ease",
+                    borderLeft: isActive ? "2px solid #0A84FF" : "2px solid transparent",
+                  })}
+                >
+                  <Users size={18} />
+                  <span>Team Management</span>
+                </NavLink>
+              </div>
+            </div>
+          )}
+
         </nav>
 
         {/* Sidebar Footer User Area */}

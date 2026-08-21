@@ -60,7 +60,10 @@ const ATTRIBUTION_CONSTANTS = {
 
   // CRM / Email / WhatsApp Match Keywords
   BITESPEED_SOURCE: "bitespeed",
+  KWIKENGAGE_SOURCE: "kwikengage",
+  CRM_SOURCES: ["bitespeed", "kwikengage"],
   CRM_MEDIUMS: ["whatsapp", "email", "sms"],
+
 
   // AI / LLM Referral Keywords
   AI_LLM_KEYWORDS: ["chatgpt", "perplexity", "gemini", "claude", "copilot"],

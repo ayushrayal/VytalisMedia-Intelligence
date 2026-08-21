@@ -113,16 +113,17 @@ const classifyAttributionOrder = (parsedAttr, merchantDomains = []) => {
   // --------------------------------------------------
   // D. CRM / WHATSAPP / EMAIL
   // --------------------------------------------------
-  const isBitespeed = normSource === ATTRIBUTION_CONSTANTS.BITESPEED_SOURCE;
+  const isCrmSource = (ATTRIBUTION_CONSTANTS.CRM_SOURCES || []).some((s) => normSource.includes(s));
   const isCrmMedium = ATTRIBUTION_CONSTANTS.CRM_MEDIUMS.includes(normMedium);
 
-  if (isBitespeed || isCrmMedium) {
+  if (isCrmSource || isCrmMedium) {
     return {
       channel: ATTRIBUTION_CONSTANTS.CHANNELS.CRM_WHATSAPP_EMAIL,
       topLevelGroup: ATTRIBUTION_CONSTANTS.GROUPS.NOT_ATTRIBUTION,
       hadClickId,
     };
   }
+
 
   // --------------------------------------------------
   // E. AI / LLM REFERRAL

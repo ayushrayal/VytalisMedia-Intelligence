@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, Navigate } from "react-router-dom";
 import { http } from "../../../lib/http.js";
 import { getErrorMessage } from "../../../utils/error.js";
 import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
@@ -726,6 +726,14 @@ export const UserManagement = ({ currentUser }) => {
                   const isRoot = admin.role === "root_admin" || admin.isRootAdmin;
                   const isSelf = admin._id === effectiveUser?._id;
 
+                  const callerRank = typeof effectiveUser?.rootAdminRank === "number" ? effectiveUser.rootAdminRank : Infinity;
+                  const targetRank = typeof admin.rootAdminRank === "number" ? admin.rootAdminRank : Infinity;
+
+                  // Can logged-in user manage this admin/root_admin?
+                  const canManageRootTarget = isRootAdmin && isRoot && !isSelf && callerRank < targetRank;
+                  const canManageAdminTarget = isRootAdmin && !isRoot && !isSelf;
+                  const canManageTarget = canManageRootTarget || canManageAdminTarget;
+
                   return (
                     <tr key={admin._id} style={{ borderBottom: "1px solid #F1F5F9" }}>
                       <td style={{ padding: "14px 20px" }}>
@@ -748,7 +756,7 @@ export const UserManagement = ({ currentUser }) => {
                           }}
                         >
                           {isRoot ? <Crown size={12} /> : <Shield size={12} />}
-                          {isRoot ? "Root Admin" : "Admin"}
+                          {isRoot ? (admin.rootAdminRank ? `Root Admin #${admin.rootAdminRank}` : "Root Admin") : "Admin"}
                         </span>
                       </td>
 
@@ -759,16 +767,16 @@ export const UserManagement = ({ currentUser }) => {
                           <button
                             type="button"
                             onClick={() => setPermissionTargetUser(admin)}
-                            disabled={isRoot}
+                            disabled={!canManageTarget}
                             style={{
                               padding: "6px 12px",
                               borderRadius: "6px",
-                              backgroundColor: isRoot ? "#F1F5F9" : "rgba(10, 132, 255, 0.1)",
-                              color: isRoot ? "#94A3B8" : "#0A84FF",
+                              backgroundColor: !canManageTarget ? "#F1F5F9" : "rgba(10, 132, 255, 0.1)",
+                              color: !canManageTarget ? "#94A3B8" : "#0A84FF",
                               border: "none",
                               fontWeight: "600",
                               fontSize: "12px",
-                              cursor: isRoot ? "not-allowed" : "pointer",
+                              cursor: !canManageTarget ? "not-allowed" : "pointer",
                               display: "inline-flex",
                               alignItems: "center",
                               gap: "4px",
@@ -777,7 +785,7 @@ export const UserManagement = ({ currentUser }) => {
                             <Sliders size={13} /> Permissions
                           </button>
 
-                          {isRootAdmin && !isRoot && !isSelf && (
+                          {canManageTarget && (
                             <button
                               type="button"
                               onClick={() => setUserToDelete(admin)}
@@ -800,6 +808,7 @@ export const UserManagement = ({ currentUser }) => {
                     </tr>
                   );
                 })}
+
             </tbody>
           </table>
 

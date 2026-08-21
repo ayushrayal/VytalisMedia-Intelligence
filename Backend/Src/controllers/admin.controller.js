@@ -3,6 +3,7 @@ const User = require("../models/user.model");
 const Organization = require("../models/organization.model");
 const AdminAssignment = require("../models/admin-assignment.model");
 const GlobalSettings = require("../models/global-settings.model");
+const { getNextSequenceValue } = require("../models/counter.model");
 const { getDefaultPermissions, ALL_PERMISSION_KEYS } = require("../config/permission-registry");
 const {
   calculateEffectivePermission,
@@ -17,6 +18,43 @@ const { logAuditEvent } = require("../utils/audit-logger.util");
 const { sendSuccess, sendError } = require("../utils/api-response.util");
 const { createTimer } = require("../utils/performance-timer.util");
 const logger = require("../utils/logger.util");
+
+/**
+ * Helper to check Root Admin hierarchy authority.
+ * Rule: currentUser.rootAdminRank < targetUser.rootAdminRank required for managing Root Admins.
+ */
+const checkRootAdminHierarchy = (caller, target) => {
+  const isTargetRoot = Boolean(target && (target.role === "root_admin" || target.isRootAdmin));
+  if (!isTargetRoot) return { allowed: true };
+
+  const isCallerRoot = Boolean(caller && (caller.role === "root_admin" || caller.isRootAdmin));
+  if (!isCallerRoot) {
+    return {
+      allowed: false,
+      reason: "Access denied. Only a Root Administrator can perform this action.",
+    };
+  }
+
+  if (caller._id.toString() === target._id.toString()) {
+    return {
+      allowed: false,
+      reason: "You cannot modify your own Root Administrator account.",
+    };
+  }
+
+  const callerRank = typeof caller.rootAdminRank === "number" ? caller.rootAdminRank : Infinity;
+  const targetRank = typeof target.rootAdminRank === "number" ? target.rootAdminRank : Infinity;
+
+  if (callerRank >= targetRank) {
+    return {
+      allowed: false,
+      reason: "Access denied. You cannot modify a Root Administrator with equal or higher authority rank.",
+    };
+  }
+
+  return { allowed: true };
+};
+
 
 /**
  * GET /api/admin/users/counts
@@ -149,7 +187,7 @@ const getAllAdmins = async (req, res, next) => {
  */
 const createAdmin = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body || {};
+    const { name, email, password, role } = req.body || {};
 
     if (!name || !name.trim()) return sendError(res, 400, "Full name is required.");
     if (!email || !email.trim() || !email.includes("@")) return sendError(res, 400, "A valid email address is required.");
@@ -159,12 +197,31 @@ const createAdmin = async (req, res, next) => {
     const existing = await User.findOne({ email: cleanEmail });
     if (existing) return sendError(res, 409, "A user with this email address already exists.");
 
-    const defaultPerms = getDefaultPermissions("admin");
+    const isCreatingRootAdmin = role === "root_admin";
+
+    if (isCreatingRootAdmin) {
+      const isCallerRoot = Boolean(req.user && (req.user.role === "root_admin" || req.user.isRootAdmin));
+      if (!isCallerRoot) {
+        return sendError(res, 403, "Only the Root Administrator can create another Root Administrator.");
+      }
+    }
+
+    const targetRole = isCreatingRootAdmin ? "root_admin" : "admin";
+    const defaultPerms = getDefaultPermissions(targetRole);
+
+    let nextRank = null;
+    if (isCreatingRootAdmin) {
+      nextRank = await getNextSequenceValue("rootAdminRank");
+    }
+
     const newAdmin = await User.create({
       name: name.trim(),
       email: cleanEmail,
       password: password,
-      role: "admin",
+      role: targetRole,
+      isRootAdmin: isCreatingRootAdmin,
+      rootAdminRank: nextRank,
+      createdBy: req.user._id,
       status: "active",
       assignedPermissions: formatPermissionsArray(defaultPerms),
     });
@@ -173,21 +230,22 @@ const createAdmin = async (req, res, next) => {
       actorId: req.user._id,
       targetUserId: newAdmin._id,
       action: "USER_CREATED",
-      metadata: { role: "admin", email: cleanEmail },
+      metadata: { role: targetRole, email: cleanEmail, rootAdminRank: nextRank },
     });
 
-    logger.info(`Root Admin ${req.user._id} created new Admin ${newAdmin._id} (${cleanEmail})`);
+    logger.info(`Root Admin ${req.user._id} created new ${targetRole} ${newAdmin._id} (${cleanEmail}) with rank ${nextRank}`);
 
     const json = newAdmin.toJSON();
     json.effectivePermissions = await calculateAllEffectivePermissions(newAdmin);
 
-    return sendSuccess(res, 201, "Admin user account created successfully", {
+    return sendSuccess(res, 201, `${isCreatingRootAdmin ? "Root Administrator" : "Admin"} user account created successfully`, {
       admin: json,
     });
   } catch (error) {
     next(error);
   }
 };
+
 
 /**
  * GET /api/admin/users/clients
@@ -629,9 +687,12 @@ const updateUserPermissions = async (req, res, next) => {
     const targetUser = await User.findById(userId);
     if (!targetUser) return sendError(res, 404, "User not found.");
 
-    // Root Admin Immutability Check
+    // Root Admin Hierarchy Check
     if (targetUser.role === "root_admin" || targetUser.isRootAdmin) {
-      return sendError(res, 403, "Root Administrator permissions cannot be modified.");
+      const hierarchyCheck = checkRootAdminHierarchy(req.user, targetUser);
+      if (!hierarchyCheck.allowed) {
+        return sendError(res, 403, hierarchyCheck.reason);
+      }
     }
 
     // Role-based organizational scoping checks
@@ -649,6 +710,7 @@ const updateUserPermissions = async (req, res, next) => {
         return sendError(res, 403, "Access denied. You are not assigned to manage this user's organization.");
       }
     }
+
 
     const isCallerRoot = Boolean(req.user.role === "root_admin" || req.user.isRootAdmin);
 
@@ -750,10 +812,14 @@ const updateUserStatus = async (req, res, next) => {
     const targetUser = await User.findById(userId);
     if (!targetUser) return sendError(res, 404, "User not found.");
 
-    // Root Admin Immutability Check
+    // Root Admin Hierarchy Check
     if (targetUser.role === "root_admin" || targetUser.isRootAdmin) {
-      return sendError(res, 403, "Root Administrator account status cannot be modified.");
+      const hierarchyCheck = checkRootAdminHierarchy(req.user, targetUser);
+      if (!hierarchyCheck.allowed) {
+        return sendError(res, 403, hierarchyCheck.reason);
+      }
     }
+
 
     // Role-based organizational scoping checks
     if (req.user.role === "client") {
@@ -957,9 +1023,12 @@ const deleteUser = async (req, res, next) => {
       return sendError(res, 404, "Target user not found.");
     }
 
-    // Root Admin Protection
+    // Root Admin Protection & Hierarchy Check
     if (targetUser.role === "root_admin" || targetUser.isRootAdmin) {
-      return sendError(res, 403, "Root Administrator cannot be deleted.");
+      const hierarchyCheck = checkRootAdminHierarchy(req.user, targetUser);
+      if (!hierarchyCheck.allowed) {
+        return sendError(res, 403, hierarchyCheck.reason);
+      }
     }
 
     // Role-based organizational scoping checks
@@ -994,7 +1063,7 @@ const deleteUser = async (req, res, next) => {
       targetUserId: userId,
       organizationId: targetUser.organizationId,
       action: "USER_DELETED",
-      metadata: { deletedUserEmail: targetUser.email, role: targetUser.role },
+      metadata: { deletedUserEmail: targetUser.email, role: targetUser.role, rootAdminRank: targetUser.rootAdminRank },
     });
 
     logger.info(`User ${req.user._id} deleted user account ${targetUser._id} (${targetUser.email})`);
@@ -1009,7 +1078,7 @@ const deleteUser = async (req, res, next) => {
 
 /**
  * PATCH /api/admin/users/:userId/role
- * Promote Client to Admin or demote Admin to Client. STRICT: Root Admin ONLY.
+ * Promote or demote user roles. STRICT: Root Admin ONLY.
  */
 const updateUserRole = async (req, res, next) => {
   try {
@@ -1024,19 +1093,39 @@ const updateUserRole = async (req, res, next) => {
       return sendError(res, 400, "You cannot modify your own role.");
     }
 
-    if (role !== "admin" && role !== "client") {
-      return sendError(res, 400, "Invalid role specified. Role must be 'admin' or 'client'.");
+    if (role !== "root_admin" && role !== "admin" && role !== "client") {
+      return sendError(res, 400, "Invalid role specified. Role must be 'root_admin', 'admin', or 'client'.");
     }
 
     const targetUser = await User.findById(userId);
     if (!targetUser) return sendError(res, 404, "User not found.");
 
+    // Root Admin Target Hierarchy Check
     if (targetUser.role === "root_admin" || targetUser.isRootAdmin) {
-      return sendError(res, 403, "Root Administrator role cannot be modified.");
+      const hierarchyCheck = checkRootAdminHierarchy(req.user, targetUser);
+      if (!hierarchyCheck.allowed) {
+        return sendError(res, 403, hierarchyCheck.reason);
+      }
     }
 
     const oldRole = targetUser.role;
-    targetUser.role = role;
+
+    if (role === "root_admin") {
+      if (targetUser.role !== "root_admin") {
+        targetUser.role = "root_admin";
+        targetUser.isRootAdmin = true;
+        targetUser.rootAdminRank = await getNextSequenceValue("rootAdminRank");
+      }
+    } else {
+      // Demoting from root_admin to admin or client
+      if (targetUser.role === "root_admin" || targetUser.isRootAdmin) {
+        targetUser.rootAdminRank = undefined;
+        targetUser.isRootAdmin = false;
+      }
+
+      targetUser.role = role;
+    }
+
     await targetUser.save();
     await invalidateUserPermissionCache(userId);
 
@@ -1046,6 +1135,7 @@ const updateUserRole = async (req, res, next) => {
       action: "ROLE_CHANGED",
       oldValue: oldRole,
       newValue: role,
+      metadata: { rootAdminRank: targetUser.rootAdminRank },
     });
 
     logger.info(`Root Admin ${req.user._id} updated role for user ${targetUser._id} to ${role}`);
@@ -1060,6 +1150,7 @@ const updateUserRole = async (req, res, next) => {
     next(error);
   }
 };
+
 
 module.exports = {
   getUserCounts,

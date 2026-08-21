@@ -9,11 +9,13 @@ const shopifyRoutes = require("./routes/shopify.routes");
 const attributionRoutes = require("./routes/attribution.routes");
 const profileRoutes = require("./routes/profile.routes");
 const adminRoutes = require("./routes/admin.routes");
+const clientTeamRoutes = require("./routes/client-team.routes");
 const errorHandler = require("./middleware/error.middleware");
 const { apiRateLimiter } = require("./middleware/rate-limit.middleware");
 const { sendSuccess } = require("./utils/api-response.util");
 
 const app = express();
+
 
 // Set Trust Proxy safely based on environment configuration.
 // Defaults to 1 (trust 1 proxy hop e.g. Render / Cloud reverse proxy) in production.
@@ -109,6 +111,8 @@ app.use("/api/shopify", apiRateLimiter, shopifyRoutes);
 app.use("/api/attribution", apiRateLimiter, attributionRoutes);
 app.use("/api/profile", apiRateLimiter, profileRoutes);
 app.use("/api/admin", apiRateLimiter, adminRoutes);
+app.use("/api/client", apiRateLimiter, clientTeamRoutes);
+
 
 // ==========================================
 // REACT FRONTEND

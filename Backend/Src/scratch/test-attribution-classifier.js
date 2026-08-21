@@ -107,6 +107,43 @@ const testCases = [
     expectedGroup: ATTRIBUTION_CONSTANTS.GROUPS.NOT_ATTRIBUTION,
   },
 
+  // 11a. KwikEngage campaign
+  {
+    name: "11a. KwikEngage campaign (lower)",
+    rawAttr: "utm_source=kwikengage;utm_medium=campaign;utm_campaign=black_friday",
+    merchantDomains: ["myshop.com"],
+    expectedChannel: ATTRIBUTION_CONSTANTS.CHANNELS.CRM_WHATSAPP_EMAIL,
+    expectedGroup: ATTRIBUTION_CONSTANTS.GROUPS.NOT_ATTRIBUTION,
+  },
+
+  // 11b. KwikEngage automation
+  {
+    name: "11b. KwikEngage automation",
+    rawAttr: "utm_source=kwikengage;utm_medium=automation;utm_campaign=welcome_sequence",
+    merchantDomains: ["myshop.com"],
+    expectedChannel: ATTRIBUTION_CONSTANTS.CHANNELS.CRM_WHATSAPP_EMAIL,
+    expectedGroup: ATTRIBUTION_CONSTANTS.GROUPS.NOT_ATTRIBUTION,
+  },
+
+  // 11c. KWIKENGAGE uppercase campaign
+  {
+    name: "11c. KWIKENGAGE uppercase campaign",
+    rawAttr: "utm_source=KWIKENGAGE;utm_medium=campaign;utm_campaign=promo_blast",
+    merchantDomains: ["myshop.com"],
+    expectedChannel: ATTRIBUTION_CONSTANTS.CHANNELS.CRM_WHATSAPP_EMAIL,
+    expectedGroup: ATTRIBUTION_CONSTANTS.GROUPS.NOT_ATTRIBUTION,
+  },
+
+  // 11d. Non-KwikEngage campaign (must resolve to Other Tagged)
+  {
+    name: "11d. Non-KwikEngage campaign (Other Tagged)",
+    rawAttr: "utm_source=custom_affiliate;utm_medium=campaign;utm_campaign=winter_sale",
+    merchantDomains: ["myshop.com"],
+    expectedChannel: ATTRIBUTION_CONSTANTS.CHANNELS.OTHER_TAGGED,
+    expectedGroup: ATTRIBUTION_CONSTANTS.GROUPS.NOT_ATTRIBUTION,
+  },
+
+
   // 12. AI referral from chatgpt
   {
     name: "12. AI referral from chatgpt",
