@@ -56,6 +56,57 @@ const PERMISSION_SECTIONS = [
 
 const ALL_PERMISSION_KEYS = Object.values(PERMISSION_KEYS);
 
+/**
+ * Safely parses any permission structure (Array, Object Map, Map, or EffectivePermissions object)
+ * into a key-boolean dictionary: { "permission.key": boolean }.
+ */
+const parsePermissionsStructure = (structure) => {
+  const result = {};
+  if (!structure) return result;
+
+  // CASE 1: Array format [{ key: "meta.campaigns", allowed: true }]
+  if (Array.isArray(structure)) {
+    structure.forEach((entry) => {
+      if (entry && entry.key && ALL_PERMISSION_KEYS.includes(entry.key)) {
+        const val = typeof entry.allowed === "object" && entry.allowed !== null
+          ? entry.allowed.allowed
+          : entry.allowed;
+        result[entry.key] = Boolean(val);
+      }
+    });
+    return result;
+  }
+
+  // CASE 4: Map instance
+  if (typeof structure.get === "function" && typeof structure.forEach === "function") {
+    structure.forEach((val, key) => {
+      if (ALL_PERMISSION_KEYS.includes(key)) {
+        const boolVal = typeof val === "object" && val !== null ? val.allowed : val;
+        result[key] = Boolean(boolVal);
+      }
+    });
+    return result;
+  }
+
+  // CASE 2 & 3: Object map { "meta.campaigns": true } OR { "meta.campaigns": { allowed: true } }
+  if (typeof structure === "object") {
+    Object.entries(structure).forEach(([key, val]) => {
+      if (ALL_PERMISSION_KEYS.includes(key)) {
+        let boolVal = false;
+        if (typeof val === "object" && val !== null) {
+          boolVal = Boolean(val.allowed);
+        } else {
+          boolVal = Boolean(val);
+        }
+        result[key] = boolVal;
+      }
+    });
+    return result;
+  }
+
+  return result;
+};
+
 export const UserPermissionsModal = ({
   isOpen,
   onClose,
@@ -85,38 +136,16 @@ export const UserPermissionsModal = ({
         initialMap[key] = false;
       });
 
-      let foundAssigned = false;
-      if (targetUser.assignedPermissions) {
-        if (Array.isArray(targetUser.assignedPermissions)) {
-          targetUser.assignedPermissions.forEach((p) => {
-            if (p && p.key && ALL_PERMISSION_KEYS.includes(p.key)) {
-              initialMap[p.key] = Boolean(p.allowed);
-              foundAssigned = true;
-            }
-          });
-        } else if (typeof targetUser.assignedPermissions.get === "function") {
-          targetUser.assignedPermissions.forEach((val, key) => {
-            if (ALL_PERMISSION_KEYS.includes(key)) {
-              initialMap[key] = Boolean(val);
-              foundAssigned = true;
-            }
-          });
-        } else if (typeof targetUser.assignedPermissions === "object") {
-          Object.entries(targetUser.assignedPermissions).forEach(([k, v]) => {
-            if (ALL_PERMISSION_KEYS.includes(k)) {
-              initialMap[k] = Boolean(v);
-              foundAssigned = true;
-            }
-          });
-        }
-      }
+      // 1. Try parsing targetUser.assignedPermissions (Array, Map, or Object Map)
+      const parsedAssigned = parsePermissionsStructure(targetUser.assignedPermissions);
+      const assignedKeys = Object.keys(parsedAssigned);
 
-      if (!foundAssigned && targetUser.effectivePermissions) {
-        Object.entries(targetUser.effectivePermissions).forEach(([k, v]) => {
-          if (ALL_PERMISSION_KEYS.includes(k) && v) {
-            initialMap[k] = Boolean(v.allowed);
-          }
-        });
+      if (assignedKeys.length > 0) {
+        Object.assign(initialMap, parsedAssigned);
+      } else if (targetUser.effectivePermissions) {
+        // 2. Fallback to targetUser.effectivePermissions if assignedPermissions is missing/empty
+        const parsedEffective = parsePermissionsStructure(targetUser.effectivePermissions);
+        Object.assign(initialMap, parsedEffective);
       }
 
       setAssignedPermissions(initialMap);
