@@ -210,13 +210,76 @@ const incrWithTtl = async (key, ttlSeconds) => {
   }
 };
 
+/**
+ * Batch fetches multiple JSON keys from Redis in a single command.
+ *
+ * @param {Array<string>} keys - Array of Redis keys
+ * @returns {Promise<Array<Object|null>>} Array of parsed objects or nulls
+ */
+const mget = async (keys) => {
+  if (!client || !isConnected || !Array.isArray(keys) || keys.length === 0) {
+    return Array.isArray(keys) ? keys.map(() => null) : [];
+  }
+
+  try {
+    const rawList = await client.mGet(keys);
+    return rawList.map((raw) => {
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    });
+  } catch (error) {
+    logger.error("Error executing mget in Redis:", error.message);
+    return keys.map(() => null);
+  }
+};
+
+/**
+ * Batch sets multiple key-value JSON pairs in Redis.
+ *
+ * @param {Record<string, Object>} keyValueMap - Map of key to object payload
+ * @param {number} ttlSeconds - Time-to-live in seconds
+ * @returns {Promise<boolean>} True if set successfully
+ */
+const mset = async (keyValueMap, ttlSeconds = 600) => {
+  if (!client || !isConnected || !keyValueMap || typeof keyValueMap !== "object") {
+    return false;
+  }
+
+  try {
+    const keys = Object.keys(keyValueMap);
+    if (keys.length === 0) return true;
+
+    const multi = client.multi();
+    for (const key of keys) {
+      const valStr = JSON.stringify(keyValueMap[key]);
+      if (ttlSeconds && ttlSeconds > 0) {
+        multi.set(key, valStr, { EX: ttlSeconds });
+      } else {
+        multi.set(key, valStr);
+      }
+    }
+    await multi.exec();
+    return true;
+  } catch (error) {
+    logger.error("Error executing batch mset in Redis:", error.message);
+    return false;
+  }
+};
+
 module.exports = {
   connect,
   disconnect,
   isReady,
   get,
   set,
+  mget,
+  mset,
   delete: del,
   getDel,
   incrWithTtl,
 };
+

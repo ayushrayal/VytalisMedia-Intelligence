@@ -8,6 +8,7 @@ const { getDefaultPermissions, ALL_PERMISSION_KEYS } = require("../config/permis
 const {
   calculateEffectivePermission,
   calculateAllEffectivePermissions,
+  calculateBatchEffectivePermissions,
   invalidateGlobalSettingsCache,
   invalidateUserPermissionCache,
   invalidateOrgPermissionCache,
@@ -148,18 +149,16 @@ const getAllAdmins = async (req, res, next) => {
       });
     }
 
-    const sanitizedAdmins = await timer.timePermCalc(async () => {
-      return await Promise.all(
-        admins.map(async (admin) => {
-          const assignedOrganizations = adminAssignmentsMap[admin._id.toString()] || [];
-          const effectivePermissions = await calculateAllEffectivePermissions(admin);
-          return {
-            ...admin,
-            assignedOrganizations,
-            effectivePermissions,
-          };
-        })
-      );
+    const batchPermMap = await calculateBatchEffectivePermissions(admins, timer);
+
+    const sanitizedAdmins = admins.map((admin) => {
+      const assignedOrganizations = adminAssignmentsMap[admin._id.toString()] || [];
+      const effectivePermissions = batchPermMap.get(String(admin._id)) || {};
+      return {
+        ...admin,
+        assignedOrganizations,
+        effectivePermissions,
+      };
     });
 
     const totalPages = Math.ceil(total / limit) || 1;
@@ -311,24 +310,22 @@ const getAllClients = async (req, res, next) => {
       });
     }
 
-    const sanitizedClients = await timer.timePermCalc(async () => {
-      return await Promise.all(
-        clients.map(async (client) => {
-          const orgIdStr = client.organizationId ? client.organizationId._id.toString() : null;
-          const activeMembersCount = orgIdStr ? memberCountsMap[orgIdStr] || 0 : 0;
-          const memberLimit = (client.organizationId && client.organizationId.memberLimit) || 5;
-          const assignedAdmins = orgIdStr ? adminAssignmentsMap[orgIdStr] || [] : [];
-          const effectivePermissions = await calculateAllEffectivePermissions(client);
+    const batchPermMap = await calculateBatchEffectivePermissions(clients, timer);
 
-          return {
-            ...client,
-            activeMembersCount,
-            memberLimit,
-            assignedAdmins,
-            effectivePermissions,
-          };
-        })
-      );
+    const sanitizedClients = clients.map((client) => {
+      const orgIdStr = client.organizationId ? client.organizationId._id.toString() : null;
+      const activeMembersCount = orgIdStr ? memberCountsMap[orgIdStr] || 0 : 0;
+      const memberLimit = (client.organizationId && client.organizationId.memberLimit) || 5;
+      const assignedAdmins = orgIdStr ? adminAssignmentsMap[orgIdStr] || [] : [];
+      const effectivePermissions = batchPermMap.get(String(client._id)) || {};
+
+      return {
+        ...client,
+        activeMembersCount,
+        memberLimit,
+        assignedAdmins,
+        effectivePermissions,
+      };
     });
 
     const totalPages = Math.ceil(total / limit) || 1;
@@ -496,17 +493,12 @@ const getAllMembers = async (req, res, next) => {
       ])
     );
 
-    const sanitizedMembers = await timer.timePermCalc(async () => {
-      return await Promise.all(
-        members.map(async (member) => {
-          const effectivePermissions = await calculateAllEffectivePermissions(member);
-          return {
-            ...member,
-            effectivePermissions,
-          };
-        })
-      );
-    });
+    const batchPermMap = await calculateBatchEffectivePermissions(members, timer);
+
+    const sanitizedMembers = members.map((member) => ({
+      ...member,
+      effectivePermissions: batchPermMap.get(String(member._id)) || {},
+    }));
 
     const totalPages = Math.ceil(total / limit) || 1;
     timer.attachServerTimingHeader(res);

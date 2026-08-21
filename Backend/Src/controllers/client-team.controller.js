@@ -5,6 +5,7 @@ const { getDefaultPermissions, ALL_PERMISSION_KEYS } = require("../config/permis
 const {
   calculateEffectivePermission,
   calculateAllEffectivePermissions,
+  calculateBatchEffectivePermissions,
   invalidateUserPermissionCache,
 } = require("../utils/permission-calculator.util");
 const { formatPermissionsArray } = require("../utils/migration.util");
@@ -61,17 +62,12 @@ const getClientTeamMembers = async (req, res, next) => {
 
     const memberLimit = targetOrg?.memberLimit || 5;
 
-    const sanitizedMembers = await timer.timePermCalc(async () => {
-      return await Promise.all(
-        members.map(async (member) => {
-          const effectivePermissions = await calculateAllEffectivePermissions(member);
-          return {
-            ...member,
-            effectivePermissions,
-          };
-        })
-      );
-    });
+    const batchPermMap = await calculateBatchEffectivePermissions(members, timer);
+
+    const sanitizedMembers = members.map((member) => ({
+      ...member,
+      effectivePermissions: batchPermMap.get(String(member._id)) || {},
+    }));
 
     const totalPages = Math.ceil(total / limit) || 1;
     timer.attachServerTimingHeader(res);
