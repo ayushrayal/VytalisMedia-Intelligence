@@ -190,16 +190,16 @@ const updateClientTeamMemberPermissions = async (req, res, next) => {
       return sendError(res, 403, "Access denied. You do not have authority to manage this member.");
     }
 
-    // Hierarchical Authority Grant Check: Client can ONLY grant permissions they possess!
+    // Hierarchical Authority Check: Client can ONLY modify (grant or revoke) permissions over which they possess authority!
     for (const [key, val] of Object.entries(permissions)) {
-      if (Boolean(val) && ALL_PERMISSION_KEYS.includes(key)) {
+      if (ALL_PERMISSION_KEYS.includes(key)) {
         const callerEff = await calculateEffectivePermission(req.user, key);
         if (!callerEff.allowed) {
-          logger.warn(`Client permission grant attempt blocked: Client ${req.user._id} tried to grant '${key}' without possessing authority.`);
+          logger.warn(`Client permission modification attempt blocked: Client ${req.user._id} tried to modify '${key}' (val=${val}) without possessing authority.`);
           return sendError(
             res,
             403,
-            `Access denied. You cannot grant permission '${key}' because you do not possess authority over it.`
+            `Access denied. You cannot modify permission '${key}' because you do not possess authority over it.`
           );
         }
       }
@@ -221,11 +221,11 @@ const updateClientTeamMemberPermissions = async (req, res, next) => {
     }
 
     const oldPermsObj = Object.fromEntries(existingMap);
+    const patchKeys = Object.keys(permissions).filter((k) => ALL_PERMISSION_KEYS.includes(k));
 
-    Object.entries(permissions).forEach(([key, val]) => {
-      if (ALL_PERMISSION_KEYS.includes(key)) {
-        existingMap.set(key, Boolean(val));
-      }
+    // Selective PATCH: Update ONLY the explicitly requested permission keys
+    patchKeys.forEach((key) => {
+      existingMap.set(key, Boolean(permissions[key]));
     });
 
     targetMember.assignedPermissions = Array.from(existingMap.entries()).map(([key, allowed]) => ({

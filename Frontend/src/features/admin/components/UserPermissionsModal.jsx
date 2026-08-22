@@ -119,6 +119,7 @@ export const UserPermissionsModal = ({
 
   const [activeTab, setActiveTab] = useState("matrix"); // "matrix" | "global"
   const [assignedPermissions, setAssignedPermissions] = useState({});
+  const [initialAssignedPermissions, setInitialAssignedPermissions] = useState({});
   const [globalDeniedPermissions, setGlobalDeniedPermissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -149,6 +150,7 @@ export const UserPermissionsModal = ({
       }
 
       setAssignedPermissions(initialMap);
+      setInitialAssignedPermissions({ ...initialMap });
 
       if (isViewerRootAdmin) {
         try {
@@ -205,11 +207,35 @@ export const UserPermissionsModal = ({
           setTimeout(() => setFeedback(""), 3500);
         }
       } else {
+        // Dirty-state tracking: Send ONLY keys modified during current editing session
+        const dirtyPermissions = {};
+        Object.keys(assignedPermissions).forEach((key) => {
+          const currentVal = Boolean(assignedPermissions[key]);
+          const initialVal = Boolean(initialAssignedPermissions[key]);
+          if (currentVal !== initialVal) {
+            dirtyPermissions[key] = currentVal;
+          }
+        });
+
+        if (Object.keys(dirtyPermissions).length === 0) {
+          setFeedback("No permission changes detected.");
+          setTimeout(() => {
+            setFeedback("");
+            onClose();
+          }, 1000);
+          return;
+        }
+
         const endpoint = customEndpoint || `/admin/users/${targetUser._id}/permissions`;
         const res = await http.patch(endpoint, {
-          permissions: assignedPermissions,
+          permissions: dirtyPermissions,
         });
         if (res.data && res.data.user) {
+          const freshAssigned = parsePermissionsStructure(res.data.user.assignedPermissions);
+          const fullUpdatedMap = { ...assignedPermissions, ...freshAssigned };
+          setAssignedPermissions(fullUpdatedMap);
+          setInitialAssignedPermissions({ ...fullUpdatedMap });
+
           if (onPermissionsUpdated) {
             onPermissionsUpdated(res.data.user);
           }

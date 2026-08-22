@@ -706,17 +706,17 @@ const updateUserPermissions = async (req, res, next) => {
 
     const isCallerRoot = Boolean(req.user.role === "root_admin" || req.user.isRootAdmin);
 
-    // Hierarchical Authority Grant Check: Non-root users can ONLY grant permissions they possess.
+    // Hierarchical Authority Check: Non-root users can ONLY modify (grant or revoke) permissions over which they possess authority.
     if (!isCallerRoot) {
       for (const [key, val] of Object.entries(permissions)) {
-        if (Boolean(val) && ALL_PERMISSION_KEYS.includes(key)) {
+        if (ALL_PERMISSION_KEYS.includes(key)) {
           const callerEff = await calculateEffectivePermission(req.user, key);
           if (!callerEff.allowed) {
-            logger.warn(`Permission grant attempt blocked: User ${req.user._id} (${req.user.role}) tried to grant '${key}' without possessing it.`);
+            logger.warn(`Permission modification attempt blocked: User ${req.user._id} (${req.user.role}) tried to modify '${key}' (val=${val}) without possessing authority.`);
             return sendError(
               res,
               403,
-              `Access denied. You cannot grant permission '${key}' because you do not possess authority over it.`
+              `Access denied. You cannot modify permission '${key}' because you do not possess authority over it.`
             );
           }
         }
@@ -739,12 +739,11 @@ const updateUserPermissions = async (req, res, next) => {
     }
 
     const oldPermsObj = Object.fromEntries(existingMap);
+    const patchKeys = Object.keys(permissions).filter((k) => ALL_PERMISSION_KEYS.includes(k));
 
-    // Update permission map keys safely
-    Object.entries(permissions).forEach(([key, val]) => {
-      if (ALL_PERMISSION_KEYS.includes(key)) {
-        existingMap.set(key, Boolean(val));
-      }
+    // Selective PATCH: Update ONLY the explicitly requested permission keys
+    patchKeys.forEach((key) => {
+      existingMap.set(key, Boolean(permissions[key]));
     });
 
     targetUser.assignedPermissions = Array.from(existingMap.entries()).map(([key, allowed]) => ({
