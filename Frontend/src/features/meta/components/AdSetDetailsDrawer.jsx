@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { getCreatives } from "../services/meta.api.js";
 import StatusBadge, { getNormalizedStatus } from "./StatusBadge.jsx";
 import CreativeCard from "./CreativeCard.jsx";
+import AdSetBreakdowns from "./AdSetBreakdowns.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
-import { X, Image as ImageIcon, BarChart3, Layers } from "lucide-react";
+import { X, Image as ImageIcon, BarChart3, Layers, PieChart } from "lucide-react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
@@ -84,16 +85,6 @@ export const AdSetDetailsDrawer = ({
       const res = await getCreatives(dateParams);
       if (res && res.data) {
         const dataArr = Array.isArray(res.data) ? res.data : [];
-        // Verification log as required: log raw response sample
-        if (dataArr.length > 0) {
-          console.log("[AdSetDetailsDrawer] getCreatives response item sample:", {
-            ad_id: dataArr[0].ad_id || dataArr[0].creative_id || dataArr[0].id,
-            adset_id: dataArr[0].adset_id,
-            adset_name: dataArr[0].adset_name,
-            campaign_id: dataArr[0].campaign_id,
-            campaign_name: dataArr[0].campaign_name,
-          });
-        }
         setRawCreatives(dataArr);
       } else {
         setRawCreatives([]);
@@ -309,6 +300,7 @@ export const AdSetDetailsDrawer = ({
           {[
             { id: "creatives", label: `Creatives (${loading ? "…" : filteredCreatives.length})`, icon: ImageIcon },
             { id: "performance", label: "Performance", icon: BarChart3 },
+            { id: "breakdowns", label: "Breakdowns", icon: PieChart },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
             const TabIcon = tab.icon;
@@ -562,6 +554,16 @@ export const AdSetDetailsDrawer = ({
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* TAB 3: BREAKDOWNS (AGE, GENDER, PLACEMENT) */}
+              {activeTab === "breakdowns" && (
+                <AdSetBreakdowns
+                  adSetId={targetAdSetId}
+                  dateParams={dateParams}
+                  currency={currency}
+                  titlePrefix="Ad Set"
+                />
               )}
             </>
           )}

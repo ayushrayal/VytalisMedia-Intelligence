@@ -91,6 +91,11 @@ export const getCampaignBreakdowns = async (campaignId, params = {}) => {
   return await http.get(`/meta/campaigns/${encodeURIComponent(campaignId)}/breakdowns${query}`);
 };
 
+export const getAdSetBreakdowns = async (adSetId, params = {}) => {
+  const query = buildQueryString(params);
+  return await http.get(`/meta/adsets/${encodeURIComponent(adSetId)}/breakdowns${query}`);
+};
+
 export const getPlaces = async (params = {}) => {
   const query = buildQueryString(params);
   return await http.get(`/meta/analytics/places${query}`);

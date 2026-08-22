@@ -8,7 +8,7 @@ import AdSetAccordion from "./AdSetAccordion.jsx";
  * preventing shared ID collisions when backend data items share identical adset IDs.
  * Starts with all Ad Sets collapsed (expandedAdSetId = null).
  */
-export const AdSetAccordionList = ({ adSets = [], currency = "INR" }) => {
+export const AdSetAccordionList = ({ adSets = [], currency = "INR", dateParams = {} }) => {
   // Single source of truth: defaults strictly to null so all Ad Sets start collapsed
   const [expandedAdSetId, setExpandedAdSetId] = useState(null);
 
@@ -54,6 +54,7 @@ export const AdSetAccordionList = ({ adSets = [], currency = "INR" }) => {
             isExpanded={isExpanded}
             onToggle={() => handleAdSetToggle(adSetId)}
             currency={currency}
+            dateParams={dateParams}
           />
         );
       })}

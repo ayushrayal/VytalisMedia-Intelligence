@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { getCampaignDetails } from "../services/meta.api.js";
 import StatusBadge from "./StatusBadge.jsx";
 import AdSetAccordionList from "./AdSetAccordionList.jsx";
-import CampaignBreakdownsTab from "./CampaignBreakdownsTab.jsx";
+import AdSetBreakdowns from "./AdSetBreakdowns.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
 import ErrorState from "../../../components/ui/ErrorState.jsx";
@@ -47,13 +47,6 @@ const normalizeCreativeStatus = (cr) => {
 /**
  * CampaignDetailsDrawer Component.
  * Vytalis Intelligence Light-Theme Drawer for Meta Campaign details.
- * Features:
- * - Clean Light Theme design system (#FFFFFF, #F8FAFC, #E5EAF0)
- * - Single-open expandable Ad Set accordion list (<AdSetAccordionList />) starting collapsed
- * - Creatives tab with segmented [All | Active | Inactive] status filter
- * - Single-open parent-controlled creative expansion state
- * - 2-column compact light creative cards triggering existing CreativeDetailsDrawer
- * - Light theme Campaign Performance overview grid
  */
 export const CampaignDetailsDrawer = ({
   campaignId,
@@ -66,7 +59,8 @@ export const CampaignDetailsDrawer = ({
   const [loading, setLoading] = useState(true);
   const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("adsets"); // "adsets" | "creatives" | "performance"
+  const [activeTab, setActiveTab] = useState("adsets"); // "adsets" | "creatives" | "performance" | "breakdowns"
+  const [selectedAdSetId, setSelectedAdSetId] = useState(null);
 
   // Creatives Tab State: Status Filter & Single-Open Expansion
   const [creativeStatusFilter, setCreativeStatusFilter] = useState("all"); // "all" | "active" | "inactive"
@@ -96,9 +90,18 @@ export const CampaignDetailsDrawer = ({
       setActiveTab("adsets");
       setCreativeStatusFilter("all");
       setExpandedCreativeId(null);
+      setSelectedAdSetId(null);
       fetchDetails();
     }
   }, [isOpen, campaignId, dateParams]);
+
+  // Default selectedAdSetId to first ad set when data loads
+  useEffect(() => {
+    if (data?.adSets && data.adSets.length > 0 && !selectedAdSetId) {
+      const firstId = data.adSets[0].id || data.adSets[0].adset_id;
+      if (firstId) setSelectedAdSetId(firstId);
+    }
+  }, [data?.adSets, selectedAdSetId]);
 
   // Scroll content area to top on tab change
   useEffect(() => {
@@ -366,7 +369,7 @@ export const CampaignDetailsDrawer = ({
                     </h4>
                   </div>
 
-                  <AdSetAccordionList adSets={adSets} currency={currency} />
+                  <AdSetAccordionList adSets={adSets} currency={currency} dateParams={dateParams} />
                 </div>
               )}
 
@@ -685,13 +688,64 @@ export const CampaignDetailsDrawer = ({
                 </div>
               )}
 
-              {/* TAB 4: CAMPAIGN BREAKDOWNS (AGE, GENDER, PLACEMENT) */}
+              {/* TAB 4: AD SET PERFORMANCE BREAKDOWNS (AGE, GENDER, PLACEMENT) */}
               {activeTab === "breakdowns" && (
-                <CampaignBreakdownsTab
-                  campaignId={campaignId}
-                  dateParams={dateParams}
-                  currency={currency}
-                />
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {/* Ad Set Selector Control */}
+                  {adSets.length > 0 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: "12px",
+                        backgroundColor: "#FFFFFF",
+                        padding: "12px 18px",
+                        borderRadius: "12px",
+                        border: "1px solid #E5EAF0",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <span style={{ fontSize: "13px", fontWeight: "600", color: "#0F172A" }}>Select Ad Set:</span>
+                        <select
+                          value={selectedAdSetId || ""}
+                          onChange={(e) => setSelectedAdSetId(e.target.value)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: "8px",
+                            border: "1px solid #CBD5E1",
+                            backgroundColor: "#FFFFFF",
+                            color: "#0F172A",
+                            fontSize: "13px",
+                            fontWeight: "500",
+                            outline: "none",
+                            cursor: "pointer",
+                            minWidth: "220px",
+                          }}
+                        >
+                          {adSets.map((adset) => {
+                            const id = adset.id || adset.adset_id;
+                            return (
+                              <option key={id} value={id}>
+                                {adset.name || adset.adset_name || `Ad Set (${id})`}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                      <span style={{ fontSize: "12px", color: "#64748B" }}>
+                        Breakdown metrics are scoped exclusively to the selected Ad Set.
+                      </span>
+                    </div>
+                  )}
+
+                  <AdSetBreakdowns
+                    adSetId={selectedAdSetId}
+                    dateParams={dateParams}
+                    currency={currency}
+                  />
+                </div>
               )}
             </>
           )}

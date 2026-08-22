@@ -268,6 +268,32 @@ const getCampaignBreakdowns = async (req, res, next) => {
   }
 };
 
+/**
+ * Handles request for adset-scoped breakdown insights (age, gender, placement).
+ * Endpoint: GET /api/meta/adsets/:adsetId/breakdowns
+ */
+const getAdSetBreakdowns = async (req, res, next) => {
+  try {
+    const { adsetId } = req.params;
+    const result = await metaAnalyticsService.getAdSetBreakdowns({
+      user: req.user,
+      adsetId,
+      breakdown: req.query.breakdown || "age",
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Ad Set breakdown retrieved successfully.",
+      result.data,
+      result.meta
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   addAccount,
   getAllAccounts,
@@ -278,6 +304,7 @@ module.exports = {
   getAnalyticsData,
   getCampaignDetails,
   getCampaignBreakdowns,
+  getAdSetBreakdowns,
   getMetaComparison,
   setActiveAccount,
   getCreativeCardPreferences,
