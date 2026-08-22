@@ -39,7 +39,6 @@ if (process.env.TRUST_PROXY !== undefined) {
 const defaultOrigins = [
   "https://vytalismedia-intelligence.onrender.com",
   "http://localhost:5173",
-  "http://localhost:3000",
   "http://localhost:5000",
 ];
 
