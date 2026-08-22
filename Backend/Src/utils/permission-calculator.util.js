@@ -50,20 +50,32 @@ const invalidateGlobalSettingsCache = () => {
 const getAssignedPermissionValue = (user, permissionKey) => {
   if (!user || !user.assignedPermissions) return false;
 
-  // 1. Array of permission entry subdocuments: [{ key: "meta.campaigns", allowed: true }]
-  if (Array.isArray(user.assignedPermissions)) {
-    const entry = user.assignedPermissions.find((p) => p && p.key === permissionKey);
+  const perms = user.assignedPermissions;
+
+  // 1. Array of permission subdocuments: [{ key: "meta.campaigns", allowed: true }]
+  if (Array.isArray(perms)) {
+    const entry = perms.find((p) => p && p.key === permissionKey);
     return entry ? Boolean(entry.allowed) : false;
   }
 
-  // 2. Map fallback
-  if (user.assignedPermissions instanceof Map) {
-    return Boolean(user.assignedPermissions.get(permissionKey));
+  // 2. Map instance
+  if (perms instanceof Map || (typeof perms === "object" && typeof perms.get === "function")) {
+    const mapVal = perms.get(permissionKey);
+    if (typeof mapVal === "object" && mapVal !== null) {
+      return Boolean(mapVal.allowed);
+    }
+    return Boolean(mapVal);
   }
 
-  // 3. Standard Dictionary Object: { "meta.campaigns": true }
-  if (typeof user.assignedPermissions === "object") {
-    return Boolean(user.assignedPermissions[permissionKey]);
+  // 3. Object dictionary: { "meta.campaigns": true } OR { "meta.campaigns": { allowed: true } }
+  if (typeof perms === "object" && perms !== null) {
+    if (permissionKey in perms) {
+      const objVal = perms[permissionKey];
+      if (typeof objVal === "object" && objVal !== null) {
+        return Boolean(objVal.allowed);
+      }
+      return Boolean(objVal);
+    }
   }
 
   return false;

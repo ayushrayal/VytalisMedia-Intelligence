@@ -768,8 +768,9 @@ const updateUserPermissions = async (req, res, next) => {
 
     logger.info(`User ${req.user._id} updated permissions for user ${targetUser._id}`);
 
-    const json = targetUser.toJSON();
-    json.effectivePermissions = await calculateAllEffectivePermissions(targetUser);
+    const freshUser = await User.findById(targetUser._id);
+    const json = freshUser.toJSON();
+    json.effectivePermissions = await calculateAllEffectivePermissions(freshUser, { skipCacheLookup: true });
 
     return sendSuccess(res, 200, "User permissions updated successfully", {
       user: json,
