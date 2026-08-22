@@ -223,6 +223,7 @@ export const WinningCreatives = () => {
         creative={selectedCreative}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
+        dateParams={dateParams}
       />
     </div>
   );

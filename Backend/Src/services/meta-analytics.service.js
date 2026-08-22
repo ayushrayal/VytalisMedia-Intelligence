@@ -548,11 +548,101 @@ const getAdSetBreakdowns = async ({ user, adsetId, breakdown = "age", query = {}
   };
 };
 
+/**
+ * Fetches ad-scoped breakdown insights (age, gender, placement).
+ *
+ * @param {Object} options
+ * @param {Object} options.user - Authenticated user object
+ * @param {string} options.adId - Target ad ID
+ * @param {string} options.breakdown - Breakdown category ("age" | "gender" | "placement")
+ * @param {Object} options.query - Raw query parameters ({ datePreset, dateFrom, dateTo })
+ * @returns {Promise<Object>} Object containing breakdown data and meta metadata
+ */
+const getAdBreakdowns = async ({ user, adId, breakdown = "age", query = {} }) => {
+  const { integrationUser } = await getEffectiveIntegrationContext(user, query.organizationId);
+  const targetUser = integrationUser || user;
+
+  if (!targetUser || !targetUser.preferences || !targetUser.preferences.activeMetaAccount) {
+    const error = new Error("No active Meta account selected for this Organization");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const activeMetaAccount = targetUser.preferences.activeMetaAccount;
+  const userId = targetUser._id ? targetUser._id.toString() : "anonymous";
+  const cleanBreakdown = (breakdown || "age").toLowerCase().trim();
+
+  const { dateRangeKey, datePreset, dateFrom, dateTo } = normalizeDateParams({
+    datePreset: query.datePreset,
+    dateFrom: query.dateFrom,
+    dateTo: query.dateTo,
+  });
+
+  const cacheKey = `meta:${userId}:${activeMetaAccount}:ad_breakdowns:${adId}:${cleanBreakdown}:${dateRangeKey}`;
+
+  try {
+    const cached = await cacheUtil.get(cacheKey);
+    if (cached && cached.data) {
+      return {
+        data: cached.data,
+        meta: {
+          cachedAt: cached.cachedAt,
+          expiresAt: cached.expiresAt,
+          source: "redis",
+        },
+      };
+    }
+  } catch (cacheErr) {
+    logger.warn(`[Redis ERROR] Cache lookup failed for key ${cacheKey}: ${cacheErr.message}`);
+  }
+
+  const rawData = await facebookAdapter.fetchAdBreakdowns({
+    activeMetaAccount,
+    adId,
+    breakdown: cleanBreakdown,
+    datePreset,
+    dateFrom,
+    dateTo,
+  });
+
+  const payloadData = {
+    adId,
+    breakdown: cleanBreakdown,
+    rows: rawData || [],
+  };
+
+  const baseTtl = 300; // 5 minutes
+  const jitteredTtl = calculateJitteredTtl(baseTtl);
+
+  const now = new Date();
+  const cachedAt = now.toISOString();
+  const expiresAt = new Date(now.getTime() + jitteredTtl * 1000).toISOString();
+
+  const cachePayload = {
+    data: payloadData,
+    cachedAt,
+    expiresAt,
+    source: "windsor",
+  };
+
+  await cacheUtil.set(cacheKey, cachePayload, jitteredTtl);
+
+  return {
+    data: payloadData,
+    meta: {
+      cachedAt,
+      expiresAt,
+      source: "windsor",
+    },
+  };
+};
+
 module.exports = {
   getAnalyticsData,
   getCampaignDetails,
   getCampaignBreakdowns,
   getAdSetBreakdowns,
+  getAdBreakdowns,
   getMetaComparison,
 };
 

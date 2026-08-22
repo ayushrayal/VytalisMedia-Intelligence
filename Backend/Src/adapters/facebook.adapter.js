@@ -831,6 +831,72 @@ const fetchAdSetBreakdowns = async ({
   return normalizeAndAggregateBreakdowns(rawData, cleanBreakdown);
 };
 
+/**
+ * Fetches ad-scoped breakdown data (age, gender, placement) from Windsor.
+ * Scoped directly to ad_id at the data-provider level.
+ */
+const fetchAdBreakdowns = async ({
+  activeMetaAccount,
+  adId,
+  breakdown = "age",
+  datePreset,
+  dateFrom,
+  dateTo,
+}) => {
+  const fieldsMap = {
+    age: [
+      "age",
+      "spend",
+      "impressions",
+      "reach",
+      "clicks",
+      "currency",
+      "actions_purchase",
+      "action_values_purchase",
+    ],
+    gender: [
+      "gender",
+      "spend",
+      "impressions",
+      "reach",
+      "clicks",
+      "currency",
+      "actions_purchase",
+      "action_values_purchase",
+    ],
+    placement: [
+      "publisher_platform",
+      "platform_position",
+      "spend",
+      "impressions",
+      "reach",
+      "clicks",
+      "currency",
+      "actions_purchase",
+      "action_values_purchase",
+    ],
+  };
+
+  const cleanBreakdown = (breakdown || "age").toLowerCase().trim();
+  const fields = fieldsMap[cleanBreakdown] || fieldsMap.age;
+
+  const filters = buildAccountFilter(activeMetaAccount);
+  if (adId) {
+    filters.push(["ad_id", "eq", adId]);
+  }
+
+  const rawData = await windsorProvider.fetchData({
+    connector: WINDSOR_CONSTANTS.CONNECTOR_FACEBOOK,
+    fields,
+    datePreset,
+    dateFrom,
+    dateTo,
+    filters,
+  });
+
+  return normalizeAndAggregateBreakdowns(rawData, cleanBreakdown);
+};
+
 const normalizeAndAggregateBreakdowns = (rawData, breakdown) => {
   if (!Array.isArray(rawData) || rawData.length === 0) return [];
 
@@ -919,6 +985,7 @@ module.exports = {
   fetchCampaignDetails,
   fetchCampaignBreakdowns,
   fetchAdSetBreakdowns,
+  fetchAdBreakdowns,
   normalizeAndAggregateAdSets,
 };
 

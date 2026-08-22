@@ -223,6 +223,7 @@ export const PoorPerformers = () => {
         creative={selectedCreative}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
+        dateParams={dateParams}
       />
     </div>
   );

@@ -408,6 +408,7 @@ export const Campaigns = () => {
         creative={selectedCreative}
         isOpen={isCreativeDrawerOpen}
         onClose={() => setIsCreativeDrawerOpen(false)}
+        dateParams={dateParams}
       />
     </div>
   );

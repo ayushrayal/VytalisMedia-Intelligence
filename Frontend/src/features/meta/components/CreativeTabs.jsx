@@ -15,7 +15,8 @@ export const CreativeTabs = ({ activeTab, setActiveTab, isVideo, hasLinks }) => 
 
   tabs.push(
     { id: "creative", label: "Creative Preview" },
-    { id: "campaign", label: "Campaign & Ad Set" }
+    { id: "campaign", label: "Campaign & Ad Set" },
+    { id: "breakdowns", label: "Breakdowns" }
   );
 
   if (hasLinks) {

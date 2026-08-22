@@ -12,6 +12,7 @@ const {
   validateCampaignDetailsRequest,
   validateCampaignBreakdownsRequest,
   validateAdSetBreakdownsRequest,
+  validateAdBreakdownsRequest,
 } = require("../validators/meta-analytics.validator");
 const { protect, requireEffectivePermission } = require("../middleware/auth.middleware");
 const { requireOrganizationAccess } = require("../middleware/organization-auth.middleware");
@@ -93,6 +94,18 @@ router.get(
   requireEffectivePermission("meta.adsets"),
   validateAdSetBreakdownsRequest,
   metaController.getAdSetBreakdowns
+);
+
+/**
+ * @route   GET /api/meta/ads/:adId/breakdowns
+ * @desc    Fetch ad-scoped breakdown insights (age, gender, placement)
+ * @access  Private
+ */
+router.get(
+  "/ads/:adId/breakdowns",
+  requireEffectivePermission("meta.creatives"),
+  validateAdBreakdownsRequest,
+  metaController.getAdBreakdowns
 );
 
 /**

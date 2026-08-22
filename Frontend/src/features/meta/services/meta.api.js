@@ -96,6 +96,11 @@ export const getAdSetBreakdowns = async (adSetId, params = {}) => {
   return await http.get(`/meta/adsets/${encodeURIComponent(adSetId)}/breakdowns${query}`);
 };
 
+export const getAdBreakdowns = async (adId, params = {}) => {
+  const query = buildQueryString(params);
+  return await http.get(`/meta/ads/${encodeURIComponent(adId)}/breakdowns${query}`);
+};
+
 export const getPlaces = async (params = {}) => {
   const query = buildQueryString(params);
   return await http.get(`/meta/analytics/places${query}`);

@@ -211,11 +211,70 @@ const validateAdSetBreakdownsRequest = (req, res, next) => {
   next();
 };
 
+/**
+ * Middleware validating Meta ad breakdowns request.
+ */
+const validateAdBreakdownsRequest = (req, res, next) => {
+  // 1. Explicitly reject any client-supplied accountId
+  if (
+    (req.query && req.query.accountId !== undefined) ||
+    (req.body && req.body.accountId !== undefined) ||
+    (req.params && req.params.accountId !== undefined)
+  ) {
+    return sendError(res, 400, "Account ID must not be supplied by the client");
+  }
+
+  // 2. Validate adId param
+  const { adId } = req.params;
+  if (!adId || !adId.trim()) {
+    return sendError(res, 400, "Ad ID parameter is required");
+  }
+
+  // 3. Validate breakdown category parameter
+  const breakdownRaw = (req.query.breakdown || "age").toString().toLowerCase().trim();
+  const allowedBreakdowns = ["age", "gender", "placement"];
+  if (!allowedBreakdowns.includes(breakdownRaw)) {
+    return sendError(
+      res,
+      400,
+      `Unsupported breakdown category '${breakdownRaw}'. Allowed categories: ${allowedBreakdowns.join(", ")}`
+    );
+  }
+
+  // 4. Date parameters validation
+  const { datePreset, dateFrom, dateTo } = req.query;
+
+  if (datePreset && (dateFrom || dateTo)) {
+    return sendError(
+      res,
+      400,
+      "Ambiguous date parameters. Cannot supply both datePreset and custom date range (dateFrom/dateTo)"
+    );
+  }
+
+  if ((dateFrom && !dateTo) || (!dateFrom && dateTo)) {
+    return sendError(res, 400, "Both dateFrom and dateTo must be provided for a custom date range");
+  }
+
+  const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (dateFrom && !isoDateRegex.test(dateFrom.trim())) {
+    return sendError(res, 400, "dateFrom must be a valid date in YYYY-MM-DD format");
+  }
+
+  if (dateTo && !isoDateRegex.test(dateTo.trim())) {
+    return sendError(res, 400, "dateTo must be a valid date in YYYY-MM-DD format");
+  }
+
+  req.query.breakdown = breakdownRaw;
+  next();
+};
+
 module.exports = {
   validateAnalyticsRequest,
   validateCampaignDetailsRequest,
   validateCampaignBreakdownsRequest,
   validateAdSetBreakdownsRequest,
+  validateAdBreakdownsRequest,
 };
 
 

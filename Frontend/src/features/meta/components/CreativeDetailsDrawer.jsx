@@ -6,6 +6,7 @@ import VideoPerformanceSection from "./VideoPerformanceSection.jsx";
 import CreativePreviewSection from "./CreativePreviewSection.jsx";
 import CampaignAdSetSection from "./CampaignAdSetSection.jsx";
 import CreativeLinksSection, { hasValidCreativeLinks } from "./CreativeLinksSection.jsx";
+import AdBreakdowns from "./AdBreakdowns.jsx";
 import { isCreativeVideo, getCreativeType } from "./CreativeCard.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
@@ -16,7 +17,7 @@ import { X, Video, Image as ImageIcon } from "lucide-react";
  * Tabbed right-side drawer interface:
  * HEADER (sticky) -> HORIZONTAL TABS (sticky) -> ACTIVE TAB CONTENT (scrollable)
  */
-export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
+export const CreativeDetailsDrawer = ({ creative, isOpen, onClose, dateParams = {} }) => {
   const [activeTab, setActiveTab] = useState("performance");
   const [loading, setLoading] = useState(true);
   const { isDisplayLoading, handleComplete } = usePageLoading(loading);
@@ -248,6 +249,22 @@ export const CreativeDetailsDrawer = ({ creative, isOpen, onClose }) => {
 
               {activeTab === "campaign" && (
                 <CampaignAdSetSection creative={creative} />
+              )}
+
+              {activeTab === "breakdowns" && (
+                <AdBreakdowns
+                  adId={
+                    creative
+                      ? String(
+                          creative.ad_id ||
+                          creative.adId ||
+                          (creative.id && !String(creative.id).startsWith("cr-") ? creative.id : "")
+                        ).trim()
+                      : ""
+                  }
+                  dateParams={dateParams}
+                  currency={creative.currency || "INR"}
+                />
               )}
 
               {activeTab === "links" && hasLinks && (
