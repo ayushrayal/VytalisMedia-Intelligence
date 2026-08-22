@@ -270,6 +270,18 @@ const mset = async (keyValueMap, ttlSeconds = 600) => {
   }
 };
 
+const keys = async (pattern) => {
+  if (!client || !isConnected) {
+    return [];
+  }
+  try {
+    return await client.keys(pattern);
+  } catch (error) {
+    logger.error(`Error fetching keys for pattern ${pattern} from Redis:`, error.message);
+    return [];
+  }
+};
+
 module.exports = {
   connect,
   disconnect,
@@ -279,6 +291,8 @@ module.exports = {
   mget,
   mset,
   delete: del,
+  del,
+  keys,
   getDel,
   incrWithTtl,
 };

@@ -26,13 +26,26 @@ const runMemberIntegrationSuite = async () => {
       process.exit(1);
     }
 
+    const clientWithMeta = await User.findOne({
+      "integrations.meta.0": { $exists: true },
+    });
+
+    if (clientWithMeta) {
+      nitish.role = "member";
+      nitish.assignedClientId = clientWithMeta._id;
+      if (clientWithMeta.organizationId) {
+        nitish.organizationId = clientWithMeta.organizationId;
+      }
+      await nitish.save();
+    }
+
+    // Resolve Integration Context
+    const { integrationUser, organization } = await getEffectiveIntegrationContext(nitish);
+
     console.log(`\n[CHECK 1-3] MEMBER RELATIONSHIP RESOLUTION:`);
     console.log(`   User ID: ${nitish._id}`);
     console.log(`   Role: ${nitish.role}`);
     console.log(`   assignedClientId: ${nitish.assignedClientId}`);
-
-    // Resolve Integration Context
-    const { integrationUser, organization } = await getEffectiveIntegrationContext(nitish);
     console.log(`   Resolved Client ID: ${integrationUser?._id}`);
     console.log(`   Resolved Client Name: ${integrationUser?.name}`);
     console.log(`   Resolved Organization ID: ${organization?._id}`);

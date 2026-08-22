@@ -6,6 +6,7 @@ const {
   calculateEffectivePermission,
   calculateAllEffectivePermissions,
   calculateBatchEffectivePermissions,
+  updateAssignedPermissionsAtomic,
   invalidateUserPermissionCache,
 } = require("../utils/permission-calculator.util");
 const { formatPermissionsArray } = require("../utils/migration.util");
@@ -45,7 +46,7 @@ const getClientTeamMembers = async (req, res, next) => {
       Promise.all([
         User.countDocuments(filter),
         User.find(filter)
-          .select("name email role status organizationId assignedClientId lastActiveAt createdAt")
+          .select("name email role status organizationId assignedClientId lastActiveAt createdAt assignedPermissions")
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limit)
@@ -223,17 +224,13 @@ const updateClientTeamMemberPermissions = async (req, res, next) => {
     const oldPermsObj = Object.fromEntries(existingMap);
     const patchKeys = Object.keys(permissions).filter((k) => ALL_PERMISSION_KEYS.includes(k));
 
-    // Selective PATCH: Update ONLY the explicitly requested permission keys
+    // Atomic MongoDB Update: Update ONLY the explicitly requested permission keys without overwriting unmentioned keys
+    const patchObj = {};
     patchKeys.forEach((key) => {
-      existingMap.set(key, Boolean(permissions[key]));
+      patchObj[key] = Boolean(permissions[key]);
     });
 
-    targetMember.assignedPermissions = Array.from(existingMap.entries()).map(([key, allowed]) => ({
-      key,
-      allowed,
-    }));
-
-    await targetMember.save();
+    await updateAssignedPermissionsAtomic(targetMember._id, patchObj);
     await invalidateUserPermissionCache(targetMember._id);
 
     await logAuditEvent({
@@ -249,7 +246,7 @@ const updateClientTeamMemberPermissions = async (req, res, next) => {
 
     const freshMember = await User.findById(targetMember._id);
     const json = freshMember.toJSON();
-    json.effectivePermissions = await calculateAllEffectivePermissions(freshMember, { skipCacheLookup: true });
+    json.effectivePermissions = await calculateAllEffectivePermissions(freshMember);
 
     return sendSuccess(res, 200, "Member permissions updated successfully", {
       user: json,

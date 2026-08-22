@@ -9,6 +9,7 @@ const {
   calculateEffectivePermission,
   calculateAllEffectivePermissions,
   calculateBatchEffectivePermissions,
+  updateAssignedPermissionsAtomic,
   invalidateGlobalSettingsCache,
   invalidateUserPermissionCache,
   invalidateOrgPermissionCache,
@@ -125,7 +126,7 @@ const getAllAdmins = async (req, res, next) => {
       Promise.all([
         User.countDocuments(filter),
         User.find(filter)
-          .select("name email role status isRootAdmin lastActiveAt createdAt")
+          .select("name email role status isRootAdmin lastActiveAt createdAt assignedPermissions")
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(limit)
@@ -272,7 +273,7 @@ const getAllClients = async (req, res, next) => {
       Promise.all([
         User.countDocuments(filter),
         User.find(filter)
-          .select("name email role status organizationId assignedClientId shopifyEnabled attributionEnabled isRootAdmin lastActiveAt createdAt")
+          .select("name email role status organizationId assignedClientId shopifyEnabled attributionEnabled isRootAdmin lastActiveAt createdAt assignedPermissions")
           .populate("organizationId", "name ownerId memberLimit status")
           .sort({ createdAt: -1 })
           .skip(skip)
@@ -483,7 +484,7 @@ const getAllMembers = async (req, res, next) => {
       Promise.all([
         User.countDocuments(filter),
         User.find(filter)
-          .select("name email role status organizationId assignedClientId lastActiveAt createdAt")
+          .select("name email role status organizationId assignedClientId lastActiveAt createdAt assignedPermissions")
           .populate("organizationId", "name ownerId status")
           .populate("assignedClientId", "name email")
           .sort({ createdAt: -1 })
@@ -741,17 +742,13 @@ const updateUserPermissions = async (req, res, next) => {
     const oldPermsObj = Object.fromEntries(existingMap);
     const patchKeys = Object.keys(permissions).filter((k) => ALL_PERMISSION_KEYS.includes(k));
 
-    // Selective PATCH: Update ONLY the explicitly requested permission keys
+    // Atomic MongoDB Update: Update ONLY the explicitly requested permission keys without overwriting unmentioned keys
+    const patchObj = {};
     patchKeys.forEach((key) => {
-      existingMap.set(key, Boolean(permissions[key]));
+      patchObj[key] = Boolean(permissions[key]);
     });
 
-    targetUser.assignedPermissions = Array.from(existingMap.entries()).map(([key, allowed]) => ({
-      key,
-      allowed,
-    }));
-
-    await targetUser.save();
+    await updateAssignedPermissionsAtomic(targetUser._id, patchObj);
     await invalidateUserPermissionCache(targetUser._id);
     if (targetUser.role === "client" && targetUser.organizationId) {
       await invalidateOrgPermissionCache(targetUser.organizationId);
@@ -770,7 +767,7 @@ const updateUserPermissions = async (req, res, next) => {
 
     const freshUser = await User.findById(targetUser._id);
     const json = freshUser.toJSON();
-    json.effectivePermissions = await calculateAllEffectivePermissions(freshUser, { skipCacheLookup: true });
+    json.effectivePermissions = await calculateAllEffectivePermissions(freshUser);
 
     return sendSuccess(res, 200, "User permissions updated successfully", {
       user: json,

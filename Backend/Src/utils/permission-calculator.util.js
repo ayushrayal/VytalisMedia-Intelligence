@@ -4,7 +4,6 @@ const Organization = require("../models/organization.model");
 const GlobalSettings = require("../models/global-settings.model");
 const AdminAssignment = require("../models/admin-assignment.model");
 const { ALL_PERMISSION_KEYS } = require("../config/permission-registry");
-const cacheUtil = require("./cache.util");
 
 /**
  * Safely extracts string ID from string, ObjectId, or populated document.
@@ -335,29 +334,59 @@ const calculateEffectivePermission = async (user, permissionKey, options = {}) =
 };
 
 /**
- * Version-Based O(1) Redis Permission Revocation Invalidation Helpers
+ * No-op cache invalidation helpers (Redis permission caching removed).
  */
 const invalidateUserPermissionCache = async (userId) => {
-  if (!userId) return;
-  const cleanId = extractId(userId);
-  await cacheUtil.incrWithTtl(`perm_ver:user:${cleanId}`, 86400 * 30);
+  return;
 };
 
 const invalidateOrgPermissionCache = async (orgId) => {
-  if (!orgId) return;
-  const cleanId = extractId(orgId);
-  await cacheUtil.incrWithTtl(`perm_ver:org:${cleanId}`, 86400 * 30);
+  return;
 };
 
 const invalidateGlobalPermissionCache = async () => {
   globalSettingsCache = null;
   globalSettingsCacheTime = 0;
-  await cacheUtil.incrWithTtl("perm_ver:global", 86400 * 30);
+  return;
+};
+
+/**
+ * Atomically updates assignedPermissions array on User document in MongoDB.
+ * For each key in patchPermissions:
+ * 1. If assignedPermissions already contains an entry with matching key, update its 'allowed' value.
+ * 2. If assignedPermissions does NOT contain matching key, push { key, allowed }.
+ * Unmentioned keys in assignedPermissions are completely untouched.
+ *
+ * @param {string|mongoose.Types.ObjectId} userId
+ * @param {Record<string, boolean>} patchPermissions
+ */
+const updateAssignedPermissionsAtomic = async (userId, patchPermissions) => {
+  if (!patchPermissions || typeof patchPermissions !== "object") return;
+
+  const cleanUserId = extractId(userId);
+  if (!cleanUserId) return;
+
+  for (const [key, allowedVal] of Object.entries(patchPermissions)) {
+    if (!ALL_PERMISSION_KEYS.includes(key)) continue;
+    const allowed = Boolean(allowedVal);
+
+    const updateRes = await User.updateOne(
+      { _id: cleanUserId, "assignedPermissions.key": key },
+      { $set: { "assignedPermissions.$.allowed": allowed } }
+    );
+
+    if (updateRes.matchedCount === 0) {
+      await User.updateOne(
+        { _id: cleanUserId, "assignedPermissions.key": { $ne: key } },
+        { $push: { assignedPermissions: { key, allowed } } }
+      );
+    }
+  }
 };
 
 /**
  * Calculates effective permissions for ALL registered permission keys for a single user.
- * Integrated with O(1) versioned Redis caching.
+ * Resolved directly from MongoDB user state.
  *
  * @param {Object} user - User document
  * @param {Object} [options] - Optional pre-loaded context (organization, parentClient, supervisingAdmin, globalDeniedPermissions)
@@ -365,29 +394,6 @@ const invalidateGlobalPermissionCache = async () => {
  */
 const calculateAllEffectivePermissions = async (user, options = {}) => {
   if (!user) return {};
-
-  const userId = extractId(user);
-  const orgId = user.organizationId ? extractId(user.organizationId) : null;
-
-  // Attempt Redis version-based lookup
-  if (cacheUtil.isReady() && !options.skipCacheLookup) {
-    try {
-      const uVerData = await cacheUtil.get(`perm_ver:user:${userId}`);
-      const uVer = uVerData ? uVerData : 1;
-      const oVerData = orgId ? await cacheUtil.get(`perm_ver:org:${orgId}`) : 1;
-      const oVer = oVerData ? oVerData : 1;
-      const gVerData = await cacheUtil.get("perm_ver:global");
-      const gVer = gVerData ? gVerData : 1;
-
-      const cacheKey = `eff_perms:${userId}:u${uVer}:o${oVer}:g${gVer}`;
-      const cached = await cacheUtil.get(cacheKey);
-      if (cached) {
-        return cached;
-      }
-    } catch (e) {
-      // Non-fatal cache lookup fallback
-    }
-  }
 
   const globalDenied = options.globalDeniedPermissions || (await getCachedGlobalDeniedPermissions());
 
@@ -433,35 +439,15 @@ const calculateAllEffectivePermissions = async (user, options = {}) => {
     });
   }
 
-  // Cache in Redis for 10 minutes if connected
-  if (cacheUtil.isReady()) {
-    try {
-      const uVerData = await cacheUtil.get(`perm_ver:user:${userId}`);
-      const uVer = uVerData ? uVerData : 1;
-      const oVerData = orgId ? await cacheUtil.get(`perm_ver:org:${orgId}`) : 1;
-      const oVer = oVerData ? oVerData : 1;
-      const gVerData = await cacheUtil.get("perm_ver:global");
-      const gVer = gVerData ? gVerData : 1;
-
-      const cacheKey = `eff_perms:${userId}:u${uVer}:o${oVer}:g${gVer}`;
-      await cacheUtil.set(cacheKey, results, 600);
-    } catch (e) {
-      // Non-fatal cache write fallback
-    }
-  }
-
   return results;
 };
 
 /**
  * High-Performance Batch Permission Calculator.
- * Operates ONLY on the requested page of users (25, 50, 100).
- * Pre-loads all required Organizations, AdminAssignments, and Parent Clients in 1 parallel MongoDB query.
- * Batch fetches Redis version numbers and cached permission maps using MGET.
- * Executes ZERO database or Redis queries inside per-user loops.
+ * Operates directly on MongoDB User data without Redis caching.
  *
  * @param {Array<Object>} usersArray - Users for the current page only
- * @param {Object} [timer] - Optional PerformanceTimer for Redis/permCalc timing
+ * @param {Object} [timer] - Optional PerformanceTimer for MongoDB/permCalc timing
  * @returns {Promise<Map<string, Record<string, Object>>>} Map of userId -> effectivePermissions
  */
 const calculateBatchEffectivePermissions = async (usersArray = [], timer = null) => {
@@ -471,93 +457,8 @@ const calculateBatchEffectivePermissions = async (usersArray = [], timer = null)
   }
 
   const userList = usersArray;
-  const userIds = userList.map((u) => extractId(u));
+  const misses = [...userList];
 
-  // Collect unique Org IDs and Parent Client IDs for the page users
-  const orgIdsSet = new Set();
-  const parentClientIdsSet = new Set();
-
-  userList.forEach((u) => {
-    if (u.organizationId) {
-      const oId = extractId(u.organizationId);
-      if (oId) orgIdsSet.add(oId);
-    }
-    if (u.assignedClientId) {
-      const cId = extractId(u.assignedClientId);
-      if (cId) parentClientIdsSet.add(cId);
-    }
-  });
-
-  const orgIds = Array.from(orgIdsSet);
-  const parentClientIds = Array.from(parentClientIdsSet);
-
-  // STEP 1: BATCH REDIS VERSION LOOKUP & CACHE HIT EVALUATION (2 MGET commands total)
-  let isRedisAvailable = cacheUtil.isReady();
-  const cachedHits = new Map();
-  const misses = [];
-
-  if (isRedisAvailable) {
-    try {
-      const userVerKeys = userIds.map((id) => `perm_ver:user:${id}`);
-      const orgVerKeys = orgIds.map((id) => `perm_ver:org:${id}`);
-      const gVerKey = "perm_ver:global";
-
-      const allVerKeys = [...userVerKeys, ...orgVerKeys, gVerKey];
-      const verResults = timer
-        ? await timer.timeRedis(() => cacheUtil.mget(allVerKeys))
-        : await cacheUtil.mget(allVerKeys);
-
-      const userVerMap = new Map();
-      userIds.forEach((id, idx) => {
-        userVerMap.set(id, verResults[idx] || 1);
-      });
-
-      const orgVerMap = new Map();
-      orgIds.forEach((id, idx) => {
-        orgVerMap.set(id, verResults[userIds.length + idx] || 1);
-      });
-
-      const gVer = verResults[verResults.length - 1] || 1;
-
-      // Construct cache keys for all users on the page
-      const cacheKeys = userList.map((u) => {
-        const uId = extractId(u);
-        const oId = u.organizationId ? extractId(u.organizationId) : null;
-        const uV = userVerMap.get(uId) || 1;
-        const oV = oId ? orgVerMap.get(oId) || 1 : 1;
-        return `eff_perms:${uId}:u${uV}:o${oV}:g${gVer}`;
-      });
-
-      const cachedResults = timer
-        ? await timer.timeRedis(() => cacheUtil.mget(cacheKeys))
-        : await cacheUtil.mget(cacheKeys);
-
-      userList.forEach((u, idx) => {
-        const cached = cachedResults[idx];
-        if (cached && typeof cached === "object") {
-          cachedHits.set(extractId(u), cached);
-        } else {
-          misses.push(u);
-        }
-      });
-    } catch (e) {
-      isRedisAvailable = false;
-      misses.push(...userList);
-    }
-  } else {
-    misses.push(...userList);
-  }
-
-  // Populate cached hits into returned map
-  cachedHits.forEach((perms, uId) => {
-    permMap.set(uId, perms);
-  });
-
-  if (misses.length === 0) {
-    return permMap;
-  }
-
-  // STEP 2: BATCH MONGODB PRE-LOADING FOR MISSING USERS (1 Parallel Promise.all query)
   const missOrgIdsSet = new Set();
   const missClientIdsSet = new Set();
 
@@ -578,7 +479,6 @@ const calculateBatchEffectivePermissions = async (usersArray = [], timer = null)
       ? await User.find({ _id: { $in: missClientIds } }).lean()
       : [];
 
-    // Also collect parent client organization IDs to ensure complete in-memory resolution
     initialParentClients.forEach((pc) => {
       if (pc && pc.organizationId) {
         const oId = extractId(pc.organizationId);
@@ -631,7 +531,6 @@ const calculateBatchEffectivePermissions = async (usersArray = [], timer = null)
     ? await timer.timeMongo(fetchMongoData)
     : await fetchMongoData();
 
-  // Build in-memory Maps with clean String keys
   const orgMap = new Map();
   orgDocs.forEach((o) => orgMap.set(extractId(o), o));
 
@@ -645,10 +544,7 @@ const calculateBatchEffectivePermissions = async (usersArray = [], timer = null)
   const parentClientMap = new Map();
   parentClientDocs.forEach((p) => parentClientMap.set(extractId(p), p));
 
-  // STEP 3: PURE IN-MEMORY CALCULATION FOR MISSES (ZERO DB Queries executed inside loops)
   const doInMemCalc = async () => {
-    const toCacheMap = {};
-
     for (const u of misses) {
       const uId = extractId(u);
 
@@ -695,40 +591,6 @@ const calculateBatchEffectivePermissions = async (usersArray = [], timer = null)
       }
 
       permMap.set(uId, userResults);
-      toCacheMap[uId] = userResults;
-    }
-
-    // STEP 4: ASYNCHRONOUS NON-BLOCKING REDIS CACHE WRITES
-    if (isRedisAvailable && cacheUtil.isReady() && Object.keys(toCacheMap).length > 0) {
-      (async () => {
-        try {
-          const userVerKeys = misses.map((m) => `perm_ver:user:${extractId(m)}`);
-          const missOrgIds = Array.from(missOrgIdsSet);
-          const orgVerKeys = missOrgIds.map((oId) => `perm_ver:org:${oId}`);
-          const gVerKey = "perm_ver:global";
-
-          const verResults = await cacheUtil.mget([...userVerKeys, ...orgVerKeys, gVerKey]);
-          const userVerMap = new Map();
-          misses.forEach((m, idx) => userVerMap.set(extractId(m), verResults[idx] || 1));
-          const orgVerMap = new Map();
-          missOrgIds.forEach((oId, idx) => orgVerMap.set(oId, verResults[misses.length + idx] || 1));
-          const gVer = verResults[verResults.length - 1] || 1;
-
-          const batchToSet = {};
-          misses.forEach((m) => {
-            const mId = extractId(m);
-            const oId = m.organizationId ? extractId(m.organizationId) : null;
-            const uV = userVerMap.get(mId) || 1;
-            const oV = oId ? orgVerMap.get(oId) || 1 : 1;
-            const cacheKey = `eff_perms:${mId}:u${uV}:o${oV}:g${gVer}`;
-            batchToSet[cacheKey] = toCacheMap[mId];
-          });
-
-          await cacheUtil.mset(batchToSet, 600);
-        } catch (e) {
-          // Suppress async cache write errors
-        }
-      })();
     }
   };
 
@@ -745,8 +607,10 @@ module.exports = {
   calculateEffectivePermission,
   calculateAllEffectivePermissions,
   calculateBatchEffectivePermissions,
+  updateAssignedPermissionsAtomic,
   invalidateGlobalSettingsCache,
   invalidateUserPermissionCache,
   invalidateOrgPermissionCache,
   invalidateGlobalPermissionCache,
 };
+
