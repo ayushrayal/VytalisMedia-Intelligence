@@ -12,7 +12,13 @@ import ShopifyLockedState from "../components/ShopifyLockedState.jsx";
 import { formatCurrencyINR } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { getErrorMessage } from "../../../utils/error.js";
-import { Users, UserPlus, UserCheck, Filter } from "lucide-react";
+import { calculateShopifyCustomerMetrics } from "../utils/shopify-calculator.jsx";
+import { Users, UserPlus, UserCheck, Filter, Repeat, Crown } from "lucide-react";
+import rupeeImg from "../../../assets/rupee.png";
+
+const RupeeIcon = ({ size = 18 }) => (
+  <img src={rupeeImg} alt="Rupee" style={{ width: `${size}px`, height: `${size}px`, objectFit: "contain" }} />
+);
 
 export const ShopifyCustomers = () => {
   const [customersData, setCustomersData] = useState([]);
@@ -24,7 +30,7 @@ export const ShopifyCustomers = () => {
   // Account & Lock state
   const [isLocked, setIsLocked] = useState(false);
 
-  // Customer Filter State: "all" | "new" | "returning"
+  // Customer Filter State: "all" | "single" | "repeat" | "high_value"
   const [customerFilter, setCustomerFilter] = useState("all");
 
   // Pagination State
@@ -65,54 +71,31 @@ export const ShopifyCustomers = () => {
     setCurrentPage(1);
   }, [dateParams, customerFilter]);
 
-  // Compute New vs Returning Customer Metrics using real API `customer_orders_count`
+  // Compute Canonical Customer Metrics according to exact P0 audit specifications
   const customerMetrics = useMemo(() => {
-    let newCount = 0;
-    let returningCount = 0;
-
-    customersData.forEach((c) => {
-      const ordersCount =
-        c.customer_orders_count !== null &&
-        c.customer_orders_count !== undefined &&
-        !isNaN(Number(c.customer_orders_count))
-          ? Number(c.customer_orders_count)
-          : null;
-
-      if (ordersCount === 1) {
-        newCount += 1;
-      } else if (ordersCount !== null && ordersCount > 1) {
-        returningCount += 1;
-      }
-    });
-
-    return {
-      totalCustomers: customersData.length,
-      newCustomers: newCount,
-      returningCustomers: returningCount,
-    };
+    return calculateShopifyCustomerMetrics(customersData);
   }, [customersData]);
 
-  // Filtered Customers Dataset based on customer filter ("all" | "new" | "returning")
+  // Filtered Customers Dataset based on customer filter ("all" | "single" | "repeat" | "high_value")
   const filteredCustomers = useMemo(() => {
     if (customerFilter === "all") return customersData;
 
     return customersData.filter((c) => {
-      const ordersCount =
-        c.customer_orders_count !== null &&
-        c.customer_orders_count !== undefined &&
-        !isNaN(Number(c.customer_orders_count))
-          ? Number(c.customer_orders_count)
-          : null;
+      const ordersCount = Number(c.customer_orders_count || 1);
+      const totalSpent = Number(c.customer_total_spent || 0);
 
-      if (customerFilter === "new") {
+      if (customerFilter === "single") {
         return ordersCount === 1;
       }
-      if (customerFilter === "returning") {
-        return ordersCount !== null && ordersCount > 1;
+      if (customerFilter === "repeat") {
+        return ordersCount >= 2;
+      }
+      if (customerFilter === "high_value") {
+        return customerMetrics.highValueThreshold > 0 && totalSpent >= customerMetrics.highValueThreshold && totalSpent > 0;
       }
       return true;
     });
-  }, [customersData, customerFilter]);
+  }, [customersData, customerFilter, customerMetrics.highValueThreshold]);
 
   // Paginated Customers List
   const totalItems = filteredCustomers.length;
@@ -135,7 +118,7 @@ export const ShopifyCustomers = () => {
             Shopify Customers
           </h1>
           <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#64748B" }}>
-            Customer spending, lifetime value, and order history analytics.
+            Customer spending, repeat purchase rates, returning revenue, and segment analytics.
           </p>
         </div>
 
@@ -152,6 +135,8 @@ export const ShopifyCustomers = () => {
             <Skeleton height="110px" />
             <Skeleton height="110px" />
             <Skeleton height="110px" />
+            <Skeleton height="110px" />
+            <Skeleton height="110px" />
           </div>
           <Skeleton height="350px" />
         </div>
@@ -164,8 +149,8 @@ export const ShopifyCustomers = () => {
         />
       ) : (
         <>
-          {/* Top KPI Cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+          {/* Top KPI Cards (5 Cards) */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
             <MetricCard
               title="Total Customers"
               value={formatNumber(customerMetrics.totalCustomers)}
@@ -174,20 +159,34 @@ export const ShopifyCustomers = () => {
               onClick={() => setCustomerFilter("all")}
             />
             <MetricCard
-              title="New Customers"
-              value={formatNumber(customerMetrics.newCustomers)}
-              subtitle="Single order customers"
+              title="Single-Order Customers"
+              value={formatNumber(customerMetrics.singleOrderCustomers)}
+              subtitle="Customers with 1 order"
               icon={UserPlus}
               accentColor="#0A84FF"
-              onClick={() => setCustomerFilter("new")}
+              onClick={() => setCustomerFilter("single")}
             />
             <MetricCard
-              title="Returning Customers"
-              value={formatNumber(customerMetrics.returningCustomers)}
-              subtitle="Repeat buyers (2+ orders)"
+              title="Repeat Customers"
+              value={formatNumber(customerMetrics.repeatCustomers)}
+              subtitle="Customers with 2+ orders"
               icon={UserCheck}
               accentColor="#16A34A"
-              onClick={() => setCustomerFilter("returning")}
+              onClick={() => setCustomerFilter("repeat")}
+            />
+            <MetricCard
+              title="Repeat Purchase Rate"
+              value={`${customerMetrics.repeatPurchaseRate}%`}
+              subtitle={`${customerMetrics.repeatCustomers} of ${customerMetrics.totalCustomers} buyers`}
+              icon={Repeat}
+              accentColor="#8B5CF6"
+            />
+            <MetricCard
+              title="Returning Revenue"
+              value={formatCurrencyINR(customerMetrics.returningRevenue)}
+              subtitle="Revenue from 2+ order customers"
+              icon={RupeeIcon}
+              accentColor="#16A34A"
             />
           </div>
 
@@ -195,7 +194,7 @@ export const ShopifyCustomers = () => {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", backgroundColor: "#FFFFFF", padding: "12px 16px", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
               <Filter size={15} color="#64748B" />
-              <span style={{ fontSize: "13px", fontWeight: "600", color: "#0F172A" }}>Filter Customers:</span>
+              <span style={{ fontSize: "13px", fontWeight: "600", color: "#0F172A" }}>Filter Segment:</span>
               <div style={{ display: "flex", gap: "6px" }}>
                 <button
                   type="button"
@@ -209,50 +208,66 @@ export const ShopifyCustomers = () => {
                     fontSize: "12px",
                     fontWeight: "600",
                     cursor: "pointer",
-                    transition: "all 0.15s ease",
                   }}
                 >
                   All ({customerMetrics.totalCustomers})
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCustomerFilter("new")}
+                  onClick={() => setCustomerFilter("single")}
                   style={{
                     padding: "4px 12px",
                     borderRadius: "6px",
                     border: "none",
-                    backgroundColor: customerFilter === "new" ? "#0F172A" : "#F1F5F9",
-                    color: customerFilter === "new" ? "#FFFFFF" : "#475569",
+                    backgroundColor: customerFilter === "single" ? "#0A84FF" : "#F1F5F9",
+                    color: customerFilter === "single" ? "#FFFFFF" : "#475569",
                     fontSize: "12px",
                     fontWeight: "600",
                     cursor: "pointer",
-                    transition: "all 0.15s ease",
                   }}
                 >
-                  New ({customerMetrics.newCustomers})
+                  Single-Order ({customerMetrics.singleOrderCustomers})
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCustomerFilter("returning")}
+                  onClick={() => setCustomerFilter("repeat")}
                   style={{
                     padding: "4px 12px",
                     borderRadius: "6px",
                     border: "none",
-                    backgroundColor: customerFilter === "returning" ? "#0F172A" : "#F1F5F9",
-                    color: customerFilter === "returning" ? "#FFFFFF" : "#475569",
+                    backgroundColor: customerFilter === "repeat" ? "#16A34A" : "#F1F5F9",
+                    color: customerFilter === "repeat" ? "#FFFFFF" : "#475569",
                     fontSize: "12px",
                     fontWeight: "600",
                     cursor: "pointer",
-                    transition: "all 0.15s ease",
                   }}
                 >
-                  Returning ({customerMetrics.returningCustomers})
+                  Repeat ({customerMetrics.repeatCustomers})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCustomerFilter("high_value")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: customerFilter === "high_value" ? "#8B5CF6" : "#F1F5F9",
+                    color: customerFilter === "high_value" ? "#FFFFFF" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  <Crown size={12} /> High-Value Top 10% ({customerMetrics.highValueCount})
                 </button>
               </div>
             </div>
 
             <span style={{ fontSize: "12px", color: "#64748B" }}>
-              Showing {filteredCustomers.length} of {filteredCustomers.length} customers
+              Showing {filteredCustomers.length} of {customerMetrics.totalCustomers} customers
             </span>
           </div>
 
@@ -262,10 +277,11 @@ export const ShopifyCustomers = () => {
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid #E2E8F0", backgroundColor: "#F8FAFC", color: "#64748B", fontSize: "11px", textTransform: "uppercase" }}>
-                    <th style={{ padding: "12px 16px", width: "40%" }}>Customer Name</th>
-                    <th style={{ padding: "12px 16px", width: "20%" }}>Orders Count</th>
-                    <th style={{ padding: "12px 16px", width: "20%" }}>Calculated AOV</th>
-                    <th style={{ padding: "12px 16px", width: "20%", textAlign: "right" }}>Total Spent</th>
+                    <th style={{ padding: "12px 16px", width: "35%" }}>Customer Name</th>
+                    <th style={{ padding: "12px 16px", width: "20%" }}>Segment</th>
+                    <th style={{ padding: "12px 16px", width: "15%" }}>Orders Count</th>
+                    <th style={{ padding: "12px 16px", width: "15%" }}>Calculated AOV</th>
+                    <th style={{ padding: "12px 16px", width: "15%", textAlign: "right" }}>Total Spent</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -274,11 +290,34 @@ export const ShopifyCustomers = () => {
                     const ordersCount = Number(c.customer_orders_count || 1);
                     const totalSpent = Number(c.customer_total_spent || 0);
                     const aov = ordersCount > 0 ? totalSpent / ordersCount : 0;
+                    const isHighValue = customerMetrics.highValueThreshold > 0 && totalSpent >= customerMetrics.highValueThreshold && totalSpent > 0;
+                    const isRepeat = ordersCount >= 2;
 
                     return (
                       <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
                         <td style={{ padding: "12px 16px", fontWeight: "600", color: "#0F172A" }}>
                           {name}
+                        </td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                            {isHighValue && (
+                              <span style={{ fontSize: "10px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", backgroundColor: "rgba(139, 92, 246, 0.1)", color: "#8B5CF6", display: "inline-flex", alignItems: "center", gap: "2px" }}>
+                                <Crown size={10} /> High-Value
+                              </span>
+                            )}
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                fontWeight: "700",
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                backgroundColor: isRepeat ? "rgba(22, 163, 74, 0.1)" : "rgba(10, 132, 255, 0.1)",
+                                color: isRepeat ? "#16A34A" : "#0A84FF",
+                              }}
+                            >
+                              {isRepeat ? "Repeat Buyer" : "Single-Order"}
+                            </span>
+                          </div>
                         </td>
                         <td style={{ padding: "12px 16px", fontWeight: "600" }}>
                           {ordersCount}

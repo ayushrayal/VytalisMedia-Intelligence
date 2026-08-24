@@ -12,8 +12,9 @@ import ShopifyLockedState from "../components/ShopifyLockedState.jsx";
 import { formatCurrencyINR } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { getErrorMessage } from "../../../utils/error.js";
+import { calculateShopifyProductMetrics } from "../utils/shopify-calculator.jsx";
 import rupeeImg from "../../../assets/rupee.png";
-import { Package, ShoppingCart, Layers, Award, ShoppingBag } from "lucide-react";
+import { Package, Layers, Award, ShoppingBag, Filter } from "lucide-react";
 
 const RupeeIcon = ({ size = 18 }) => (
   <img src={rupeeImg} alt="Rupee" style={{ width: `${size}px`, height: `${size}px`, objectFit: "contain" }} />
@@ -28,6 +29,9 @@ export const ShopifyProducts = () => {
 
   // Account & Lock state
   const [isLocked, setIsLocked] = useState(false);
+
+  // Tab Filter State: "all" | "best_sellers" | "most_revenue" | "low_performers"
+  const [productTab, setProductTab] = useState("all");
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -62,65 +66,39 @@ export const ShopifyProducts = () => {
     fetchData();
   }, [fetchData]);
 
-  // Reset page to 1 on date filter change
+  // Reset page to 1 on date filter or tab change
   useEffect(() => {
     setCurrentPage(1);
-  }, [dateParams]);
+  }, [dateParams, productTab]);
 
-  // Aggregate Product Metrics & Distinct Orders
+  // Single Canonical Product Calculations
   const aggregatedProducts = useMemo(() => {
-    const map = {};
-    let totalQty = 0;
-    let totalValue = 0;
-    const orderIdSet = new Set();
-
-    productsData.forEach((p) => {
-      const name = p.line_item__name || p.line_item__title || "Product";
-      const qty = Number(p.line_item__quantity || 1);
-      const price = Number(p.line_item__price || p.line_item__product_price || 0);
-      const rowVal = price * qty;
-
-      totalQty += qty;
-      totalValue += rowVal;
-
-      if (p.order_id !== null && p.order_id !== undefined && String(p.order_id).trim() !== "") {
-        orderIdSet.add(String(p.order_id).trim());
-      }
-
-      if (!map[name]) {
-        map[name] = {
-          name,
-          orderCount: 0,
-          quantity: 0,
-          value: 0,
-        };
-      }
-      map[name].orderCount += 1;
-      map[name].quantity += qty;
-      map[name].value += rowVal;
-    });
-
-    const list = Object.values(map).sort((a, b) => b.value - a.value);
-    const topSellingProduct = list.length > 0 ? list[0] : null;
-    const totalDistinctOrders = orderIdSet.size > 0 ? orderIdSet.size : productsData.length;
-
-    return {
-      list,
-      totalProducts: list.length,
-      totalQty,
-      totalValue,
-      topSellingProduct,
-      totalDistinctOrders,
-    };
+    return calculateShopifyProductMetrics(productsData);
   }, [productsData]);
 
+  // Filtered List based on Tab
+  const filteredList = useMemo(() => {
+    const fullList = aggregatedProducts.list;
+    if (productTab === "best_sellers") {
+      return [...fullList].sort((a, b) => b.quantity - a.quantity);
+    }
+    if (productTab === "most_revenue") {
+      return [...fullList].sort((a, b) => b.value - a.value);
+    }
+    if (productTab === "low_performers") {
+      // Bottom 25% of products by Product Sales among products with at least 1 sale
+      return aggregatedProducts.lowPerformersList;
+    }
+    return fullList;
+  }, [aggregatedProducts, productTab]);
+
   // Paginated Slice
-  const totalItems = aggregatedProducts.list.length;
+  const totalItems = filteredList.length;
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
   const paginatedList = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return aggregatedProducts.list.slice(start, start + pageSize);
-  }, [aggregatedProducts.list, currentPage, pageSize]);
+    return filteredList.slice(start, start + pageSize);
+  }, [filteredList, currentPage, pageSize]);
 
   if (isLocked) {
     return <ShopifyLockedState />;
@@ -135,7 +113,7 @@ export const ShopifyProducts = () => {
             Shopify Products
           </h1>
           <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#64748B" }}>
-            Line items, product sales, and catalog performance analytics.
+            Product line items, volume, sales share, and catalog performance analytics.
           </p>
         </div>
 
@@ -190,7 +168,7 @@ export const ShopifyProducts = () => {
               accentColor="#0A84FF"
             />
             <MetricCard
-              title="Total Orders"
+              title="Product Orders"
               subtitle="Orders with product line items"
               value={formatNumber(aggregatedProducts.totalDistinctOrders)}
               icon={ShoppingBag}
@@ -222,12 +200,90 @@ export const ShopifyProducts = () => {
               }
               subtitle={
                 aggregatedProducts.topSellingProduct
-                  ? `Sales: ${formatCurrencyINR(aggregatedProducts.topSellingProduct.value)}`
+                  ? `Sales: ${formatCurrencyINR(aggregatedProducts.topSellingProduct.value)} (${aggregatedProducts.topSellingProduct.shareOfSales}%)`
                   : undefined
               }
               icon={Award}
               accentColor="#EAB308"
             />
+          </div>
+
+          {/* Product Filter Tabs Bar */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", backgroundColor: "#FFFFFF", padding: "12px 16px", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <Filter size={15} color="#64748B" />
+              <span style={{ fontSize: "13px", fontWeight: "600", color: "#0F172A" }}>Filter Catalog:</span>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  type="button"
+                  onClick={() => setProductTab("all")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: productTab === "all" ? "#0F172A" : "#F1F5F9",
+                    color: productTab === "all" ? "#FFFFFF" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  All ({aggregatedProducts.list.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProductTab("most_revenue")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: productTab === "most_revenue" ? "#0A84FF" : "#F1F5F9",
+                    color: productTab === "most_revenue" ? "#FFFFFF" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  Most Revenue
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProductTab("best_sellers")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: productTab === "best_sellers" ? "#16A34A" : "#F1F5F9",
+                    color: productTab === "best_sellers" ? "#FFFFFF" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  Best Sellers (Qty)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProductTab("low_performers")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: productTab === "low_performers" ? "#EAB308" : "#F1F5F9",
+                    color: productTab === "low_performers" ? "#FFFFFF" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  Low Performers (Bottom 25%)
+                </button>
+              </div>
+            </div>
+
+            <span style={{ fontSize: "12px", color: "#64748B" }}>
+              Showing {filteredList.length} products
+            </span>
           </div>
 
           {/* Products Table with Pagination */}
@@ -236,25 +292,57 @@ export const ShopifyProducts = () => {
               <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid #E2E8F0", backgroundColor: "#F8FAFC", color: "#64748B", fontSize: "11px", textTransform: "uppercase" }}>
-                    <th style={{ padding: "12px 16px", width: "45%", maxWidth: "340px" }}>Product Name</th>
-                    <th style={{ padding: "12px 16px", width: "18%" }}>Order Count</th>
-                    <th style={{ padding: "12px 16px", width: "18%" }}>Quantity Sold</th>
-                    <th style={{ padding: "12px 16px", width: "19%", textAlign: "right" }}>Product Sales</th>
+                    <th style={{ padding: "12px 16px", width: "35%", maxWidth: "300px" }}>Product Name</th>
+                    <th style={{ padding: "12px 16px", width: "12%" }}>Orders</th>
+                    <th style={{ padding: "12px 16px", width: "12%" }}>Qty Sold</th>
+                    <th style={{ padding: "12px 16px", width: "15%" }}>Avg Unit Price</th>
+                    <th style={{ padding: "12px 16px", width: "13%", textAlign: "right" }}>Share %</th>
+                    <th style={{ padding: "12px 16px", width: "13%", textAlign: "right" }}>Product Sales</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedList.map((row, idx) => (
                     <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
-                      <td title={row.name} style={{ padding: "12px 16px", fontWeight: "600", color: "#0F172A", width: "45%", maxWidth: "340px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {row.name}
+                      <td style={{ padding: "12px 16px", maxWidth: "300px" }}>
+                        <div
+                          title={row.name}
+                          style={{ fontWeight: "600", color: "#0F172A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                        >
+                          {row.name}
+                        </div>
+                        {row.badges && row.badges.length > 0 && (
+                          <div style={{ display: "flex", gap: "4px", marginTop: "4px", flexWrap: "wrap" }}>
+                            {row.badges.map((b) => (
+                              <span
+                                key={b}
+                                style={{
+                                  fontSize: "10px",
+                                  fontWeight: "700",
+                                  padding: "2px 6px",
+                                  borderRadius: "4px",
+                                  backgroundColor: b === "Top Revenue" ? "rgba(10, 132, 255, 0.1)" : "rgba(22, 163, 74, 0.1)",
+                                  color: b === "Top Revenue" ? "#0A84FF" : "#16A34A",
+                                }}
+                              >
+                                {b}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </td>
-                      <td style={{ padding: "12px 16px", color: "#475569", width: "18%" }}>
+                      <td style={{ padding: "12px 16px", color: "#475569" }}>
                         {row.orderCount}
                       </td>
-                      <td style={{ padding: "12px 16px", fontWeight: "600", color: "#0F172A", width: "18%" }}>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", color: "#0F172A" }}>
                         {row.quantity}
                       </td>
-                      <td style={{ padding: "12px 16px", fontWeight: "700", color: "#0A84FF", width: "19%", textAlign: "right" }}>
+                      <td style={{ padding: "12px 16px", color: "#475569" }}>
+                        {formatCurrencyINR(row.avgUnitPrice)}
+                      </td>
+                      <td style={{ padding: "12px 16px", fontWeight: "600", color: "#64748B", textAlign: "right" }}>
+                        {row.shareOfSales}%
+                      </td>
+                      <td style={{ padding: "12px 16px", fontWeight: "700", color: "#0A84FF", textAlign: "right" }}>
                         {formatCurrencyINR(row.value)}
                       </td>
                     </tr>

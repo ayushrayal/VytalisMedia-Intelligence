@@ -12,8 +12,12 @@ import ShopifyLockedState from "../components/ShopifyLockedState.jsx";
 import { formatCurrencyINR } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { getErrorMessage } from "../../../utils/error.js";
-import { calculateShopifyOrderBreakdown } from "../utils/shopify-calculator.jsx";
-import { ShoppingCart, CreditCard, Truck, XCircle, Filter } from "lucide-react";
+import {
+  calculateShopifyTotals,
+  calculateShopifyOrderBreakdown,
+  calculateShopifyFulfillmentRate,
+} from "../utils/shopify-calculator.jsx";
+import { ShoppingCart, CreditCard, Truck, XCircle, Filter, Clock3, CheckCircle, Percent } from "lucide-react";
 
 export const ShopifyOrders = () => {
   const [ordersData, setOrdersData] = useState([]);
@@ -25,7 +29,7 @@ export const ShopifyOrders = () => {
   // Account & Lock state
   const [isLocked, setIsLocked] = useState(false);
 
-  // Payment Status Filter: "all" | "paid" | "pending"
+  // Payment Status Filter: "all" | "paid" | "pending" | "cancelled"
   const [statusFilter, setStatusFilter] = useState("all");
 
   // Pagination State
@@ -66,21 +70,17 @@ export const ShopifyOrders = () => {
     setCurrentPage(1);
   }, [dateParams, statusFilter]);
 
-  // Calculate Overall Metric Cards based on Date Range
+  // Calculate Canonical Order Metrics using shared shopify-calculator
   const metrics = useMemo(() => {
-    let totalValue = 0;
-    const totalCount = ordersData.length;
-
-    ordersData.forEach((order) => {
-      const val = Number(order.order_total_price || order.order_net_sales || 0);
-      totalValue += val;
-    });
-
-    const breakdown = calculateShopifyOrderBreakdown(ordersData, totalCount);
+    const totals = calculateShopifyTotals(ordersData);
+    const breakdown = calculateShopifyOrderBreakdown(ordersData, totals.orders);
+    const fulfillment = calculateShopifyFulfillmentRate(ordersData);
 
     return {
-      totalOrders: totalCount,
-      totalValue,
+      totalOrders: totals.orders,
+      totalValue: totals.netSales,
+      aov: totals.aov,
+      fulfillmentRate: fulfillment.rate,
       ...breakdown,
     };
   }, [ordersData]);
@@ -128,7 +128,7 @@ export const ShopifyOrders = () => {
             Shopify Orders
           </h1>
           <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#64748B" }}>
-            Detailed order records, payment classifications, and fulfillment tracking.
+            Detailed store order headers, fulfillment rates, AOV, and payment status tracking.
           </p>
         </div>
 
@@ -155,15 +155,36 @@ export const ShopifyOrders = () => {
         <EmptyState title="No Orders Available" description="No order records were returned for the selected date range." />
       ) : (
         <>
-          {/* Top 4 KPI Cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
+          {/* Top KPI Cards (7 Cards Grid) */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
             <MetricCard
               title="Total Orders"
+              subtitle="All store orders"
               value={formatNumber(metrics.totalOrders)}
-              subtitle={`Total Volume: ${formatCurrencyINR(metrics.totalValue)}`}
               icon={ShoppingCart}
               accentColor="#0F172A"
               onClick={() => setStatusFilter("all")}
+            />
+            <MetricCard
+              title="Average Order Value"
+              value={formatCurrencyINR(metrics.aov)}
+              subtitle="Net Sales / Total Store Orders"
+              icon={Clock3}
+              accentColor="#0A84FF"
+            />
+            <MetricCard
+              title="Cancellation Rate"
+              value={`${metrics.cancelledPct}%`}
+              subtitle={`${metrics.cancelledCount} cancelled orders`}
+              icon={Percent}
+              accentColor="#DC2626"
+            />
+            <MetricCard
+              title="Fulfillment Rate"
+              value={`${metrics.fulfillmentRate}%`}
+              subtitle="Fulfilled non-cancelled orders"
+              icon={CheckCircle}
+              accentColor="#16A34A"
             />
             <MetricCard
               title="Prepaid Orders"
@@ -176,15 +197,19 @@ export const ShopifyOrders = () => {
             <MetricCard
               title="COD Orders"
               value={formatCurrencyINR(metrics.codValue)}
-              subtitle={`${metrics.codCount} orders (${metrics.codPct}%)`}
+              subtitle={
+                metrics.codCancellationRate !== null
+                  ? `${metrics.codCount} orders (${metrics.codPct}%) • COD Cancel: ${metrics.codCancellationRate}%`
+                  : `${metrics.codCount} orders (${metrics.codPct}%)`
+              }
               icon={Truck}
               accentColor="#EAB308"
               onClick={() => setStatusFilter("pending")}
             />
             <MetricCard
-              title="Cancelled Orders"
+              title="Cancelled Volume"
               value={formatCurrencyINR(metrics.cancelledValue)}
-              subtitle={`${metrics.cancelledCount} orders (${metrics.cancelledPct}%)`}
+              subtitle={`${metrics.cancelledCount} orders`}
               icon={XCircle}
               accentColor="#DC2626"
               onClick={() => setStatusFilter("cancelled")}
@@ -265,7 +290,7 @@ export const ShopifyOrders = () => {
             </div>
 
             <span style={{ fontSize: "12px", color: "#64748B" }}>
-              Showing {filteredOrders.length} of {ordersData.length} total orders
+              Showing {filteredOrders.length} of {ordersData.length} total store orders
             </span>
           </div>
 
@@ -279,7 +304,7 @@ export const ShopifyOrders = () => {
                     <th style={{ padding: "12px 16px", width: "20%" }}>Created At</th>
                     <th style={{ padding: "12px 16px", width: "20%" }}>Financial Status</th>
                     <th style={{ padding: "12px 16px", width: "20%" }}>Fulfillment</th>
-                    <th style={{ padding: "12px 16px", width: "15%", textAlign: "right" }}>Total Price</th>
+                    <th style={{ padding: "12px 16px", width: "15%", textAlign: "right" }}>Total Net Sales</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -290,6 +315,8 @@ export const ShopifyOrders = () => {
                       (order.order_cancelled_at !== null && order.order_cancelled_at !== undefined && String(order.order_cancelled_at).trim() !== "") ||
                       finStatus === "VOIDED" ||
                       finStatus === "CANCELLED";
+
+                    const orderNet = Number(order.order_net_sales !== undefined && order.order_net_sales !== null ? order.order_net_sales : order.order_total_price || 0);
 
                     return (
                       <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
@@ -333,7 +360,7 @@ export const ShopifyOrders = () => {
                           </span>
                         </td>
                         <td style={{ padding: "12px 16px", fontWeight: "700", color: "#0F172A", textAlign: "right" }}>
-                          {formatCurrencyINR(order.order_total_price || order.order_net_sales || 0)}
+                          {formatCurrencyINR(orderNet)}
                         </td>
                       </tr>
                     );

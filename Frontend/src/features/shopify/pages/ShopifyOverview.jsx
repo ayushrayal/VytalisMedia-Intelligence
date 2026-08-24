@@ -5,6 +5,7 @@ import {
   getShopifyProducts,
   getShopifyCustomers,
   getShopifyLocation,
+  getShopifyCompare,
 } from "../services/shopify.api.js";
 import MetricCard from "../../../components/ui/MetricCard.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
@@ -14,12 +15,19 @@ import ErrorState from "../../../components/ui/ErrorState.jsx";
 import DateFilter from "../../meta/components/DateFilter.jsx";
 import ShopifyAccountSwitcher from "../components/ShopifyAccountSwitcher.jsx";
 import ShopifyLockedState from "../components/ShopifyLockedState.jsx";
+import ShopifyOverviewChart from "../components/ShopifyOverviewChart.jsx";
 import { formatCurrencyINR } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { getErrorMessage } from "../../../utils/error.js";
 import {
+  calculateShopifyMetrics,
+  calculateShopifyProductMetrics,
+  calculateShopifyLocationMetrics,
+  generateShopifyBusinessInsights,
+} from "../utils/shopify-calculator.jsx";
+
+import {
   TrendingUp,
-  DollarSign,
   ShoppingCart,
   Tag,
   Users,
@@ -35,22 +43,11 @@ import {
   GripVertical,
   ChevronUp,
   ChevronDown,
+  Sparkles,
+  AlertTriangle,
+  CheckCircle2,
+  HelpCircle,
 } from "lucide-react";
-
-const DEFAULT_CARDS_CONFIG = [
-  { id: "grossSales", label: "Gross Sales", visible: true, order: 1 },
-  { id: "netSales", label: "Net Sales", visible: true, order: 2 },
-  { id: "orders", label: "Total Orders", visible: true, order: 3 },
-  { id: "discounts", label: "Total Discounts", visible: true, order: 4 },
-  { id: "customers", label: "Total Customers", visible: true, order: 5 },
-  { id: "prepaid", label: "Prepaid Orders", visible: true, order: 6 },
-  { id: "cod", label: "COD Orders", visible: true, order: 7 },
-  { id: "cancelled", label: "Cancelled Orders", visible: true, order: 8 },
-];
-
-import {
-  calculateShopifyMetrics,
-} from "../utils/shopify-calculator.jsx";
 
 import rupeeImg from "../../../assets/rupee.png";
 
@@ -58,12 +55,25 @@ const RupeeIcon = ({ size = 18 }) => (
   <img src={rupeeImg} alt="Rupee" style={{ width: `${size}px`, height: `${size}px`, objectFit: "contain" }} />
 );
 
+const DEFAULT_CARDS_CONFIG = [
+  { id: "netSales", label: "Net Sales", visible: true, order: 1 },
+  { id: "orders", label: "Total Orders", visible: true, order: 2 },
+  { id: "aov", label: "Average Order Value", visible: true, order: 3 },
+  { id: "grossSales", label: "Gross Sales", visible: true, order: 4 },
+  { id: "discounts", label: "Total Discounts", visible: true, order: 5 },
+  { id: "customers", label: "Total Customers", visible: true, order: 6 },
+  { id: "prepaid", label: "Prepaid Orders", visible: true, order: 7 },
+  { id: "cod", label: "COD Orders", visible: true, order: 8 },
+  { id: "cancelled", label: "Cancelled Orders", visible: true, order: 9 },
+];
+
 export const ShopifyOverview = () => {
   const [overviewData, setOverviewData] = useState([]);
   const [ordersData, setOrdersData] = useState([]);
   const [productsData, setProductsData] = useState([]);
   const [customersData, setCustomersData] = useState([]);
   const [locationData, setLocationData] = useState([]);
+  const [compareData, setCompareData] = useState(null);
 
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -132,13 +142,14 @@ export const ShopifyOverview = () => {
       setLoading(true);
       setError(null);
 
-      const [overviewRes, ordersRes, productsRes, customersRes, locationRes] =
+      const [overviewRes, ordersRes, productsRes, customersRes, locationRes, compareRes] =
         await Promise.allSettled([
           getShopifyOverview(dateParams),
           getShopifyOrders(dateParams),
           getShopifyProducts(dateParams),
           getShopifyCustomers(dateParams),
           getShopifyLocation(dateParams),
+          getShopifyCompare(dateParams),
         ]);
 
       if (overviewRes.status === "fulfilled" && overviewRes.value?.data) {
@@ -163,6 +174,12 @@ export const ShopifyOverview = () => {
       if (locationRes.status === "fulfilled" && locationRes.value?.data) {
         setLocationData(Array.isArray(locationRes.value.data) ? locationRes.value.data : []);
       }
+
+      if (compareRes.status === "fulfilled" && compareRes.value?.data) {
+        setCompareData(compareRes.value.data);
+      } else {
+        setCompareData(null);
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -174,7 +191,7 @@ export const ShopifyOverview = () => {
     fetchData();
   }, [fetchData]);
 
-  // Single Canonical Shopify Calculation Layer
+  // Single Canonical Calculation Layer
   const shopifyCalculated = useMemo(() => {
     return calculateShopifyMetrics({
       overviewData,
@@ -185,40 +202,49 @@ export const ShopifyOverview = () => {
 
   const totals = shopifyCalculated.totals;
   const orderBreakdown = shopifyCalculated.breakdown;
-  const uniqueCustomerCount = shopifyCalculated.uniqueCustomers;
+  const customerMetrics = shopifyCalculated.customerMetrics;
 
-  // Top Products
-  const topProducts = useMemo(() => {
-    const map = {};
-    productsData.forEach((p) => {
-      const name = p.line_item__name || p.line_item__title || "Product";
-      if (!map[name]) {
-        map[name] = { name, ordersCount: 0, quantity: 0, value: 0 };
-      }
-      map[name].ordersCount += 1;
-      map[name].quantity += Number(p.line_item__quantity || 1);
-      map[name].value += Number(p.line_item__price || p.line_item__product_price || 0) * Number(p.line_item__quantity || 1);
-    });
-
-    return Object.values(map).sort((a, b) => b.value - a.value).slice(0, 5);
+  const productMetrics = useMemo(() => {
+    return calculateShopifyProductMetrics(productsData);
   }, [productsData]);
 
-  // Top Locations
-  const topLocations = useMemo(() => {
-    const map = {};
-    locationData.forEach((l) => {
-      const city = l.order_shipping_address_city || "Unknown City";
-      const province = l.order_shipping_address_province || "—";
-      const key = `${city}, ${province}`;
-      if (!map[key]) {
-        map[key] = { city, province, quantity: 0, netSales: 0 };
-      }
-      map[key].quantity += Number(l.order_quantity || 1);
-      map[key].netSales += Number(l.order_net_sales || l.order_total_price || 0);
-    });
-
-    return Object.values(map).sort((a, b) => b.netSales - a.netSales).slice(0, 5);
+  const locationMetrics = useMemo(() => {
+    return calculateShopifyLocationMetrics(locationData);
   }, [locationData]);
+
+  // Deterministic Business Insights Engine
+  const businessInsights = useMemo(() => {
+    return generateShopifyBusinessInsights({
+      totals,
+      breakdown: orderBreakdown,
+      customerMetrics,
+      productMetrics,
+      compareData,
+    });
+  }, [totals, orderBreakdown, customerMetrics, productMetrics, compareData]);
+
+  // Subtitle Renderer for Period Comparison Badges
+  const renderTrendBadge = (metricKey) => {
+    if (!compareData || !compareData.metricsMap) return null;
+    const metricComp = compareData.metricsMap[metricKey];
+    if (!metricComp || metricComp.percentageChange === null || metricComp.performance === "No Previous Data") {
+      return null;
+    }
+    const pct = metricComp.percentageChange;
+    if (pct === 0) {
+      return <span style={{ color: "#64748B", fontSize: "11px", fontWeight: "500" }}>No change vs prev period</span>;
+    }
+    const isImproved = metricComp.performance === "Improved";
+    const isDeclined = metricComp.performance === "Declined";
+    const color = isImproved ? "#16A34A" : isDeclined ? "#DC2626" : "#64748B";
+    const arrow = pct > 0 ? "↑" : "↓";
+
+    return (
+      <span style={{ color, fontSize: "11px", fontWeight: "600", display: "inline-flex", alignItems: "center", gap: "2px" }}>
+        {arrow} {Math.abs(pct)}% vs prev period
+      </span>
+    );
+  };
 
   if (isLocked) {
     return <ShopifyLockedState />;
@@ -226,20 +252,12 @@ export const ShopifyOverview = () => {
 
   // Map of Card Renderers
   const cardRenderers = {
-    grossSales: (
-      <MetricCard
-        key="grossSales"
-        title="Gross Sales"
-        value={formatCurrencyINR(totals.grossSales)}
-        icon={TrendingUp}
-        accentColor="#0F172A"
-      />
-    ),
     netSales: (
       <MetricCard
         key="netSales"
         title="Net Sales"
         value={formatCurrencyINR(totals.netSales)}
+        subtitle={renderTrendBadge("net_sales")}
         icon={RupeeIcon}
         accentColor="#0A84FF"
       />
@@ -248,9 +266,35 @@ export const ShopifyOverview = () => {
       <MetricCard
         key="orders"
         title="Total Orders"
+        subtitle={
+          <div>
+            <div style={{ color: "#64748B", fontSize: "11px" }}>All store orders</div>
+            {renderTrendBadge("orders")}
+          </div>
+        }
         value={formatNumber(totals.orders)}
         icon={ShoppingCart}
-        accentColor="#6366F1"
+        accentColor="#2563EB"
+      />
+    ),
+    aov: (
+      <MetricCard
+        key="aov"
+        title="Average Order Value"
+        value={formatCurrencyINR(totals.aov)}
+        subtitle={renderTrendBadge("aov")}
+        icon={Clock3}
+        accentColor="#0A84FF"
+      />
+    ),
+    grossSales: (
+      <MetricCard
+        key="grossSales"
+        title="Gross Sales"
+        value={formatCurrencyINR(totals.grossSales)}
+        subtitle={renderTrendBadge("gross_sales")}
+        icon={TrendingUp}
+        accentColor="#0F172A"
       />
     ),
     discounts: (
@@ -258,6 +302,7 @@ export const ShopifyOverview = () => {
         key="discounts"
         title="Total Discounts"
         value={formatCurrencyINR(totals.discounts)}
+        subtitle={renderTrendBadge("discounts")}
         icon={Tag}
         accentColor="#8B5CF6"
       />
@@ -266,8 +311,13 @@ export const ShopifyOverview = () => {
       <MetricCard
         key="customers"
         title="Total Customers"
-        value={formatNumber(uniqueCustomerCount || customersData.length)}
-        subtitle="Unique customer accounts"
+        value={formatNumber(customerMetrics.totalCustomers)}
+        subtitle={
+          <div>
+            <div style={{ color: "#64748B", fontSize: "11px" }}>Unique accounts</div>
+            {renderTrendBadge("customers")}
+          </div>
+        }
         icon={Users}
         accentColor="#0EA5E9"
       />
@@ -287,7 +337,11 @@ export const ShopifyOverview = () => {
         key="cod"
         title="COD Orders"
         value={formatCurrencyINR(orderBreakdown.codValue)}
-        subtitle={`${orderBreakdown.codCount} orders (${orderBreakdown.codPct}%)`}
+        subtitle={
+          orderBreakdown.codCancellationRate !== null
+            ? `${orderBreakdown.codCount} orders (${orderBreakdown.codPct}%) • COD Cancel: ${orderBreakdown.codCancellationRate}%`
+            : `${orderBreakdown.codCount} orders (${orderBreakdown.codPct}%)`
+        }
         icon={Truck}
         accentColor="#EAB308"
       />
@@ -297,7 +351,7 @@ export const ShopifyOverview = () => {
         key="cancelled"
         title="Cancelled Orders"
         value={formatCurrencyINR(orderBreakdown.cancelledValue)}
-        subtitle={`${orderBreakdown.cancelledCount} orders (${orderBreakdown.cancelledPct}%)`}
+        subtitle={`${orderBreakdown.cancelledCount} orders (${orderBreakdown.cancelledPct}% rate)`}
         icon={XCircle}
         accentColor="#DC2626"
       />
@@ -317,7 +371,7 @@ export const ShopifyOverview = () => {
             Shopify Overview
           </h1>
           <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#64748B" }}>
-            Store performance and sales metrics via Shopify.
+            Business intelligence dashboard for revenue, order realization, customer mix, and shipping performance.
           </p>
         </div>
 
@@ -384,6 +438,116 @@ export const ShopifyOverview = () => {
             {visibleCards.map((c) => cardRenderers[c.id])}
           </div>
 
+          {/* Vytalis Deterministic Business Insights Section */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "16px",
+              border: "1px solid #E2E8F0",
+              padding: "20px",
+              boxShadow: "0 1px 3px rgba(15,23,42,0.03)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px" }}>
+              <Sparkles size={18} color="#0A84FF" />
+              <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "700", color: "#0F172A" }}>
+                Vytalis Business Insights
+              </h3>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
+              {businessInsights.map((insight) => {
+                const isPositive = insight.type === "positive";
+                const isWarning = insight.type === "warning";
+                const borderColor = isPositive ? "#16A34A" : isWarning ? "#F59E0B" : "#0A84FF";
+                const bgColor = isPositive ? "#F0FDF4" : isWarning ? "#FFFBEB" : "#EFF6FF";
+                const iconColor = isPositive ? "#16A34A" : isWarning ? "#D97706" : "#0A84FF";
+
+                return (
+                  <div
+                    key={insight.id}
+                    style={{
+                      backgroundColor: bgColor,
+                      borderLeft: `4px solid ${borderColor}`,
+                      borderRadius: "8px",
+                      padding: "12px 14px",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "10px",
+                    }}
+                  >
+                    {isPositive ? (
+                      <CheckCircle2 size={16} color={iconColor} style={{ marginTop: "2px", flexShrink: 0 }} />
+                    ) : isWarning ? (
+                      <AlertTriangle size={16} color={iconColor} style={{ marginTop: "2px", flexShrink: 0 }} />
+                    ) : (
+                      <HelpCircle size={16} color={iconColor} style={{ marginTop: "2px", flexShrink: 0 }} />
+                    )}
+                    <div>
+                      <h4 style={{ margin: "0 0 2px 0", fontSize: "13px", fontWeight: "700", color: "#0F172A" }}>
+                        {insight.title}
+                      </h4>
+                      <p style={{ margin: 0, fontSize: "12.5px", color: "#334155", lineHeight: "1.4" }}>
+                        {insight.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Sales & Orders Trend Visualization Chart */}
+          <ShopifyOverviewChart overviewData={overviewData} />
+
+          {/* Revenue Structure Callout Card */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "16px",
+              border: "1px solid #E2E8F0",
+              padding: "20px",
+              boxShadow: "0 1px 3px rgba(15,23,42,0.03)",
+            }}
+          >
+            <h3 style={{ margin: "0 0 14px 0", fontSize: "16px", fontWeight: "700", color: "#0F172A" }}>
+              Revenue Summary Metrics
+            </h3>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gap: "16px",
+                backgroundColor: "#F8FAFC",
+                padding: "16px",
+                borderRadius: "12px",
+                border: "1px solid #E2E8F0",
+              }}
+            >
+              <div style={{ textAlign: "center" }}>
+                <span style={{ fontSize: "12px", color: "#64748B", fontWeight: "600" }}>Gross Sales</span>
+                <div style={{ fontSize: "18px", fontWeight: "700", color: "#0F172A", marginTop: "2px" }}>
+                  {formatCurrencyINR(totals.grossSales)}
+                </div>
+              </div>
+
+              <div style={{ textAlign: "center" }}>
+                <span style={{ fontSize: "12px", color: "#8B5CF6", fontWeight: "600" }}>Total Discounts</span>
+                <div style={{ fontSize: "18px", fontWeight: "700", color: "#8B5CF6", marginTop: "2px" }}>
+                  {formatCurrencyINR(totals.discounts)}
+                </div>
+              </div>
+
+              <div style={{ textAlign: "center" }}>
+                <span style={{ fontSize: "12px", color: "#0A84FF", fontWeight: "600" }}>Net Sales (Canonical)</span>
+                <div style={{ fontSize: "18px", fontWeight: "700", color: "#0A84FF", marginTop: "2px" }}>
+                  {formatCurrencyINR(totals.netSales)}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Tables */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "20px" }}>
             {/* Top Products */}
@@ -402,7 +566,7 @@ export const ShopifyOverview = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {topProducts.map((p, idx) => (
+                    {productMetrics.list.slice(0, 5).map((p, idx) => (
                       <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
                         <td title={p.name} style={{ padding: "10px", fontWeight: "600", color: "#0F172A", maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {p.name}
@@ -435,7 +599,7 @@ export const ShopifyOverview = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {topLocations.map((l, idx) => (
+                    {locationMetrics.cityList.slice(0, 5).map((l, idx) => (
                       <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
                         <td style={{ padding: "10px", fontWeight: "600", color: "#0F172A" }}>{l.city}</td>
                         <td style={{ padding: "10px", color: "#475569" }}>{l.province}</td>
