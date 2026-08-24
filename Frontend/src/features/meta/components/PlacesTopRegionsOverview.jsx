@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
@@ -9,12 +9,39 @@ import { formatPercentage } from "../../../utils/formatPercentage.js";
  * [ Spend ] [ Reach ] [ Clicks ] [ CTR ]
  */
 export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" }) => {
-  const [metric, setMetric] = useState("spend"); // "spend" | "reach" | "clicks" | "ctr"
+  const [mode, setMode] = useState("highSpend"); // "highSpend" | "lowSpend" | "highCtr" | "lowCtr"
 
-  // Always select the Top 5 regions strictly by Spend DESC
-  const top5SpendRegions = [...regionsData]
-    .sort((a, b) => (b.spend || 0) - (a.spend || 0))
-    .slice(0, 5);
+  // Dynamically compute top 5 regions based on selected ranking mode
+  const displayedRegions = useMemo(() => {
+    if (!regionsData || regionsData.length === 0) return [];
+    const list = [...regionsData];
+
+    if (mode === "highSpend") {
+      return list.sort((a, b) => (b.spend || 0) - (a.spend || 0)).slice(0, 5);
+    }
+    if (mode === "lowSpend") {
+      const spenders = list.filter((r) => Number(r.spend || 0) > 0);
+      const targetPool = spenders.length >= 5 ? spenders : list;
+      return targetPool.sort((a, b) => (a.spend || 0) - (b.spend || 0)).slice(0, 5);
+    }
+    if (mode === "highCtr") {
+      return list.sort((a, b) => (b.ctr || 0) - (a.ctr || 0)).slice(0, 5);
+    }
+    if (mode === "lowCtr") {
+      const activeImpr = list.filter((r) => Number(r.impressions || 0) > 0);
+      const targetPool = activeImpr.length >= 5 ? activeImpr : list;
+      return targetPool.sort((a, b) => (a.ctr || 0) - (b.ctr || 0)).slice(0, 5);
+    }
+
+    return list.slice(0, 5);
+  }, [regionsData, mode]);
+
+  const modeLabels = {
+    highSpend: "High Spend",
+    lowSpend: "Low Spend",
+    highCtr: "High CTR",
+    lowCtr: "Low CTR",
+  };
 
   return (
     <div
@@ -35,23 +62,21 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
             Top 5 Regions Overview
           </h4>
           <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
-            Highest performing geographic regions ranked by selected metric
+            Geographic regions ranked by {modeLabels[mode]}
           </span>
         </div>
 
-        {/* Metric Selector Pills */}
+        {/* Mode Selector Tabs */}
         <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)", gap: "2px" }}>
           {[
-            { id: "spend", label: "Spend" },
-            { id: "reach", label: "Reach" },
-            { id: "clicks", label: "Clicks" },
-            { id: "ctr", label: "CTR" },
+            { id: "highSpend", label: "High Spend" },
+            { id: "highCtr", label: "High CTR" },
           ].map((m) => {
-            const active = metric === m.id;
+            const active = mode === m.id;
             return (
               <button
                 key={m.id}
-                onClick={() => setMetric(m.id)}
+                onClick={() => setMode(m.id)}
                 style={{
                   padding: "4px 10px",
                   border: "none",
@@ -80,12 +105,12 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
           gap: "14px",
         }}
       >
-        {top5SpendRegions.length === 0 ? (
+        {displayedRegions.length === 0 ? (
           <div style={{ padding: "20px", textAlign: "center", color: "var(--color-text-muted, #94A3B8)", fontSize: "0.85rem", gridColumn: "1 / -1" }}>
             No regional geographic data available.
           </div>
         ) : (
-          top5SpendRegions.map((region, idx) => (
+          displayedRegions.map((region, idx) => (
             <div
               key={region.region || idx}
               style={{
@@ -120,25 +145,25 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", paddingTop: "8px", borderTop: "1px solid var(--color-border, #E5E7EB)", fontSize: "0.8rem" }}>
                 <div>
                   <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Spend</span>
-                  <strong style={{ color: "var(--color-text-primary, #0F172A)", fontWeight: metric === "spend" ? "750" : "600" }}>
+                  <strong style={{ color: "var(--color-text-primary, #0F172A)", fontWeight: mode.includes("Spend") ? "750" : "600" }}>
                     {formatCurrency(region.spend, currency)}
                   </strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Reach</span>
-                  <strong style={{ color: "var(--color-text-primary, #0F172A)", fontWeight: metric === "reach" ? "750" : "600" }}>
+                  <strong style={{ color: "var(--color-text-primary, #0F172A)", fontWeight: "600" }}>
                     {formatNumber(region.reach)}
                   </strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Clicks</span>
-                  <strong style={{ color: "var(--color-text-primary, #0F172A)", fontWeight: metric === "clicks" ? "750" : "600" }}>
+                  <strong style={{ color: "var(--color-text-primary, #0F172A)", fontWeight: "600" }}>
                     {formatNumber(region.clicks)}
                   </strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CTR</span>
-                  <strong style={{ color: "#0A84FF", fontWeight: metric === "ctr" ? "750" : "600" }}>
+                  <strong style={{ color: "#0A84FF", fontWeight: mode.includes("Ctr") ? "750" : "600" }}>
                     {formatPercentage(region.ctr)}
                   </strong>
                 </div>

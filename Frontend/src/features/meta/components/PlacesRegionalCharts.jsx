@@ -10,10 +10,16 @@ import { formatPercentage } from "../../../utils/formatPercentage.js";
  * 1. Regional Spend Chart (Horizontal Bar Chart with proper Frontend Pagination)
  * 2. Regional Performance Chart (Metric selector: CTR, CPC, Clicks, Reach)
  */
-export const PlacesRegionalCharts = ({ regionsData = [], currency = "INR" }) => {
+export const PlacesRegionalCharts = ({
+  regionsData = [],
+  highSpendRegions = [],
+  lowSpendRegions = [],
+  currency = "INR",
+}) => {
   const [spendPage, setSpendPage] = useState(1);
   const spendPageSize = 10;
 
+  const [spendSegment, setSpendSegment] = useState("high"); // "high" | "low"
   const [perfMetric, setPerfMetric] = useState("ctr"); // "ctr" | "cpc" | "clicks" | "reach"
 
   // Reset pagination to page 1 whenever underlying dataset changes
@@ -37,26 +43,35 @@ export const PlacesRegionalCharts = ({ regionsData = [], currency = "INR" }) => 
     return sortedSpendRegions.slice(startIndex, startIndex + spendPageSize);
   }, [sortedSpendRegions, spendPage, spendPageSize]);
 
-  // 2. Regional Performance Dataset (Operates ONLY on top 10 high-spend regions)
-  const sortedPerfRegions = useMemo(() => {
-    // Step 1: Select top 10 highest-spend regions
-    const highSpendPool = [...regionsData]
-      .sort((a, b) => (b.spend || 0) - (a.spend || 0))
-      .slice(0, 10);
+  // Determine active performance pool based on High Spend vs Low Spend selection
+  const activePool = useMemo(() => {
+    if (spendSegment === "high") {
+      if (highSpendRegions && highSpendRegions.length > 0) return highSpendRegions;
+      const sorted = [...regionsData].sort((a, b) => (b.spend || 0) - (a.spend || 0));
+      return sorted.slice(0, Math.ceil(sorted.length / 2));
+    } else {
+      if (lowSpendRegions && lowSpendRegions.length > 0) return lowSpendRegions;
+      const sorted = [...regionsData].sort((a, b) => (b.spend || 0) - (a.spend || 0));
+      return sorted.slice(Math.ceil(sorted.length / 2));
+    }
+  }, [spendSegment, highSpendRegions, lowSpendRegions, regionsData]);
 
-    // Step 2: Rank within the high-spend pool by selected metric
-    return [...highSpendPool].sort((a, b) => {
-      if (perfMetric === "cpc") {
-        const cpcA = a.cpc || 0;
-        const cpcB = b.cpc || 0;
-        if (cpcA > 0 && cpcB > 0) return cpcA - cpcB;
-        if (cpcA > 0) return -1;
-        if (cpcB > 0) return 1;
-        return 0;
-      }
-      return (b[perfMetric] || 0) - (a[perfMetric] || 0);
-    });
-  }, [regionsData, perfMetric]);
+  // 2. Regional Performance Dataset (Operates ONLY on active segment pool: High Spend vs Low Spend)
+  const sortedPerfRegions = useMemo(() => {
+    return [...activePool]
+      .sort((a, b) => {
+        if (perfMetric === "cpc") {
+          const cpcA = a.cpc || 0;
+          const cpcB = b.cpc || 0;
+          if (cpcA > 0 && cpcB > 0) return cpcA - cpcB;
+          if (cpcA > 0) return -1;
+          if (cpcB > 0) return 1;
+          return 0;
+        }
+        return (b[perfMetric] || 0) - (a[perfMetric] || 0);
+      })
+      .slice(0, 10);
+  }, [activePool, perfMetric]);
 
   const maxPerfVal = useMemo(() => {
     return Math.max(...sortedPerfRegions.map((r) => r[perfMetric] || 0), 1);
@@ -180,47 +195,80 @@ export const PlacesRegionalCharts = ({ regionsData = [], currency = "INR" }) => 
               Regional Performance
             </h4>
             <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
-              Top regions by selected metric
+              {spendSegment === "high" ? "High-spend regions" : "Low-spend regions"} ranked by selected metric
             </span>
           </div>
 
-          {/* Metric Selector Pills */}
-          <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)", gap: "2px" }}>
-            {[
-              { id: "ctr", label: "CTR" },
-              { id: "cpc", label: "CPC" },
-              { id: "clicks", label: "Clicks" },
-              { id: "reach", label: "Reach" },
-            ].map((m) => {
-              const active = perfMetric === m.id;
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => setPerfMetric(m.id)}
-                  style={{
-                    padding: "4px 10px",
-                    border: "none",
-                    borderRadius: "4px",
-                    backgroundColor: active ? "#FFFFFF" : "transparent",
-                    color: active ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
-                    fontWeight: active ? "700" : "500",
-                    fontSize: "0.75rem",
-                    cursor: "pointer",
-                    boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.05)" : "none",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  {m.label}
-                </button>
-              );
-            })}
+          {/* Segment & Metric Selectors Container */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            {/* High Spend / Low Spend Selector */}
+            <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)", gap: "2px" }}>
+              {[
+                { id: "high", label: "High Spend" },
+                { id: "low", label: "Low Spend" },
+              ].map((seg) => {
+                const active = spendSegment === seg.id;
+                return (
+                  <button
+                    key={seg.id}
+                    onClick={() => setSpendSegment(seg.id)}
+                    style={{
+                      padding: "4px 10px",
+                      border: "none",
+                      borderRadius: "4px",
+                      backgroundColor: active ? "#0A84FF" : "transparent",
+                      color: active ? "#FFFFFF" : "var(--color-text-secondary, #64748B)",
+                      fontWeight: active ? "700" : "500",
+                      fontSize: "0.75rem",
+                      cursor: "pointer",
+                      boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.1)" : "none",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {seg.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Metric Selector Pills */}
+            <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)", gap: "2px" }}>
+              {[
+                { id: "ctr", label: "CTR" },
+                { id: "cpc", label: "CPC" },
+                { id: "clicks", label: "Clicks" },
+                { id: "reach", label: "Reach" },
+              ].map((m) => {
+                const active = perfMetric === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setPerfMetric(m.id)}
+                    style={{
+                      padding: "4px 10px",
+                      border: "none",
+                      borderRadius: "4px",
+                      backgroundColor: active ? "#FFFFFF" : "transparent",
+                      color: active ? "#0A84FF" : "var(--color-text-secondary, #64748B)",
+                      fontWeight: active ? "700" : "500",
+                      fontSize: "0.75rem",
+                      cursor: "pointer",
+                      boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.05)" : "none",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "4px" }}>
           {sortedPerfRegions.length === 0 ? (
             <div style={{ padding: "20px", textAlign: "center", color: "var(--color-text-muted, #94A3B8)", fontSize: "0.85rem" }}>
-              No performance data available.
+              No performance data available for this segment.
             </div>
           ) : (
             sortedPerfRegions.map((r, idx) => {
