@@ -11,9 +11,9 @@ import { formatPercentage } from "../../../utils/formatPercentage.js";
 export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" }) => {
   const [metric, setMetric] = useState("spend"); // "spend" | "reach" | "clicks" | "ctr"
 
-  // Sort top 5 regions by selected metric
-  const sortedTopRegions = [...regionsData]
-    .sort((a, b) => (b[metric] || 0) - (a[metric] || 0))
+  // Always select the Top 5 regions strictly by Spend DESC
+  const top5SpendRegions = [...regionsData]
+    .sort((a, b) => (b.spend || 0) - (a.spend || 0))
     .slice(0, 5);
 
   return (
@@ -80,12 +80,12 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
           gap: "14px",
         }}
       >
-        {sortedTopRegions.length === 0 ? (
+        {top5SpendRegions.length === 0 ? (
           <div style={{ padding: "20px", textAlign: "center", color: "var(--color-text-muted, #94A3B8)", fontSize: "0.85rem", gridColumn: "1 / -1" }}>
             No regional geographic data available.
           </div>
         ) : (
-          sortedTopRegions.map((region, idx) => (
+          top5SpendRegions.map((region, idx) => (
             <div
               key={region.region || idx}
               style={{

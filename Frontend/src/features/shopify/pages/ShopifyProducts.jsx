@@ -13,7 +13,7 @@ import { formatCurrencyINR } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { getErrorMessage } from "../../../utils/error.js";
 import rupeeImg from "../../../assets/rupee.png";
-import { Package, ShoppingCart, Layers } from "lucide-react";
+import { Package, ShoppingCart, Layers, Award, ShoppingBag } from "lucide-react";
 
 const RupeeIcon = ({ size = 18 }) => (
   <img src={rupeeImg} alt="Rupee" style={{ width: `${size}px`, height: `${size}px`, objectFit: "contain" }} />
@@ -67,11 +67,12 @@ export const ShopifyProducts = () => {
     setCurrentPage(1);
   }, [dateParams]);
 
-  // Aggregate Product Metrics
+  // Aggregate Product Metrics & Distinct Orders
   const aggregatedProducts = useMemo(() => {
     const map = {};
     let totalQty = 0;
     let totalValue = 0;
+    const orderIdSet = new Set();
 
     productsData.forEach((p) => {
       const name = p.line_item__name || p.line_item__title || "Product";
@@ -81,6 +82,10 @@ export const ShopifyProducts = () => {
 
       totalQty += qty;
       totalValue += rowVal;
+
+      if (p.order_id !== null && p.order_id !== undefined && String(p.order_id).trim() !== "") {
+        orderIdSet.add(String(p.order_id).trim());
+      }
 
       if (!map[name]) {
         map[name] = {
@@ -96,7 +101,17 @@ export const ShopifyProducts = () => {
     });
 
     const list = Object.values(map).sort((a, b) => b.value - a.value);
-    return { list, totalProducts: list.length, totalQty, totalValue };
+    const topSellingProduct = list.length > 0 ? list[0] : null;
+    const totalDistinctOrders = orderIdSet.size > 0 ? orderIdSet.size : productsData.length;
+
+    return {
+      list,
+      totalProducts: list.length,
+      totalQty,
+      totalValue,
+      topSellingProduct,
+      totalDistinctOrders,
+    };
   }, [productsData]);
 
   // Paginated Slice
@@ -138,6 +153,7 @@ export const ShopifyProducts = () => {
             <Skeleton height="110px" />
             <Skeleton height="110px" />
             <Skeleton height="110px" />
+            <Skeleton height="110px" />
           </div>
           <Skeleton height="350px" />
         </div>
@@ -150,31 +166,67 @@ export const ShopifyProducts = () => {
         />
       ) : (
         <>
-          {/* Top KPI Cards */}
+          {/* Top KPI Cards (5 Cards) */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
             <MetricCard
               title="Total Products"
+              subtitle="Unique products"
               value={formatNumber(aggregatedProducts.totalProducts)}
               icon={Package}
               accentColor="#0F172A"
             />
             <MetricCard
-              title="Product Orders"
-              value={formatNumber(productsData.length)}
-              icon={ShoppingCart}
-              accentColor="#6366F1"
-            />
-            <MetricCard
               title="Quantity Sold"
+              subtitle="Units sold"
               value={formatNumber(aggregatedProducts.totalQty)}
               icon={Layers}
               accentColor="#16A34A"
             />
             <MetricCard
               title="Total Product Sales"
+              subtitle="Product line-item sales value"
               value={formatCurrencyINR(aggregatedProducts.totalValue)}
               icon={RupeeIcon}
               accentColor="#0A84FF"
+            />
+            <MetricCard
+              title="Total Orders"
+              subtitle="Orders with product line items"
+              value={formatNumber(aggregatedProducts.totalDistinctOrders)}
+              icon={ShoppingBag}
+              accentColor="#2563EB"
+            />
+            <MetricCard
+              title="Top Selling Product"
+              value={
+                aggregatedProducts.topSellingProduct ? (
+                  <span
+                    title={aggregatedProducts.topSellingProduct.name}
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      color: "#0F172A",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      lineHeight: "1.3",
+                    }}
+                  >
+                    {aggregatedProducts.topSellingProduct.name}
+                  </span>
+                ) : (
+                  "—"
+                )
+              }
+              subtitle={
+                aggregatedProducts.topSellingProduct
+                  ? `Sales: ${formatCurrencyINR(aggregatedProducts.topSellingProduct.value)}`
+                  : undefined
+              }
+              icon={Award}
+              accentColor="#EAB308"
             />
           </div>
 

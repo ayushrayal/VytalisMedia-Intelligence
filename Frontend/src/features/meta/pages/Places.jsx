@@ -89,11 +89,15 @@ export const Places = () => {
     return found ? found.currency : "INR";
   }, [filteredData]);
 
-  // Aggregated Regional Data (combines duplicates by region name)
+  // Aggregated Regional Data (combines duplicates by region name with safe normalization)
   const aggregatedRegions = useMemo(() => {
     const map = {};
     filteredData.forEach((row) => {
-      const reg = String(row.region || "Unknown Region").trim();
+      let reg = String(row.region || "").trim();
+      if (!reg || reg.toLowerCase() === "unknown" || reg.toLowerCase() === "null") {
+        reg = "Unknown Region";
+      }
+
       if (!map[reg]) {
         map[reg] = {
           region: reg,
@@ -111,14 +115,18 @@ export const Places = () => {
       map[reg].clicks += Number(row.clicks || 0);
     });
 
-    return Object.values(map).map((r) => ({
-      ...r,
-      ctr: r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0,
-      cpc: r.clicks > 0 ? r.spend / r.clicks : 0,
-    }));
+    return Object.values(map).map((r) => {
+      const ctr = r.impressions > 0 ? (r.clicks / r.impressions) * 100 : 0;
+      const cpc = r.clicks > 0 ? r.spend / r.clicks : 0;
+      return {
+        ...r,
+        ctr: isNaN(ctr) || !isFinite(ctr) ? 0 : ctr,
+        cpc: isNaN(cpc) || !isFinite(cpc) ? 0 : cpc,
+      };
+    });
   }, [filteredData, currency]);
 
-  // Total Summary Metrics
+  // Total Summary Metrics (Overall CTR is strictly weighted: Total Clicks / Total Impressions)
   const { totalSpend, totalReach, totalImpressions, totalClicks, overallCtr } = useMemo(() => {
     let spendSum = 0;
     let reachSum = 0;
@@ -143,80 +151,57 @@ export const Places = () => {
     };
   }, [aggregatedRegions]);
 
-  // Candidate pool of meaningful / high-spend regions
-  const highSpendRegions = useMemo(() => {
-    if (aggregatedRegions.length === 0) return [];
+  // 1. Spend-Ranked Regions (All regions sorted strictly by Spend DESC)
+  const spendRankedRegions = useMemo(() => {
+    return [...aggregatedRegions].sort((a, b) => (b.spend || 0) - (a.spend || 0));
+  }, [aggregatedRegions]);
 
-    // Sort regions by spend descending
-    const sortedBySpend = [...aggregatedRegions].sort((a, b) => b.spend - a.spend);
+  // 2. High-Spend Analysis Pool (Top 10 regions by Spend)
+  const highSpendAnalysisPool = useMemo(() => {
+    return spendRankedRegions.slice(0, 10);
+  }, [spendRankedRegions]);
 
-    // If total regions <= 3, consider all regions with spend > 0 (or all if spend is 0)
-    if (sortedBySpend.length <= 3) {
-      const withSpend = sortedBySpend.filter((r) => r.spend > 0);
-      return withSpend.length > 0 ? withSpend : sortedBySpend;
-    }
-
-    const maxSpend = sortedBySpend[0].spend;
-    const avgSpend = totalSpend / sortedBySpend.length;
-
-    // Meaningful spend threshold: regions with spend >= 25% of average spend or >= 10% of max spend
-    const threshold = Math.max(1, Math.min(avgSpend * 0.25, maxSpend * 0.10));
-
-    let pool = sortedBySpend.filter((r) => r.spend >= threshold && r.spend > 0);
-
-    // Fallback: Ensure at least top 3 spenders are included if strict threshold yields < 3
-    if (pool.length < 3) {
-      const fallbackCount = Math.max(3, Math.ceil(sortedBySpend.length * 0.5));
-      const spenders = sortedBySpend.filter((r) => r.spend > 0);
-      pool = spenders.slice(0, fallbackCount);
-      if (pool.length === 0) pool = sortedBySpend.slice(0, 3);
-    }
-    return pool;
-  }, [aggregatedRegions, totalSpend]);
-
-  // Top Performing Regions List (High-spend regions ranked by CTR)
+  // 3. Top Performing Regions List (Top 3 from High-Spend Pool ranked by CTR)
   const topRegionsList = useMemo(() => {
-    if (highSpendRegions.length === 0) return [];
-    return [...highSpendRegions].sort((a, b) => b.ctr - a.ctr).slice(0, 3);
-  }, [highSpendRegions]);
+    if (highSpendAnalysisPool.length === 0) return [];
+    return [...highSpendAnalysisPool].sort((a, b) => (b.ctr || 0) - (a.ctr || 0)).slice(0, 3);
+  }, [highSpendAnalysisPool]);
 
-  // Best Performing Region (Top 1 high-spend region ranked by CTR)
+  // 4. Best Performing Region (Highest CTR within High-Spend Pool)
   const bestRegion = useMemo(() => {
     return topRegionsList[0] || null;
   }, [topRegionsList]);
 
-  // Most Efficient Region (Lowest CPC among high-spend regions with clicks > 0)
+  // 5. Most Efficient Region (Lowest CPC among High-Spend Pool with clicks > 0)
   const efficientRegion = useMemo(() => {
-    if (highSpendRegions.length === 0) return null;
-    let candidates = highSpendRegions.filter((r) => r.clicks > 0 && r.cpc > 0);
+    if (highSpendAnalysisPool.length === 0) return null;
+    let candidates = highSpendAnalysisPool.filter((r) => r.clicks > 0 && r.cpc > 0);
     if (candidates.length === 0) {
-      candidates = aggregatedRegions.filter((r) => r.clicks > 0 && r.cpc > 0);
+      candidates = highSpendAnalysisPool;
     }
     if (candidates.length === 0) return null;
 
-    // Lower CPC = more efficient. Secondary signal: CTR
-    return candidates.sort((a, b) => {
+    return [...candidates].sort((a, b) => {
       if (a.cpc !== b.cpc) return a.cpc - b.cpc;
       return b.ctr - a.ctr;
     })[0];
-  }, [highSpendRegions, aggregatedRegions]);
+  }, [highSpendAnalysisPool]);
 
-  // Needs Attention Regions (High spend, low CTR relative to high-spend average / overall CTR)
+  // 6. Needs Attention Regions (High Spend, Low CTR relative to pool average)
   const needsAttentionList = useMemo(() => {
-    if (highSpendRegions.length === 0) return [];
+    if (highSpendAnalysisPool.length === 0) return [];
 
-    const avgHighSpendCtr =
-      highSpendRegions.reduce((sum, r) => sum + r.ctr, 0) / highSpendRegions.length;
+    const avgPoolCtr =
+      highSpendAnalysisPool.reduce((sum, r) => sum + r.ctr, 0) / highSpendAnalysisPool.length;
 
-    const targetCtr = overallCtr > 0 ? Math.min(avgHighSpendCtr, overallCtr) : avgHighSpendCtr;
-    let candidates = highSpendRegions.filter((r) => r.ctr < avgHighSpendCtr || r.ctr < targetCtr);
+    const targetCtr = overallCtr > 0 ? Math.min(avgPoolCtr, overallCtr) : avgPoolCtr;
+    let candidates = highSpendAnalysisPool.filter((r) => r.ctr < avgPoolCtr || r.ctr < targetCtr);
 
-    if (candidates.length === 0 && highSpendRegions.length > 1) {
-      const maxCtr = Math.max(...highSpendRegions.map((r) => r.ctr));
-      candidates = highSpendRegions.filter((r) => r.ctr < maxCtr * 0.85);
+    if (candidates.length === 0 && highSpendAnalysisPool.length > 1) {
+      const maxCtr = Math.max(...highSpendAnalysisPool.map((r) => r.ctr));
+      candidates = highSpendAnalysisPool.filter((r) => r.ctr < maxCtr * 0.85);
     }
 
-    // Rank results by: 1. Higher spend first, 2. Lower CTR second
     return [...candidates]
       .sort((a, b) => {
         if (b.spend !== a.spend) {
@@ -225,15 +210,15 @@ export const Places = () => {
         return a.ctr - b.ctr;
       })
       .slice(0, 3);
-  }, [highSpendRegions, overallCtr]);
+  }, [highSpendAnalysisPool, overallCtr]);
 
-  // Dynamic Rule-based Insights generated strictly from payload data & high-spend regions
+  // 7. Dynamic Rule-based Insights generated strictly from high-spend regions
   const insights = useMemo(() => {
-    if (aggregatedRegions.length === 0) return [];
+    if (spendRankedRegions.length === 0) return [];
     const list = [];
 
-    // Insight 1: Highest spend region
-    const topSpendRegion = [...aggregatedRegions].sort((a, b) => b.spend - a.spend)[0];
+    // Insight 1: Largest spend region
+    const topSpendRegion = spendRankedRegions[0];
     if (topSpendRegion && topSpendRegion.spend > 0) {
       const pct = totalSpend > 0 ? ((topSpendRegion.spend / totalSpend) * 100).toFixed(0) : 0;
       list.push(`${topSpendRegion.region} accounts for the largest share of regional spend (${pct}% of total spend).`);
@@ -241,19 +226,16 @@ export const Places = () => {
 
     // Insight 2: Strongest CTR among high-spend regions
     if (bestRegion && bestRegion.ctr > 0) {
-      list.push(`${bestRegion.region} achieved the strongest CTR (${formatPercentage(bestRegion.ctr)}) among high-spend regions.`);
+      list.push(`Among the highest-spend regions, ${bestRegion.region} achieved the strongest CTR of ${formatPercentage(bestRegion.ctr)}.`);
     }
 
-    // Insight 3: High-spend region with comparatively weak CTR
-    const weakRegion = needsAttentionList[0];
-    if (weakRegion) {
-      list.push(`${weakRegion.region} has significant spend but comparatively low CTR (${formatPercentage(weakRegion.ctr)}) and may need optimization.`);
-    } else if (bestRegion) {
-      list.push(`All high-spend regions are maintaining healthy performance across campaigns.`);
+    // Insight 3: Most efficient CPC among high-spend regions
+    if (efficientRegion && efficientRegion.cpc > 0) {
+      list.push(`Among the highest-spend regions, ${efficientRegion.region} delivered the most efficient CPC of ${formatCurrency(efficientRegion.cpc, currency)}.`);
     }
 
     return list;
-  }, [aggregatedRegions, bestRegion, needsAttentionList, totalSpend, currency]);
+  }, [spendRankedRegions, bestRegion, efficientRegion, totalSpend, currency]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>

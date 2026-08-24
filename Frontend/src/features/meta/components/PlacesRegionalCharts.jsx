@@ -37,21 +37,25 @@ export const PlacesRegionalCharts = ({ regionsData = [], currency = "INR" }) => 
     return sortedSpendRegions.slice(startIndex, startIndex + spendPageSize);
   }, [sortedSpendRegions, spendPage, spendPageSize]);
 
-  // 2. Regional Performance Dataset
+  // 2. Regional Performance Dataset (Operates ONLY on top 10 high-spend regions)
   const sortedPerfRegions = useMemo(() => {
-    return [...regionsData]
-      .sort((a, b) => {
-        if (perfMetric === "cpc") {
-          const cpcA = a.cpc || 0;
-          const cpcB = b.cpc || 0;
-          if (cpcA > 0 && cpcB > 0) return cpcA - cpcB;
-          if (cpcA > 0) return -1;
-          if (cpcB > 0) return 1;
-          return 0;
-        }
-        return (b[perfMetric] || 0) - (a[perfMetric] || 0);
-      })
+    // Step 1: Select top 10 highest-spend regions
+    const highSpendPool = [...regionsData]
+      .sort((a, b) => (b.spend || 0) - (a.spend || 0))
       .slice(0, 10);
+
+    // Step 2: Rank within the high-spend pool by selected metric
+    return [...highSpendPool].sort((a, b) => {
+      if (perfMetric === "cpc") {
+        const cpcA = a.cpc || 0;
+        const cpcB = b.cpc || 0;
+        if (cpcA > 0 && cpcB > 0) return cpcA - cpcB;
+        if (cpcA > 0) return -1;
+        if (cpcB > 0) return 1;
+        return 0;
+      }
+      return (b[perfMetric] || 0) - (a[perfMetric] || 0);
+    });
   }, [regionsData, perfMetric]);
 
   const maxPerfVal = useMemo(() => {
