@@ -52,7 +52,12 @@ export const calculateShopifyOrderBreakdown = (ordersData = [], totalOrdersCount
     const finStatus = (order.order_financial_status || "").toUpperCase();
     const orderPrice = Number(order.order_total_price || order.order_net_sales || 0);
 
-    if (order.order_cancelled_at !== null && order.order_cancelled_at !== undefined && String(order.order_cancelled_at).trim() !== "") {
+    const isCancelled =
+      (order.order_cancelled_at !== null && order.order_cancelled_at !== undefined && String(order.order_cancelled_at).trim() !== "") ||
+      finStatus === "VOIDED" ||
+      finStatus === "CANCELLED";
+
+    if (isCancelled) {
       cancelledCount += 1;
       cancelledValue += Math.abs(orderPrice);
     }

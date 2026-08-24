@@ -96,6 +96,13 @@ export const ShopifyOrders = () => {
       if (statusFilter === "pending") {
         return finStatus === "PENDING" || order.order_unpaid === true;
       }
+      if (statusFilter === "cancelled") {
+        return (
+          (order.order_cancelled_at !== null && order.order_cancelled_at !== undefined && String(order.order_cancelled_at).trim() !== "") ||
+          finStatus === "VOIDED" ||
+          finStatus === "CANCELLED"
+        );
+      }
       return true;
     });
   }, [ordersData, statusFilter]);
@@ -156,6 +163,7 @@ export const ShopifyOrders = () => {
               subtitle={`Total Volume: ${formatCurrencyINR(metrics.totalValue)}`}
               icon={ShoppingCart}
               accentColor="#0F172A"
+              onClick={() => setStatusFilter("all")}
             />
             <MetricCard
               title="Prepaid Orders"
@@ -163,6 +171,7 @@ export const ShopifyOrders = () => {
               subtitle={`${metrics.prepaidCount} orders (${metrics.prepaidPct}%)`}
               icon={CreditCard}
               accentColor="#16A34A"
+              onClick={() => setStatusFilter("paid")}
             />
             <MetricCard
               title="COD Orders"
@@ -170,6 +179,7 @@ export const ShopifyOrders = () => {
               subtitle={`${metrics.codCount} orders (${metrics.codPct}%)`}
               icon={Truck}
               accentColor="#EAB308"
+              onClick={() => setStatusFilter("pending")}
             />
             <MetricCard
               title="Cancelled Orders"
@@ -177,6 +187,7 @@ export const ShopifyOrders = () => {
               subtitle={`${metrics.cancelledCount} orders (${metrics.cancelledPct}%)`}
               icon={XCircle}
               accentColor="#DC2626"
+              onClick={() => setStatusFilter("cancelled")}
             />
           </div>
 
@@ -234,6 +245,22 @@ export const ShopifyOrders = () => {
                 >
                   Pending ({metrics.codCount})
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("cancelled")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: statusFilter === "cancelled" ? "#DC2626" : "#F1F5F9",
+                    color: statusFilter === "cancelled" ? "#FFFFFF" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancelled ({metrics.cancelledCount})
+                </button>
               </div>
             </div>
 
@@ -259,7 +286,10 @@ export const ShopifyOrders = () => {
                   {paginatedOrders.map((order, idx) => {
                     const finStatus = (order.order_financial_status || (order.order_fully_paid ? "PAID" : "PENDING")).toUpperCase();
                     const fulStatus = (order.order_fulfillment_status || "FULFILLED").toUpperCase();
-                    const isCancelled = order.order_cancelled_at !== null && order.order_cancelled_at !== undefined && String(order.order_cancelled_at).trim() !== "";
+                    const isCancelled =
+                      (order.order_cancelled_at !== null && order.order_cancelled_at !== undefined && String(order.order_cancelled_at).trim() !== "") ||
+                      finStatus === "VOIDED" ||
+                      finStatus === "CANCELLED";
 
                     return (
                       <tr key={idx} style={{ borderBottom: "1px solid #F1F5F9" }}>
