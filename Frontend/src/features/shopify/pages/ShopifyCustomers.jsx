@@ -12,7 +12,7 @@ import ShopifyLockedState from "../components/ShopifyLockedState.jsx";
 import { formatCurrencyINR } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { getErrorMessage } from "../../../utils/error.js";
-import { Users, UserPlus, UserCheck } from "lucide-react";
+import { Users, UserPlus, UserCheck, Filter } from "lucide-react";
 
 export const ShopifyCustomers = () => {
   const [customersData, setCustomersData] = useState([]);
@@ -23,6 +23,9 @@ export const ShopifyCustomers = () => {
 
   // Account & Lock state
   const [isLocked, setIsLocked] = useState(false);
+
+  // Customer Filter State: "all" | "new" | "returning"
+  const [customerFilter, setCustomerFilter] = useState("all");
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -57,10 +60,10 @@ export const ShopifyCustomers = () => {
     fetchData();
   }, [fetchData]);
 
-  // Reset page to 1 on date filter change
+  // Reset page to 1 on date filter or customer filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [dateParams]);
+  }, [dateParams, customerFilter]);
 
   // Compute New vs Returning Customer Metrics using real API `customer_orders_count`
   const customerMetrics = useMemo(() => {
@@ -68,11 +71,17 @@ export const ShopifyCustomers = () => {
     let returningCount = 0;
 
     customersData.forEach((c) => {
-      const orderCount = Number(c.customer_orders_count || 1);
-      if (orderCount > 1) {
-        returningCount += 1;
-      } else {
+      const ordersCount =
+        c.customer_orders_count !== null &&
+        c.customer_orders_count !== undefined &&
+        !isNaN(Number(c.customer_orders_count))
+          ? Number(c.customer_orders_count)
+          : null;
+
+      if (ordersCount === 1) {
         newCount += 1;
+      } else if (ordersCount !== null && ordersCount > 1) {
+        returningCount += 1;
       }
     });
 
@@ -83,13 +92,35 @@ export const ShopifyCustomers = () => {
     };
   }, [customersData]);
 
+  // Filtered Customers Dataset based on customer filter ("all" | "new" | "returning")
+  const filteredCustomers = useMemo(() => {
+    if (customerFilter === "all") return customersData;
+
+    return customersData.filter((c) => {
+      const ordersCount =
+        c.customer_orders_count !== null &&
+        c.customer_orders_count !== undefined &&
+        !isNaN(Number(c.customer_orders_count))
+          ? Number(c.customer_orders_count)
+          : null;
+
+      if (customerFilter === "new") {
+        return ordersCount === 1;
+      }
+      if (customerFilter === "returning") {
+        return ordersCount !== null && ordersCount > 1;
+      }
+      return true;
+    });
+  }, [customersData, customerFilter]);
+
   // Paginated Customers List
-  const totalItems = customersData.length;
+  const totalItems = filteredCustomers.length;
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
   const paginatedCustomers = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
-    return customersData.slice(start, start + pageSize);
-  }, [customersData, currentPage, pageSize]);
+    return filteredCustomers.slice(start, start + pageSize);
+  }, [filteredCustomers, currentPage, pageSize]);
 
   if (isLocked) {
     return <ShopifyLockedState />;
@@ -140,6 +171,7 @@ export const ShopifyCustomers = () => {
               value={formatNumber(customerMetrics.totalCustomers)}
               icon={Users}
               accentColor="#0F172A"
+              onClick={() => setCustomerFilter("all")}
             />
             <MetricCard
               title="New Customers"
@@ -147,6 +179,7 @@ export const ShopifyCustomers = () => {
               subtitle="Single order customers"
               icon={UserPlus}
               accentColor="#0A84FF"
+              onClick={() => setCustomerFilter("new")}
             />
             <MetricCard
               title="Returning Customers"
@@ -154,7 +187,73 @@ export const ShopifyCustomers = () => {
               subtitle="Repeat buyers (2+ orders)"
               icon={UserCheck}
               accentColor="#16A34A"
+              onClick={() => setCustomerFilter("returning")}
             />
+          </div>
+
+          {/* Customer Type Filter Bar */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", backgroundColor: "#FFFFFF", padding: "12px 16px", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <Filter size={15} color="#64748B" />
+              <span style={{ fontSize: "13px", fontWeight: "600", color: "#0F172A" }}>Filter Customers:</span>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  type="button"
+                  onClick={() => setCustomerFilter("all")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: customerFilter === "all" ? "#0F172A" : "#F1F5F9",
+                    color: customerFilter === "all" ? "#FFFFFF" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  All ({customerMetrics.totalCustomers})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCustomerFilter("new")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: customerFilter === "new" ? "#0F172A" : "#F1F5F9",
+                    color: customerFilter === "new" ? "#FFFFFF" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  New ({customerMetrics.newCustomers})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCustomerFilter("returning")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: customerFilter === "returning" ? "#0F172A" : "#F1F5F9",
+                    color: customerFilter === "returning" ? "#FFFFFF" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Returning ({customerMetrics.returningCustomers})
+                </button>
+              </div>
+            </div>
+
+            <span style={{ fontSize: "12px", color: "#64748B" }}>
+              Showing {filteredCustomers.length} of {filteredCustomers.length} customers
+            </span>
           </div>
 
           {/* Customers Table with Pagination */}
