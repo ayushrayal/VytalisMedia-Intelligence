@@ -195,44 +195,12 @@ export const PlacesRegionalCharts = ({
               Regional Performance
             </h4>
             <span style={{ fontSize: "0.78rem", color: "var(--color-text-secondary, #64748B)" }}>
-              {spendSegment === "high" ? "High-spend regions" : "Low-spend regions"} ranked by selected metric
+              High-spend regions ranked by selected metric
             </span>
           </div>
 
-          {/* Segment & Metric Selectors Container */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            {/* High Spend / Low Spend Selector */}
-            <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)", gap: "2px" }}>
-              {[
-                { id: "high", label: "High Spend" },
-                { id: "low", label: "Low Spend" },
-              ].map((seg) => {
-                const active = spendSegment === seg.id;
-                return (
-                  <button
-                    key={seg.id}
-                    onClick={() => setSpendSegment(seg.id)}
-                    style={{
-                      padding: "4px 10px",
-                      border: "none",
-                      borderRadius: "4px",
-                      backgroundColor: active ? "#0A84FF" : "transparent",
-                      color: active ? "#FFFFFF" : "var(--color-text-secondary, #64748B)",
-                      fontWeight: active ? "700" : "500",
-                      fontSize: "0.75rem",
-                      cursor: "pointer",
-                      boxShadow: active ? "0 1px 2px rgba(0, 0, 0, 0.1)" : "none",
-                      transition: "all 0.15s ease",
-                    }}
-                  >
-                    {seg.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Metric Selector Pills */}
-            <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)", gap: "2px" }}>
+          {/* Metric Selector Pills */}
+          <div style={{ display: "flex", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", borderRadius: "6px", padding: "2px", border: "1px solid var(--color-border, #E5E7EB)", gap: "2px" }}>
               {[
                 { id: "ctr", label: "CTR" },
                 { id: "cpc", label: "CPC" },
@@ -263,7 +231,6 @@ export const PlacesRegionalCharts = ({
               })}
             </div>
           </div>
-        </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "4px" }}>
           {sortedPerfRegions.length === 0 ? (

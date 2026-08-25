@@ -100,6 +100,32 @@ const fetchInventory = async ({ activeShopifyAccount, datePreset = "last_90d", d
   });
 };
 
+/**
+ * Fetches Shopify Refunds metrics from Windsor.
+ */
+const fetchRefunds = async ({ activeShopifyAccount, datePreset, dateFrom, dateTo }) => {
+  return await windsorProvider.fetchData({
+    connector: "shopify",
+    fields: SHOPIFY_ENDPOINTS.refunds.fields,
+    datePreset,
+    dateFrom,
+    dateTo,
+    filters: buildAccountFilter(activeShopifyAccount),
+  });
+};
+
+/**
+ * Fetches Shopify Cohorts historical order data from Windsor (last_90d lookback).
+ */
+const fetchCohorts = async ({ activeShopifyAccount }) => {
+  return await windsorProvider.fetchData({
+    connector: "shopify",
+    fields: SHOPIFY_ENDPOINTS.cohorts.fields,
+    datePreset: "last_90d",
+    filters: buildAccountFilter(activeShopifyAccount),
+  });
+};
+
 module.exports = {
   fetchOverview,
   fetchOrders,
@@ -107,4 +133,6 @@ module.exports = {
   fetchCustomers,
   fetchLocation,
   fetchInventory,
+  fetchRefunds,
+  fetchCohorts,
 };

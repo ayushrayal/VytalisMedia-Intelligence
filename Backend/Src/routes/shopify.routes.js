@@ -94,9 +94,21 @@ router.get(
  */
 router.get(
   "/inventory",
-  requireEffectivePermission("shopify.products"),
+  requireEffectivePermission("shopify.inventory"),
   validateShopifyInventoryRequest,
   shopifyController.getInventory
+);
+
+/**
+ * @route   GET /api/shopify/cohorts
+ * @desc    Fetch Shopify customer cohort analysis data
+ * @access  Private
+ */
+router.get(
+  "/cohorts",
+  requireEffectivePermission("shopify.customers"),
+  validateShopifyInventoryRequest,
+  shopifyController.getCohorts
 );
 
 /**

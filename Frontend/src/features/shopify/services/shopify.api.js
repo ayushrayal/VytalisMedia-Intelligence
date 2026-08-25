@@ -46,6 +46,21 @@ export const getShopifyInventory = (params = {}) => {
   return http.get(`/shopify/inventory${q}`);
 };
 
+export const getShopifyCohorts = (params = {}) => {
+  const query = new URLSearchParams();
+  if (params.periodType || params.period_type) {
+    query.append("periodType", params.periodType || params.period_type);
+  }
+  if (params.datePreset || params.date_preset) {
+    query.append("date_preset", params.datePreset || params.date_preset);
+  } else if ((params.dateFrom || params.date_from) && (params.dateTo || params.date_to)) {
+    query.append("date_from", params.dateFrom || params.date_from);
+    query.append("date_to", params.dateTo || params.date_to);
+  }
+  const str = query.toString();
+  return http.get(`/shopify/cohorts${str ? `?${str}` : ""}`);
+};
+
 export const getShopifyCompare = (params = {}) => {
   const query = new URLSearchParams();
   if (params.datePreset || params.preset) {

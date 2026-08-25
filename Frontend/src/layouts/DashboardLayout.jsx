@@ -108,7 +108,7 @@ const analyticsNavigation = [
       { route: "/shopify/overview", label: "Overview", permissionKey: PERMISSION_KEYS.SHOPIFY_OVERVIEW, icon: BarChart3 },
       { route: "/shopify/orders", label: "Orders", permissionKey: PERMISSION_KEYS.SHOPIFY_ORDERS, icon: ShoppingCart },
       { route: "/shopify/products", label: "Products", permissionKey: PERMISSION_KEYS.SHOPIFY_PRODUCTS, icon: Package },
-      { route: "/shopify/inventory", label: "Inventory", permissionKey: PERMISSION_KEYS.SHOPIFY_PRODUCTS, icon: Layers },
+      { route: "/shopify/inventory", label: "Inventory", permissionKey: PERMISSION_KEYS.SHOPIFY_INVENTORY, icon: Layers },
       { route: "/shopify/customers", label: "Customers", permissionKey: PERMISSION_KEYS.SHOPIFY_CUSTOMERS, icon: Users },
       { route: "/shopify/location", label: "Location", permissionKey: PERMISSION_KEYS.SHOPIFY_LOCATION, icon: MapPin },
       { route: "/shopify/compare", label: "Compare", permissionKey: PERMISSION_KEYS.SHOPIFY_COMPARE, icon: ArrowLeftRight },

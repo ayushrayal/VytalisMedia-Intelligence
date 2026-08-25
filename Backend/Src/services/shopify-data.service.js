@@ -308,8 +308,98 @@ const getShopifyComparison = async ({ user, query = {} }) => {
   };
 };
 
+/**
+ * Fetches Shopify Customer Cohort Analysis analytics with Redis caching.
+ *
+ * @param {Object} options
+ * @param {Object} options.user - Authenticated user object
+ * @param {Object} options.query - Query params ({ periodType, datePreset, dateFrom, dateTo })
+ * @returns {Promise<Object>} Aggregated cohort analytics payload
+ */
+const getShopifyCohorts = async ({ user, query = {} }) => {
+  const cohortCalc = require("../utils/shopify-cohort-calculator.util");
+  const { getEffectiveIntegrationContext } = require("../utils/integration-context.util");
+  const { integrationUser } = await getEffectiveIntegrationContext(user, query.organizationId);
+  const targetUser = integrationUser || user;
+
+  if (!targetUser || !targetUser.preferences || !targetUser.preferences.activeShopifyAccount) {
+    const error = new Error("No active Shopify account configured for this Organization");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const activeShopifyAccount = targetUser.preferences.activeShopifyAccount.trim();
+  if (!activeShopifyAccount) {
+    const error = new Error("No active Shopify account configured for this Organization");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const userId = targetUser._id ? targetUser._id.toString() : "anonymous";
+  const periodType = (query.periodType || query.period_type || "monthly").toLowerCase() === "weekly" ? "weekly" : "monthly";
+
+  // Normalize date range key for cache
+  const rawPreset = (query.datePreset || query.date_preset || "").trim();
+  const rawFrom = (query.dateFrom || query.date_from || "").trim();
+  const rawTo = (query.dateTo || query.date_to || "").trim();
+  const dateRangeKey = rawPreset ? rawPreset : (rawFrom && rawTo ? `${rawFrom}_${rawTo}` : "last_90d");
+
+  // Format: shopify:{userId}:{activeShopifyAccount}:cohorts:{periodType}:{dateRangeKey}
+  const cacheKey = `shopify:${userId}:${activeShopifyAccount}:cohorts:${periodType}:${dateRangeKey}`;
+
+  try {
+    const cached = await cacheUtil.get(cacheKey);
+    if (cached && cached.data) {
+      return {
+        data: cached.data,
+        meta: {
+          cachedAt: cached.cachedAt,
+          expiresAt: cached.expiresAt,
+          source: "redis",
+        },
+      };
+    }
+  } catch (cacheErr) {
+    logger.warn(`[Redis ERROR] Cohort cache lookup failed for key ${cacheKey}: ${cacheErr.message}`);
+  }
+
+  // Fetch 90-day order headers from Windsor
+  const rawOrders = await shopifyAdapter.fetchCohorts({ activeShopifyAccount });
+
+  // Calculate aggregated cohort retention matrix and revenue
+  const cohortPayload = cohortCalc.calculateShopifyCohorts({
+    ordersData: rawOrders,
+    periodType,
+  });
+
+  const baseTtl = 300;
+  const jitteredTtl = calculateJitteredTtl(baseTtl);
+  const now = new Date();
+  const cachedAt = now.toISOString();
+  const expiresAt = new Date(now.getTime() + jitteredTtl * 1000).toISOString();
+
+  const cachePayload = {
+    data: cohortPayload,
+    cachedAt,
+    expiresAt,
+    source: "windsor",
+  };
+
+  await cacheUtil.set(cacheKey, cachePayload, jitteredTtl);
+
+  return {
+    data: cohortPayload,
+    meta: {
+      cachedAt,
+      expiresAt,
+      source: "windsor",
+    },
+  };
+};
+
 module.exports = {
   getShopifyData,
   getShopifyComparison,
+  getShopifyCohorts,
 };
 

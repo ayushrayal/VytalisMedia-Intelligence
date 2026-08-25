@@ -277,6 +277,53 @@ const getInventory = async (req, res, next) => {
   }
 };
 
+/**
+ * Handles request for Shopify refunds analytics data.
+ * Endpoint: GET /api/shopify/refunds
+ */
+const getRefunds = async (req, res, next) => {
+  try {
+    const result = await shopifyDataService.getShopifyData({
+      user: req.user,
+      endpoint: "refunds",
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Shopify refunds data retrieved successfully.",
+      result.data,
+      result.meta
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Handles request for Shopify Customer Cohort Analysis.
+ * Endpoint: GET /api/shopify/cohorts
+ */
+const getCohorts = async (req, res, next) => {
+  try {
+    const result = await shopifyDataService.getShopifyCohorts({
+      user: req.user,
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Shopify customer cohort analysis retrieved successfully.",
+      result.data,
+      result.meta
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   addAccount,
   getAllAccounts,
@@ -291,5 +338,7 @@ module.exports = {
   getLocation,
   getInventory,
   getShopifyComparison,
+  getRefunds,
+  getCohorts,
 };
 

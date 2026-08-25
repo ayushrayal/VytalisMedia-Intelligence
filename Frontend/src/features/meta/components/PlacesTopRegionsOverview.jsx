@@ -9,7 +9,7 @@ import { formatPercentage } from "../../../utils/formatPercentage.js";
  * [ Spend ] [ Reach ] [ Clicks ] [ CTR ]
  */
 export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" }) => {
-  const [mode, setMode] = useState("highSpend"); // "highSpend" | "lowSpend" | "highCtr" | "lowCtr"
+  const [mode, setMode] = useState("highSpend"); // "highSpend" | "highCtr"
 
   // Dynamically compute top 5 regions based on selected ranking mode
   const displayedRegions = useMemo(() => {
@@ -19,18 +19,8 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
     if (mode === "highSpend") {
       return list.sort((a, b) => (b.spend || 0) - (a.spend || 0)).slice(0, 5);
     }
-    if (mode === "lowSpend") {
-      const spenders = list.filter((r) => Number(r.spend || 0) > 0);
-      const targetPool = spenders.length >= 5 ? spenders : list;
-      return targetPool.sort((a, b) => (a.spend || 0) - (b.spend || 0)).slice(0, 5);
-    }
     if (mode === "highCtr") {
       return list.sort((a, b) => (b.ctr || 0) - (a.ctr || 0)).slice(0, 5);
-    }
-    if (mode === "lowCtr") {
-      const activeImpr = list.filter((r) => Number(r.impressions || 0) > 0);
-      const targetPool = activeImpr.length >= 5 ? activeImpr : list;
-      return targetPool.sort((a, b) => (a.ctr || 0) - (b.ctr || 0)).slice(0, 5);
     }
 
     return list.slice(0, 5);
@@ -38,9 +28,7 @@ export const PlacesTopRegionsOverview = ({ regionsData = [], currency = "INR" })
 
   const modeLabels = {
     highSpend: "High Spend",
-    lowSpend: "Low Spend",
     highCtr: "High CTR",
-    lowCtr: "Low CTR",
   };
 
   return (

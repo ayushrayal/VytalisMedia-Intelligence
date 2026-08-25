@@ -23,6 +23,7 @@ export const PERMISSION_KEYS = {
   SHOPIFY_PRODUCTS: "shopify.products",
   SHOPIFY_CUSTOMERS: "shopify.customers",
   SHOPIFY_LOCATION: "shopify.location",
+  SHOPIFY_INVENTORY: "shopify.inventory",
   SHOPIFY_COMPARE: "shopify.compare",
 
   ATTRIBUTION_VIEW: "attribution.view",
@@ -54,6 +55,7 @@ export const PERMISSION_LABELS = {
   [PERMISSION_KEYS.SHOPIFY_PRODUCTS]: "Shopify Products",
   [PERMISSION_KEYS.SHOPIFY_CUSTOMERS]: "Shopify Customers",
   [PERMISSION_KEYS.SHOPIFY_LOCATION]: "Shopify Location",
+  [PERMISSION_KEYS.SHOPIFY_INVENTORY]: "Shopify Inventory",
   [PERMISSION_KEYS.SHOPIFY_COMPARE]: "Shopify Compare",
 
   [PERMISSION_KEYS.ATTRIBUTION_VIEW]: "Attribution Engine",

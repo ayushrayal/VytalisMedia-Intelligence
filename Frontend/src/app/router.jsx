@@ -442,7 +442,7 @@ export const Router = () => {
             <Route path="/shopify/overview" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_OVERVIEW}><ShopifyOverview /></PermissionRouteGuard>} />
             <Route path="/shopify/orders" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_ORDERS}><ShopifyOrders /></PermissionRouteGuard>} />
             <Route path="/shopify/products" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_PRODUCTS}><ShopifyProducts /></PermissionRouteGuard>} />
-            <Route path="/shopify/inventory" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_PRODUCTS}><ShopifyInventory /></PermissionRouteGuard>} />
+            <Route path="/shopify/inventory" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_INVENTORY}><ShopifyInventory /></PermissionRouteGuard>} />
             <Route path="/shopify/customers" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_CUSTOMERS}><ShopifyCustomers /></PermissionRouteGuard>} />
             <Route path="/shopify/location" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_LOCATION}><ShopifyLocation /></PermissionRouteGuard>} />
             <Route path="/shopify/compare" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_COMPARE}><ShopifyCompare /></PermissionRouteGuard>} />

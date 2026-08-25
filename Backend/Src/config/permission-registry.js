@@ -23,6 +23,7 @@ const PERMISSION_KEYS = {
   SHOPIFY_PRODUCTS: "shopify.products",
   SHOPIFY_CUSTOMERS: "shopify.customers",
   SHOPIFY_LOCATION: "shopify.location",
+  SHOPIFY_INVENTORY: "shopify.inventory",
   SHOPIFY_COMPARE: "shopify.compare",
 
   ATTRIBUTION_VIEW: "attribution.view",
@@ -82,6 +83,7 @@ const getDefaultPermissions = (role) => {
     permissions[PERMISSION_KEYS.SHOPIFY_PRODUCTS] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_CUSTOMERS] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_LOCATION] = true;
+    permissions[PERMISSION_KEYS.SHOPIFY_INVENTORY] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_COMPARE] = true;
     permissions[PERMISSION_KEYS.ATTRIBUTION_VIEW] = true;
     // Clients CANNOT manage users
@@ -110,6 +112,7 @@ const getDefaultPermissions = (role) => {
     permissions[PERMISSION_KEYS.SHOPIFY_PRODUCTS] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_CUSTOMERS] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_LOCATION] = true;
+    permissions[PERMISSION_KEYS.SHOPIFY_INVENTORY] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_COMPARE] = true;
     permissions[PERMISSION_KEYS.ATTRIBUTION_VIEW] = true;
     permissions[PERMISSION_KEYS.USER_MANAGEMENT_ADMINS] = false;

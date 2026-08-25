@@ -164,6 +164,38 @@ const SHOPIFY_ENDPOINTS = {
       "line_item__variant_compare_at_price",
     ],
   },
+  refunds: {
+    key: "refunds",
+    adapterMethod: "fetchRefunds",
+    baseTtl: 300,
+    fields: [
+      "account_name",
+      "shop_name",
+      "order_id",
+      "order_name",
+      "order_created_at",
+      "order_processed_at",
+      "order_financial_status",
+      "order_fulfillment_status",
+      "order_gross_sales",
+      "order_net_sales",
+      "order_total_price",
+      "order_shipping_address_city",
+      "order_shipping_address_province",
+    ],
+  },
+  cohorts: {
+    key: "cohorts",
+    adapterMethod: "fetchCohorts",
+    baseTtl: 300,
+    fields: [
+      "account_name",
+      "order_id",
+      "order_created_at",
+      "order_customer_id",
+      "order_net_sales",
+    ],
+  },
 };
 
 const ALLOWED_SHOPIFY_ENDPOINTS = Object.keys(SHOPIFY_ENDPOINTS);
