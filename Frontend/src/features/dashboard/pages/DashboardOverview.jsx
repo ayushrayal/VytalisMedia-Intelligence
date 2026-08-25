@@ -3,6 +3,8 @@ import { getMetaOverview } from "../../meta/services/meta.api.js";
 import { getShopifyOverviewBundle } from "../../shopify/services/shopify.api.js";
 import { calculateShopifyMetrics } from "../../shopify/utils/shopify-calculator.jsx";
 import { getErrorMessage } from "../../../utils/error.js";
+import useEffectivePermissions from "../../../hooks/useEffectivePermissions.js";
+import { PERMISSION_KEYS } from "../../../config/permission-registry.js";
 import PageHeader from "../../../components/shared/PageHeader.jsx";
 import MetricCard from "../../../components/ui/MetricCard.jsx";
 import AccountSwitcher from "../../meta/components/AccountSwitcher.jsx";
@@ -69,7 +71,8 @@ const DEFAULT_SHOPIFY_CARDS_CONFIG = [
  * Dynamic executive summary consuming user's saved Meta & Shopify platform card preferences.
  */
 export const DashboardOverview = ({ user }) => {
-  const isShopifyEnabled = user?.role === "admin" || Boolean(user?.shopifyEnabled) === true;
+  const { hasPermission } = useEffectivePermissions(user);
+  const isShopifyEnabled = hasPermission(PERMISSION_KEYS.SHOPIFY_VIEW);
   // Global Date Filter State
   const [dateParams, setDateParams] = useState({ datePreset: "last_7d" });
 
