@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useOutletContext } from "react-router-dom";
 import { getShopifyCustomers, getShopifyCohorts } from "../services/shopify.api.js";
+import useEffectivePermissions from "../../../hooks/useEffectivePermissions.js";
+import { PERMISSION_KEYS } from "../../../config/permission-registry.js";
 import MetricCard from "../../../components/ui/MetricCard.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
@@ -37,6 +40,19 @@ const RupeeIcon = ({ size = 18 }) => (
 export const ShopifyCustomers = () => {
   // Main View Mode: "directory" | "cohorts"
   const [viewMode, setViewMode] = useState("directory");
+
+  // Permissions & Outlet Context
+  const outletContext = useOutletContext() || {};
+  const user = outletContext.user || null;
+  const { hasPermission } = useEffectivePermissions(user);
+  const canViewCohorts = hasPermission(PERMISSION_KEYS.SHOPIFY_COHORTS);
+
+  // If viewMode is cohorts but user lacks shopify.cohorts permission, fallback to directory
+  useEffect(() => {
+    if (viewMode === "cohorts" && !canViewCohorts) {
+      setViewMode("directory");
+    }
+  }, [viewMode, canViewCohorts]);
 
   // Account & Lock state
   const [isLocked, setIsLocked] = useState(false);
@@ -210,26 +226,28 @@ export const ShopifyCustomers = () => {
         >
           <Users size={16} /> Customer Directory
         </button>
-        <button
-          type="button"
-          onClick={() => setViewMode("cohorts")}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "8px 16px",
-            borderRadius: "8px",
-            border: "none",
-            backgroundColor: viewMode === "cohorts" ? "#0F172A" : "transparent",
-            color: viewMode === "cohorts" ? "#FFFFFF" : "#64748B",
-            fontSize: "13px",
-            fontWeight: "600",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-          }}
-        >
-          <Grid size={16} /> Customer Cohort Analysis
-        </button>
+        {canViewCohorts && (
+          <button
+            type="button"
+            onClick={() => setViewMode("cohorts")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              border: "none",
+              backgroundColor: viewMode === "cohorts" ? "#0F172A" : "transparent",
+              color: viewMode === "cohorts" ? "#FFFFFF" : "#64748B",
+              fontSize: "13px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Grid size={16} /> Customer Cohort Analysis
+          </button>
+        )}
       </div>
 
       {/* ==================================================================== */}

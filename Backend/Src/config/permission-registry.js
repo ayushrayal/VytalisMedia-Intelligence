@@ -22,6 +22,7 @@ const PERMISSION_KEYS = {
   SHOPIFY_ORDERS: "shopify.orders",
   SHOPIFY_PRODUCTS: "shopify.products",
   SHOPIFY_CUSTOMERS: "shopify.customers",
+  SHOPIFY_COHORTS: "shopify.cohorts",
   SHOPIFY_LOCATION: "shopify.location",
   SHOPIFY_INVENTORY: "shopify.inventory",
   SHOPIFY_COMPARE: "shopify.compare",
@@ -82,6 +83,7 @@ const getDefaultPermissions = (role) => {
     permissions[PERMISSION_KEYS.SHOPIFY_ORDERS] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_PRODUCTS] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_CUSTOMERS] = true;
+    permissions[PERMISSION_KEYS.SHOPIFY_COHORTS] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_LOCATION] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_INVENTORY] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_COMPARE] = true;
@@ -111,6 +113,7 @@ const getDefaultPermissions = (role) => {
     permissions[PERMISSION_KEYS.SHOPIFY_ORDERS] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_PRODUCTS] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_CUSTOMERS] = true;
+    permissions[PERMISSION_KEYS.SHOPIFY_COHORTS] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_LOCATION] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_INVENTORY] = true;
     permissions[PERMISSION_KEYS.SHOPIFY_COMPARE] = true;

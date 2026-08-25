@@ -106,7 +106,7 @@ router.get(
  */
 router.get(
   "/cohorts",
-  requireEffectivePermission("shopify.customers"),
+  requireEffectivePermission("shopify.cohorts"),
   validateShopifyInventoryRequest,
   shopifyController.getCohorts
 );
