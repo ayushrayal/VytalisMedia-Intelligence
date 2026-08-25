@@ -86,10 +86,25 @@ const fetchLocation = async ({ activeShopifyAccount, datePreset, dateFrom, dateT
   });
 };
 
+/**
+ * Fetches Shopify Inventory metrics from Windsor.
+ */
+const fetchInventory = async ({ activeShopifyAccount, datePreset = "last_90d", dateFrom, dateTo }) => {
+  return await windsorProvider.fetchData({
+    connector: "shopify",
+    fields: SHOPIFY_ENDPOINTS.inventory.fields,
+    datePreset: dateFrom && dateTo ? undefined : (datePreset || "last_90d"),
+    dateFrom,
+    dateTo,
+    filters: buildAccountFilter(activeShopifyAccount),
+  });
+};
+
 module.exports = {
   fetchOverview,
   fetchOrders,
   fetchProducts,
   fetchCustomers,
   fetchLocation,
+  fetchInventory,
 };

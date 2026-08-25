@@ -7,7 +7,7 @@ const {
   validateUpdateAccount,
   validateAccountIdParam,
 } = require("../validators/shopify.validator");
-const { validateShopifyDataRequest } = require("../validators/shopify-data.validator");
+const { validateShopifyDataRequest, validateShopifyInventoryRequest } = require("../validators/shopify-data.validator");
 const { protect, requireEffectivePermission } = require("../middleware/auth.middleware");
 const { requireOrganizationAccess } = require("../middleware/organization-auth.middleware");
 
@@ -85,6 +85,18 @@ router.get(
   requireEffectivePermission("shopify.location"),
   validateShopifyDataRequest,
   shopifyController.getLocation
+);
+
+/**
+ * @route   GET /api/shopify/inventory
+ * @desc    Fetch Shopify inventory analytics data
+ * @access  Private
+ */
+router.get(
+  "/inventory",
+  requireEffectivePermission("shopify.products"),
+  validateShopifyInventoryRequest,
+  shopifyController.getInventory
 );
 
 /**

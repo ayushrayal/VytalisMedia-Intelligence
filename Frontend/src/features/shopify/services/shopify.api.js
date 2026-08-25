@@ -41,6 +41,11 @@ export const getShopifyLocation = (params = {}) => {
   return http.get(`/shopify/location${q}`);
 };
 
+export const getShopifyInventory = (params = {}) => {
+  const q = buildShopifyQueryString(params);
+  return http.get(`/shopify/inventory${q}`);
+};
+
 export const getShopifyCompare = (params = {}) => {
   const query = new URLSearchParams();
   if (params.datePreset || params.preset) {

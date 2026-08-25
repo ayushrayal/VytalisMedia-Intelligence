@@ -253,6 +253,30 @@ const getShopifyComparison = async (req, res, next) => {
   }
 };
 
+/**
+ * Handles request for Shopify inventory analytics data.
+ * Endpoint: GET /api/shopify/inventory
+ */
+const getInventory = async (req, res, next) => {
+  try {
+    const result = await shopifyDataService.getShopifyData({
+      user: req.user,
+      endpoint: "inventory",
+      query: req.query,
+    });
+
+    return sendSuccess(
+      res,
+      200,
+      "Shopify inventory data retrieved successfully.",
+      result.data,
+      result.meta
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   addAccount,
   getAllAccounts,
@@ -265,6 +289,7 @@ module.exports = {
   getProducts,
   getCustomers,
   getLocation,
+  getInventory,
   getShopifyComparison,
 };
 

@@ -29,6 +29,7 @@ import ShopifyOrders from "../features/shopify/pages/ShopifyOrders.jsx";
 import ShopifyProducts from "../features/shopify/pages/ShopifyProducts.jsx";
 import ShopifyCustomers from "../features/shopify/pages/ShopifyCustomers.jsx";
 import ShopifyLocation from "../features/shopify/pages/ShopifyLocation.jsx";
+import ShopifyInventory from "../features/shopify/pages/ShopifyInventory.jsx";
 import ShopifyCompare from "../features/shopify/pages/ShopifyCompare.jsx";
 import ShopifyAccounts from "../features/shopify/pages/ShopifyAccounts.jsx";
 import AttributionOverview from "../features/attribution/pages/AttributionOverview.jsx";
@@ -441,6 +442,7 @@ export const Router = () => {
             <Route path="/shopify/overview" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_OVERVIEW}><ShopifyOverview /></PermissionRouteGuard>} />
             <Route path="/shopify/orders" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_ORDERS}><ShopifyOrders /></PermissionRouteGuard>} />
             <Route path="/shopify/products" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_PRODUCTS}><ShopifyProducts /></PermissionRouteGuard>} />
+            <Route path="/shopify/inventory" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_PRODUCTS}><ShopifyInventory /></PermissionRouteGuard>} />
             <Route path="/shopify/customers" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_CUSTOMERS}><ShopifyCustomers /></PermissionRouteGuard>} />
             <Route path="/shopify/location" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_LOCATION}><ShopifyLocation /></PermissionRouteGuard>} />
             <Route path="/shopify/compare" element={<PermissionRouteGuard permissionKey={PERMISSION_KEYS.SHOPIFY_COMPARE}><ShopifyCompare /></PermissionRouteGuard>} />

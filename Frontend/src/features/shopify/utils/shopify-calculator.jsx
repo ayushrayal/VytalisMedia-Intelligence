@@ -304,6 +304,104 @@ export const calculateShopifyProductMetrics = (productsData = []) => {
 };
 
 /**
+ * Calculates Product Performance Trends & Segments (P1B):
+ * - Fast Growing: Highest positive period-over-period sales growth
+ * - Declining: Highest negative period-over-period sales growth
+ * - Best Sellers: Highest quantity sold
+ * - Low Performers: Bottom 25% by sales among products with sales > 0
+ * - Daily Product Sales Trend Timeline
+ */
+export const calculateShopifyProductTrends = (productsData = [], compareProductsData = []) => {
+  const currentMetrics = calculateShopifyProductMetrics(productsData);
+  const compareMetrics = compareProductsData && compareProductsData.length > 0
+    ? calculateShopifyProductMetrics(compareProductsData)
+    : null;
+
+  const compareMap = {};
+  if (compareMetrics) {
+    compareMetrics.list.forEach((p) => {
+      compareMap[p.name] = p.value;
+    });
+  }
+
+  const enrichedList = currentMetrics.list.map((p) => {
+    const prevValue = compareMap[p.name] || 0;
+    let growthPct = null;
+    let growthStatus = "no_prev";
+
+    if (compareMetrics) {
+      if (prevValue > 0) {
+        growthPct = Number((((p.value - prevValue) / prevValue) * 100).toFixed(1));
+        growthStatus = growthPct >= 0 ? "positive" : "negative";
+      } else if (p.value > 0) {
+        growthPct = 100;
+        growthStatus = "new";
+      } else {
+        growthPct = 0;
+        growthStatus = "neutral";
+      }
+    }
+
+    return {
+      ...p,
+      prevValue,
+      growthPct,
+      growthStatus,
+    };
+  });
+
+  // Fast Growing: Highest positive growth % (requires compare data)
+  const fastGrowingList = compareMetrics
+    ? [...enrichedList]
+      .filter((p) => p.growthPct !== null && p.growthPct > 0)
+      .sort((a, b) => b.growthPct - a.growthPct)
+    : [];
+
+  // Declining: Highest negative growth % (requires compare data)
+  const decliningList = compareMetrics
+    ? [...enrichedList]
+      .filter((p) => p.growthPct !== null && p.growthPct < 0)
+      .sort((a, b) => a.growthPct - b.growthPct)
+    : [];
+
+  // Best Sellers: Highest quantity sold
+  const bestSellersList = [...enrichedList].sort((a, b) => b.quantity - a.quantity);
+
+  // Low Performers: Bottom 25% by sales among products with sales > 0
+  const lowPerformersList = currentMetrics.lowPerformersList;
+
+  // Daily Trend Timeline
+  const dailyMap = {};
+  (productsData || []).forEach((row) => {
+    const dateStr = row.order_created_at
+      ? new Date(row.order_created_at).toISOString().split("T")[0]
+      : "Unknown";
+    const qty = Number(row.line_item__quantity || 1);
+    const price = Number(row.line_item__price || row.line_item__product_price || 0);
+    const val = qty * price;
+
+    if (!dailyMap[dateStr]) {
+      dailyMap[dateStr] = { date: dateStr, sales: 0, quantity: 0 };
+    }
+    dailyMap[dateStr].sales += val;
+    dailyMap[dateStr].quantity += qty;
+  });
+
+  const timeline = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    ...currentMetrics,
+    enrichedList,
+    fastGrowingList,
+    decliningList,
+    bestSellersList,
+    lowPerformersList,
+    timeline,
+    hasCompareData: Boolean(compareMetrics),
+  };
+};
+
+/**
  * Calculates Location Metrics:
  * - Location Net Sales: sum of order_net_sales across location rows
  * - Location AOV: Location Net Sales / distinct store orders associated with location
@@ -606,3 +704,347 @@ export const calculateShopifyMetrics = ({ overviewData = [], ordersData = [], cu
     },
   };
 };
+
+/**
+ * Calculates Canonical Shopify Inventory & Stock Alerts.
+ * Strictly calculates "Inventory Retail Value = Quantity * Price".
+ * Supports configurable low stock threshold (default 5).
+ */
+export const calculateShopifyInventory = (inventoryData = [], lowStockThreshold = 5) => {
+  if (!Array.isArray(inventoryData) || inventoryData.length === 0) {
+    return {
+      totalProducts: 0,
+      totalUnits: 0,
+      inStockCount: 0,
+      lowStockCount: 0,
+      outOfStockCount: 0,
+      inventoryRetailValue: 0,
+      threshold: Number(lowStockThreshold) || 5,
+      productList: [],
+      alerts: [],
+    };
+  }
+
+  const threshold = Number(lowStockThreshold) > 0 ? Number(lowStockThreshold) : 5;
+  const productMap = {};
+
+  inventoryData.forEach((row) => {
+    const pId = row.line_item__product_id || row.line_item__sku || row.line_item__name || "unknown";
+    const name = row.line_item__name || row.line_item__title || "Unnamed Product";
+    const sku = row.line_item__sku || "N/A";
+    const price = Number(row.line_item__price || row.line_item__product_price || 0);
+    const qty = Number(row.line_item__quantity || 0);
+    const isAvailable = row.line_item__variant_available_for_sale !== false;
+
+    if (!productMap[pId]) {
+      productMap[pId] = {
+        id: pId,
+        name,
+        sku,
+        price,
+        quantity: qty,
+        isAvailable,
+      };
+    } else {
+      productMap[pId].quantity += qty;
+      if (price > 0) productMap[pId].price = price;
+    }
+  });
+
+  const productList = Object.values(productMap).map((p) => {
+    const retailValue = p.quantity * p.price;
+    let status = "In Stock";
+    let statusSeverity = "normal";
+
+    if (p.quantity === 0 || !p.isAvailable) {
+      status = "Out of Stock";
+      statusSeverity = "critical";
+    } else if (p.quantity <= threshold) {
+      status = "Low Stock";
+      statusSeverity = "warning";
+    }
+
+    return {
+      ...p,
+      retailValue,
+      status,
+      statusSeverity,
+    };
+  });
+
+  let totalUnits = 0;
+  let inStockCount = 0;
+  let lowStockCount = 0;
+  let outOfStockCount = 0;
+  let inventoryRetailValue = 0;
+  const alerts = [];
+
+  productList.forEach((p) => {
+    totalUnits += p.quantity;
+    inventoryRetailValue += p.retailValue;
+
+    if (p.status === "Out of Stock") {
+      outOfStockCount += 1;
+      alerts.push({
+        id: `alert-out-${p.id}`,
+        productId: p.id,
+        name: p.name,
+        sku: p.sku,
+        quantity: p.quantity,
+        threshold,
+        severity: "CRITICAL",
+        message: `Out of Stock: Product "${p.name}" has 0 inventory units.`,
+      });
+    } else if (p.status === "Low Stock") {
+      lowStockCount += 1;
+      alerts.push({
+        id: `alert-low-${p.id}`,
+        productId: p.id,
+        name: p.name,
+        sku: p.sku,
+        quantity: p.quantity,
+        threshold,
+        severity: "WARNING",
+        message: `Low Stock: Product "${p.name}" has ${p.quantity} units (Threshold: ${threshold}).`,
+      });
+    } else {
+      inStockCount += 1;
+    }
+  });
+
+  return {
+    totalProducts: productList.length,
+    totalUnits,
+    inStockCount,
+    lowStockCount,
+    outOfStockCount,
+    inventoryRetailValue,
+    threshold,
+    productList,
+    alerts,
+  };
+};
+
+/**
+ * Calculates Canonical Payment Analysis (COD vs Prepaid Cancellation metrics) for P1C.
+ * Implements strict mathematical reconciliation invariants:
+ * - totalOrders = cod.totalOrders + prepaid.totalOrders + unclassified.totalOrders
+ * - totalCancelledOrders = cod.cancelledOrders + prepaid.cancelledOrders + unclassified.cancelledOrders
+ * - totalCancelledRevenue = cod.cancelledRevenue + prepaid.cancelledRevenue + unclassified.cancelledRevenue
+ */
+export const calculatePaymentAnalysis = (ordersData = []) => {
+  if (!Array.isArray(ordersData) || ordersData.length === 0) {
+    return {
+      totalOrders: 0,
+      totalCancelledOrders: 0,
+      overallCancellationRate: 0,
+      totalCancelledRevenue: 0,
+      cod: {
+        totalOrders: 0,
+        orderShare: 0,
+        cancelledOrders: 0,
+        cancellationRate: 0,
+        cancelledRevenue: 0,
+      },
+      prepaid: {
+        totalOrders: 0,
+        orderShare: 0,
+        cancelledOrders: 0,
+        cancellationRate: 0,
+        cancelledRevenue: 0,
+      },
+      unclassified: {
+        totalOrders: 0,
+        orderShare: 0,
+        cancelledOrders: 0,
+        cancellationRate: 0,
+        cancelledRevenue: 0,
+      },
+      hasPaymentData: false,
+      insights: [],
+    };
+  }
+
+  let totalCancelledCount = 0;
+  let totalCancelledRevenue = 0;
+
+  let codCount = 0;
+  let codCancelledCount = 0;
+  let codCancelledRevenue = 0;
+
+  let prepaidCount = 0;
+  let prepaidCancelledCount = 0;
+  let prepaidCancelledRevenue = 0;
+
+  let unclassifiedCount = 0;
+  let unclassifiedCancelledCount = 0;
+  let unclassifiedCancelledRevenue = 0;
+
+  ordersData.forEach((order) => {
+    const finStatus = (order.order_financial_status || "").toUpperCase();
+    const orderNet = Number(
+      order.order_net_sales !== undefined && order.order_net_sales !== null
+        ? order.order_net_sales
+        : order.order_total_price || 0
+    );
+
+    const isCancelled =
+      (order.order_cancelled_at !== null &&
+        order.order_cancelled_at !== undefined &&
+        String(order.order_cancelled_at).trim() !== "") ||
+      finStatus === "VOIDED" ||
+      finStatus === "CANCELLED";
+
+    if (isCancelled) {
+      totalCancelledCount += 1;
+      totalCancelledRevenue += Math.abs(orderNet);
+    }
+
+    // Determine Payment Classification
+    let paymentType = "UNCLASSIFIED";
+
+    // 1. Explicit gateway / payment method field if provided
+    const gateway = (order.gateway || order.payment_gateway_names || order.payment_method || "").toLowerCase();
+    if (gateway.includes("cod") || gateway.includes("cash")) {
+      paymentType = "COD";
+    } else if (
+      gateway.includes("razorpay") ||
+      gateway.includes("stripe") ||
+      gateway.includes("prepaid") ||
+      gateway.includes("card") ||
+      gateway.includes("upi") ||
+      gateway.includes("netbanking")
+    ) {
+      paymentType = "PREPAID";
+    } else {
+      // 2. Financial status for non-cancelled orders
+      // Note: VOIDED/Cancelled orders lose financial status; if unclassified by gateway, they fall under UNCLASSIFIED
+      if (finStatus === "PAID" && !isCancelled) {
+        paymentType = "PREPAID";
+      } else if (finStatus === "PENDING" && !isCancelled) {
+        paymentType = "COD";
+      }
+    }
+
+    if (paymentType === "PREPAID") {
+      prepaidCount += 1;
+      if (isCancelled) {
+        prepaidCancelledCount += 1;
+        prepaidCancelledRevenue += Math.abs(orderNet);
+      }
+    } else if (paymentType === "COD") {
+      codCount += 1;
+      if (isCancelled) {
+        codCancelledCount += 1;
+        codCancelledRevenue += Math.abs(orderNet);
+      }
+    } else {
+      unclassifiedCount += 1;
+      if (isCancelled) {
+        unclassifiedCancelledCount += 1;
+        unclassifiedCancelledRevenue += Math.abs(orderNet);
+      }
+    }
+  });
+
+  const totalStoreOrders = ordersData.length;
+  const overallCancellationRate = totalStoreOrders > 0
+    ? Number(((totalCancelledCount / totalStoreOrders) * 100).toFixed(1))
+    : 0;
+
+  const codShare = totalStoreOrders > 0
+    ? Number(((codCount / totalStoreOrders) * 100).toFixed(1))
+    : 0;
+
+  const prepaidShare = totalStoreOrders > 0
+    ? Number(((prepaidCount / totalStoreOrders) * 100).toFixed(1))
+    : 0;
+
+  const unclassifiedShare = totalStoreOrders > 0
+    ? Number(((unclassifiedCount / totalStoreOrders) * 100).toFixed(1))
+    : 0;
+
+  const codCancellationRate = codCount > 0
+    ? Number(((codCancelledCount / codCount) * 100).toFixed(1))
+    : 0;
+
+  const prepaidCancellationRate = prepaidCount > 0
+    ? Number(((prepaidCancelledCount / prepaidCount) * 100).toFixed(1))
+    : 0;
+
+  const unclassifiedCancellationRate = unclassifiedCount > 0
+    ? Number(((unclassifiedCancelledCount / unclassifiedCount) * 100).toFixed(1))
+    : 0;
+
+  // Deterministic Business Insights Generation
+  const insights = [];
+
+  if (unclassifiedCount > 0) {
+    insights.push({
+      id: "insight-unclassified-notice",
+      type: "warning",
+      title: "Unclassified Cancelled Orders Notice",
+      description: `Payment method classification is unavailable for ${unclassifiedCount} orders (${unclassifiedCancelledCount} cancelled, accounting for ${formatCurrencyINR(unclassifiedCancelledRevenue)}). These orders are grouped under Unclassified Payments to maintain exact mathematical reconciliation.`,
+    });
+  }
+
+  if (totalStoreOrders > 0 && (codCount > 0 || prepaidCount > 0)) {
+    if (codCount > 0 && prepaidCount > 0) {
+      const diff = codCancellationRate - prepaidCancellationRate;
+      if (Math.abs(diff) < 1.0) {
+        insights.push({
+          id: "insight-rates-similar",
+          type: "neutral",
+          title: "Similar Cancellation Rates Across Classified Payment Methods",
+          description: `COD orders (${codCancellationRate}%) and Prepaid orders (${prepaidCancellationRate}%) show comparable cancellation rates among classified orders.`,
+        });
+      } else if (diff > 0) {
+        insights.push({
+          id: "insight-cod-higher",
+          type: "warning",
+          title: "COD Cancellation Rate is Higher than Prepaid",
+          description: `Classified COD orders have a ${codCancellationRate}% cancellation rate compared to ${prepaidCancellationRate}% for Prepaid orders.`,
+        });
+      } else {
+        insights.push({
+          id: "insight-prepaid-higher",
+          type: "warning",
+          title: "Prepaid Cancellation Rate is Higher than COD",
+          description: `Classified Prepaid orders have a ${prepaidCancellationRate}% cancellation rate compared to ${codCancellationRate}% for COD orders.`,
+        });
+      }
+    }
+  }
+
+  return {
+    totalOrders: totalStoreOrders,
+    totalCancelledOrders: totalCancelledCount,
+    overallCancellationRate,
+    totalCancelledRevenue,
+    cod: {
+      totalOrders: codCount,
+      orderShare: codShare,
+      cancelledOrders: codCancelledCount,
+      cancellationRate: codCancellationRate,
+      cancelledRevenue: codCancelledRevenue,
+    },
+    prepaid: {
+      totalOrders: prepaidCount,
+      orderShare: prepaidShare,
+      cancelledOrders: prepaidCancelledCount,
+      cancellationRate: prepaidCancellationRate,
+      cancelledRevenue: prepaidCancelledRevenue,
+    },
+    unclassified: {
+      totalOrders: unclassifiedCount,
+      orderShare: unclassifiedShare,
+      cancelledOrders: unclassifiedCancelledCount,
+      cancellationRate: unclassifiedCancellationRate,
+      cancelledRevenue: unclassifiedCancelledRevenue,
+    },
+    hasPaymentData: totalStoreOrders > 0,
+    insights,
+  };
+};
+
+

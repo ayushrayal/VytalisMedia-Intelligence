@@ -146,6 +146,24 @@ const SHOPIFY_ENDPOINTS = {
       "order_shipping_address_zip",
     ],
   },
+  inventory: {
+    key: "inventory",
+    adapterMethod: "fetchInventory",
+    baseTtl: 300,
+    fields: [
+      "account_name",
+      "line_item__product_id",
+      "line_item__name",
+      "line_item__title",
+      "line_item__quantity",
+      "line_item__price",
+      "line_item__product_price",
+      "line_item__total_discount",
+      "line_item__sku",
+      "line_item__variant_available_for_sale",
+      "line_item__variant_compare_at_price",
+    ],
+  },
 };
 
 const ALLOWED_SHOPIFY_ENDPOINTS = Object.keys(SHOPIFY_ENDPOINTS);

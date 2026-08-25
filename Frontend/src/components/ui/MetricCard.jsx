@@ -17,6 +17,11 @@ export const MetricCard = ({
 }) => {
   const displayTitle = title || label || "Metric";
 
+  const isReactElement = React.isValidElement(value);
+  const valueStr = isReactElement ? "" : (value !== null && value !== undefined ? String(value) : "—");
+  const valueLen = valueStr.length;
+  const computedFontSize = isReactElement ? undefined : (valueLen > 14 ? "17px" : valueLen > 11 ? "19px" : valueLen > 8 ? "21px" : "24px");
+
   return (
     <div
       onClick={onClick}
@@ -77,14 +82,15 @@ export const MetricCard = ({
       <div>
         <div
           style={{
-            fontSize: "24px",
+            fontSize: computedFontSize,
             fontWeight: "700",
             color: "#0F172A",
-            letterSpacing: "-0.5px",
-            lineHeight: "1.2",
+            letterSpacing: "-0.4px",
+            lineHeight: "1.25",
+            wordBreak: "break-word",
           }}
         >
-          {value !== null && value !== undefined && value !== "" ? value : "—"}
+          {isReactElement ? value : (value !== null && value !== undefined && value !== "" ? value : "—")}
         </div>
 
         {/* Subtitle / Context */}

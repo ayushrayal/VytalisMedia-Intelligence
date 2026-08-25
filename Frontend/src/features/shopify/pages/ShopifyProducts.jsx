@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { getShopifyProducts } from "../services/shopify.api.js";
+import { getShopifyProducts, getShopifyCompare } from "../services/shopify.api.js";
 import MetricCard from "../../../components/ui/MetricCard.jsx";
 import Skeleton from "../../../components/ui/Skeleton.jsx";
 import ContextualLoader, { usePageLoading } from "../../../components/ui/ContextualLoader.jsx";
@@ -9,12 +9,23 @@ import Pagination from "../../../components/ui/Pagination.jsx";
 import DateFilter from "../../meta/components/DateFilter.jsx";
 import ShopifyAccountSwitcher from "../components/ShopifyAccountSwitcher.jsx";
 import ShopifyLockedState from "../components/ShopifyLockedState.jsx";
+import ShopifyProductTrendChart from "../components/ShopifyProductTrendChart.jsx";
 import { formatCurrencyINR } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { getErrorMessage } from "../../../utils/error.js";
-import { calculateShopifyProductMetrics } from "../utils/shopify-calculator.jsx";
+import { calculateShopifyProductTrends } from "../utils/shopify-calculator.jsx";
 import rupeeImg from "../../../assets/rupee.png";
-import { Package, Layers, Award, ShoppingBag, Filter } from "lucide-react";
+import {
+  Package,
+  Layers,
+  Award,
+  ShoppingBag,
+  Filter,
+  TrendingUp,
+  TrendingDown,
+  Info,
+  AlertCircle,
+} from "lucide-react";
 
 const RupeeIcon = ({ size = 18 }) => (
   <img src={rupeeImg} alt="Rupee" style={{ width: `${size}px`, height: `${size}px`, objectFit: "contain" }} />
@@ -22,6 +33,7 @@ const RupeeIcon = ({ size = 18 }) => (
 
 export const ShopifyProducts = () => {
   const [productsData, setProductsData] = useState([]);
+  const [compareProductsData, setCompareProductsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isDisplayLoading, handleComplete } = usePageLoading(loading);
   const [error, setError] = useState(null);
@@ -30,7 +42,7 @@ export const ShopifyProducts = () => {
   // Account & Lock state
   const [isLocked, setIsLocked] = useState(false);
 
-  // Tab Filter State: "all" | "best_sellers" | "most_revenue" | "low_performers"
+  // Tab Filter State: "all" | "fast_growing" | "declining" | "best_sellers" | "most_revenue" | "low_performers"
   const [productTab, setProductTab] = useState("all");
 
   // Pagination State
@@ -51,9 +63,23 @@ export const ShopifyProducts = () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await getShopifyProducts(dateParams);
-      if (res.data) {
-        setProductsData(Array.isArray(res.data) ? res.data : []);
+
+      const [prodRes, compareRes] = await Promise.allSettled([
+        getShopifyProducts(dateParams),
+        getShopifyCompare(dateParams),
+      ]);
+
+      if (prodRes.status === "fulfilled" && prodRes.value?.data) {
+        setProductsData(Array.isArray(prodRes.value.data) ? prodRes.value.data : []);
+      } else if (prodRes.status === "rejected") {
+        throw prodRes.reason;
+      }
+
+      if (compareRes.status === "fulfilled" && compareRes.value?.data?.metricsMap) {
+        // Compare data exists for period-over-period growth
+        setCompareProductsData(compareRes.value.data.metricsMap);
+      } else {
+        setCompareProductsData([]);
       }
     } catch (err) {
       setError(getErrorMessage(err));
@@ -71,26 +97,30 @@ export const ShopifyProducts = () => {
     setCurrentPage(1);
   }, [dateParams, productTab]);
 
-  // Single Canonical Product Calculations
-  const aggregatedProducts = useMemo(() => {
-    return calculateShopifyProductMetrics(productsData);
-  }, [productsData]);
+  // Single Canonical Product Calculations & Trends
+  const trendCalculated = useMemo(() => {
+    return calculateShopifyProductTrends(productsData, compareProductsData);
+  }, [productsData, compareProductsData]);
 
-  // Filtered List based on Tab
+  // Filtered List based on Performance Segment Tab
   const filteredList = useMemo(() => {
-    const fullList = aggregatedProducts.list;
+    if (productTab === "fast_growing") {
+      return trendCalculated.fastGrowingList;
+    }
+    if (productTab === "declining") {
+      return trendCalculated.decliningList;
+    }
     if (productTab === "best_sellers") {
-      return [...fullList].sort((a, b) => b.quantity - a.quantity);
+      return trendCalculated.bestSellersList;
     }
     if (productTab === "most_revenue") {
-      return [...fullList].sort((a, b) => b.value - a.value);
+      return [...trendCalculated.list].sort((a, b) => b.value - a.value);
     }
     if (productTab === "low_performers") {
-      // Bottom 25% of products by Product Sales among products with at least 1 sale
-      return aggregatedProducts.lowPerformersList;
+      return trendCalculated.lowPerformersList;
     }
-    return fullList;
-  }, [aggregatedProducts, productTab]);
+    return trendCalculated.list;
+  }, [trendCalculated, productTab]);
 
   // Paginated Slice
   const totalItems = filteredList.length;
@@ -113,7 +143,7 @@ export const ShopifyProducts = () => {
             Shopify Products
           </h1>
           <p style={{ margin: "4px 0 0 0", fontSize: "14px", color: "#64748B" }}>
-            Product line items, volume, sales share, and catalog performance analytics.
+            Product line items, performance segments, growth trends, and catalog analytics.
           </p>
         </div>
 
@@ -137,7 +167,7 @@ export const ShopifyProducts = () => {
         </div>
       ) : error ? (
         <ErrorState message={error} onRetry={fetchData} />
-      ) : aggregatedProducts.list.length === 0 ? (
+      ) : trendCalculated.list.length === 0 ? (
         <EmptyState
           title="No Product Performance Data Available"
           description="No product sales records were returned for the selected date range."
@@ -149,37 +179,40 @@ export const ShopifyProducts = () => {
             <MetricCard
               title="Total Products"
               subtitle="Unique products"
-              value={formatNumber(aggregatedProducts.totalProducts)}
+              value={formatNumber(trendCalculated.totalProducts)}
               icon={Package}
               accentColor="#0F172A"
+              onClick={() => setProductTab("all")}
             />
             <MetricCard
               title="Quantity Sold"
               subtitle="Units sold"
-              value={formatNumber(aggregatedProducts.totalQty)}
+              value={formatNumber(trendCalculated.totalQty)}
               icon={Layers}
               accentColor="#16A34A"
+              onClick={() => setProductTab("best_sellers")}
             />
             <MetricCard
               title="Total Product Sales"
               subtitle="Product line-item sales value"
-              value={formatCurrencyINR(aggregatedProducts.totalValue)}
+              value={formatCurrencyINR(trendCalculated.totalValue)}
               icon={RupeeIcon}
               accentColor="#0A84FF"
+              onClick={() => setProductTab("most_revenue")}
             />
             <MetricCard
               title="Product Orders"
               subtitle="Orders with product line items"
-              value={formatNumber(aggregatedProducts.totalDistinctOrders)}
+              value={formatNumber(trendCalculated.totalDistinctOrders)}
               icon={ShoppingBag}
               accentColor="#2563EB"
             />
             <MetricCard
               title="Top Selling Product"
               value={
-                aggregatedProducts.topSellingProduct ? (
+                trendCalculated.topSellingProduct ? (
                   <span
-                    title={aggregatedProducts.topSellingProduct.name}
+                    title={trendCalculated.topSellingProduct.name}
                     style={{
                       fontSize: "14px",
                       fontWeight: "600",
@@ -192,15 +225,15 @@ export const ShopifyProducts = () => {
                       lineHeight: "1.3",
                     }}
                   >
-                    {aggregatedProducts.topSellingProduct.name}
+                    {trendCalculated.topSellingProduct.name}
                   </span>
                 ) : (
                   "—"
                 )
               }
               subtitle={
-                aggregatedProducts.topSellingProduct
-                  ? `Sales: ${formatCurrencyINR(aggregatedProducts.topSellingProduct.value)} (${aggregatedProducts.topSellingProduct.shareOfSales}%)`
+                trendCalculated.topSellingProduct
+                  ? `Sales: ${formatCurrencyINR(trendCalculated.topSellingProduct.value)} (${trendCalculated.topSellingProduct.shareOfSales}%)`
                   : undefined
               }
               icon={Award}
@@ -208,12 +241,15 @@ export const ShopifyProducts = () => {
             />
           </div>
 
-          {/* Product Filter Tabs Bar */}
+          {/* Product Trend Visualization */}
+          <ShopifyProductTrendChart timeline={trendCalculated.timeline} />
+
+          {/* Product Performance Segment Filter Bar */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", backgroundColor: "#FFFFFF", padding: "12px 16px", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
               <Filter size={15} color="#64748B" />
-              <span style={{ fontSize: "13px", fontWeight: "600", color: "#0F172A" }}>Filter Catalog:</span>
-              <div style={{ display: "flex", gap: "6px" }}>
+              <span style={{ fontSize: "13px", fontWeight: "600", color: "#0F172A" }}>Performance Segments:</span>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                 <button
                   type="button"
                   onClick={() => setProductTab("all")}
@@ -228,24 +264,49 @@ export const ShopifyProducts = () => {
                     cursor: "pointer",
                   }}
                 >
-                  All ({aggregatedProducts.list.length})
+                  All Products ({trendCalculated.list.length})
                 </button>
+
                 <button
                   type="button"
-                  onClick={() => setProductTab("most_revenue")}
+                  onClick={() => setProductTab("fast_growing")}
                   style={{
                     padding: "4px 12px",
                     borderRadius: "6px",
                     border: "none",
-                    backgroundColor: productTab === "most_revenue" ? "#0A84FF" : "#F1F5F9",
-                    color: productTab === "most_revenue" ? "#FFFFFF" : "#475569",
+                    backgroundColor: productTab === "fast_growing" ? "#16A34A" : "#F1F5F9",
+                    color: productTab === "fast_growing" ? "#FFFFFF" : "#475569",
                     fontSize: "12px",
                     fontWeight: "600",
                     cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
                   }}
                 >
-                  Most Revenue
+                  <TrendingUp size={13} /> Fast Growing
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setProductTab("declining")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: productTab === "declining" ? "#DC2626" : "#F1F5F9",
+                    color: productTab === "declining" ? "#FFFFFF" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  <TrendingDown size={13} /> Declining
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setProductTab("best_sellers")}
@@ -253,7 +314,7 @@ export const ShopifyProducts = () => {
                     padding: "4px 12px",
                     borderRadius: "6px",
                     border: "none",
-                    backgroundColor: productTab === "best_sellers" ? "#16A34A" : "#F1F5F9",
+                    backgroundColor: productTab === "best_sellers" ? "#0A84FF" : "#F1F5F9",
                     color: productTab === "best_sellers" ? "#FFFFFF" : "#475569",
                     fontSize: "12px",
                     fontWeight: "600",
@@ -262,6 +323,24 @@ export const ShopifyProducts = () => {
                 >
                   Best Sellers (Qty)
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setProductTab("most_revenue")}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "6px",
+                    border: "none",
+                    backgroundColor: productTab === "most_revenue" ? "#8B5CF6" : "#F1F5F9",
+                    color: productTab === "most_revenue" ? "#FFFFFF" : "#475569",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  Most Revenue
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setProductTab("low_performers")}
@@ -351,7 +430,7 @@ export const ShopifyProducts = () => {
               </table>
             </div>
 
-            {/* Frontend Pagination Component */}
+            {/* Pagination Component */}
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -364,6 +443,44 @@ export const ShopifyProducts = () => {
               }}
               pageSizeOptions={[10, 20, 50]}
             />
+          </div>
+
+          {/* Category Analysis Availability Card */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "16px",
+              border: "1px solid #E2E8F0",
+              padding: "20px",
+              boxShadow: "0 1px 3px rgba(15,23,42,0.03)",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "14px",
+            }}
+          >
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                backgroundColor: "#F1F5F9",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <AlertCircle size={18} color="#64748B" />
+            </div>
+
+            <div>
+              <h4 style={{ margin: "0 0 4px 0", fontSize: "14px", fontWeight: "700", color: "#0F172A" }}>
+                Category Data Unavailable
+              </h4>
+              <p style={{ margin: 0, fontSize: "13px", color: "#64748B", lineHeight: "1.4" }}>
+                The connected Shopify data connector does not expose product collection/category tags. Product performance operates at the individual item and SKU level.
+              </p>
+            </div>
           </div>
         </>
       )}
