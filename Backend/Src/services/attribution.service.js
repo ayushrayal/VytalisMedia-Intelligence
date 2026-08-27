@@ -9,9 +9,10 @@ const attributionAdapter = require("../adapters/attribution.adapter");
 const cacheUtil = require("../utils/cache.util");
 const { parseOrderCustomAttributes } = require("../utils/attribution-parser.util");
 const { classifyAttributionOrder, normalizeReferrer } = require("../utils/attribution-classifier.util");
-const { normalizeDateParams } = require("../utils/date-normalizer.util");
+const { normalizeDateParams, getLocalDateString } = require("../utils/date-normalizer.util");
 const { calculateJitteredTtl } = require("../config/cache.config");
 const ATTRIBUTION_CONSTANTS = require("../config/attribution-constants.config");
+const { executeFormula } = require("../config/formula-registry.config");
 const logger = require("../utils/logger.util");
 
 const { getEffectiveIntegrationContext } = require("../utils/integration-context.util");
@@ -34,8 +35,9 @@ const extractMerchantDomains = (user) => {
  * Safely computes percentage guarded against division by zero.
  */
 const safePercentage = (numerator, denominator) => {
-  if (!denominator || denominator <= 0 || isNaN(numerator)) return 0;
-  return Number(((numerator / denominator) * 100).toFixed(2));
+  const res = executeFormula("formula.shopify.share_of_sales", { entity_sales: numerator, total_sales: denominator });
+  if (res.value === null || res.value === undefined) return 0;
+  return Number(res.value.toFixed(2));
 };
 
 /**
@@ -45,20 +47,20 @@ const resolveAttributionDateParams = (query = {}) => {
   const rawPreset = (query.datePreset || query.date_preset || "").trim();
   const rawFrom = (query.dateFrom || query.date_from || "").trim();
   const rawTo = (query.dateTo || query.date_to || "").trim();
+  const timezone = query.timezone || "Asia/Kolkata";
 
   if (rawPreset === "this_month") {
-    const now = new Date();
-    const year = now.getUTCFullYear();
-    const month = String(now.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(now.getUTCDate()).padStart(2, "0");
+    const todayStr = getLocalDateString(new Date(), timezone);
+    const [year, month] = todayStr.split("-");
     const dateFrom = `${year}-${month}-01`;
-    const dateTo = `${year}-${month}-${day}`;
+    const dateTo = todayStr;
 
     return {
       dateRangeKey: `this_month_${dateFrom}_${dateTo}`,
       datePreset: "this_month",
       dateFrom,
       dateTo,
+      timezone,
     };
   }
 
@@ -66,6 +68,7 @@ const resolveAttributionDateParams = (query = {}) => {
     datePreset: rawPreset,
     dateFrom: rawFrom,
     dateTo: rawTo,
+    timezone,
   });
 };
 

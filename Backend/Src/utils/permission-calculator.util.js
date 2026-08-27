@@ -21,16 +21,23 @@ let globalSettingsCache = null;
 let globalSettingsCacheTime = 0;
 const CACHE_TTL_MS = 10 * 1000; // 10 seconds
 
+const permResultCache = new Map();
+const PERM_RESULT_TTL_MS = 10 * 1000; // 10 seconds
+
 const getCachedGlobalDeniedPermissions = async () => {
   const now = Date.now();
   if (globalSettingsCache && now - globalSettingsCacheTime < CACHE_TTL_MS) {
     return globalSettingsCache;
   }
 
-  const settings = await GlobalSettings.findOne({}).lean();
-  globalSettingsCache = Array.isArray(settings?.globalDeniedPermissions)
-    ? settings.globalDeniedPermissions
-    : [];
+  try {
+    const settings = await GlobalSettings.findOne({}).lean().maxTimeMS(2000);
+    globalSettingsCache = Array.isArray(settings?.globalDeniedPermissions)
+      ? settings.globalDeniedPermissions
+      : [];
+  } catch (err) {
+    globalSettingsCache = globalSettingsCache || [];
+  }
   globalSettingsCacheTime = now;
   return globalSettingsCache;
 };
@@ -41,6 +48,27 @@ const getCachedGlobalDeniedPermissions = async () => {
 const invalidateGlobalSettingsCache = () => {
   globalSettingsCache = null;
   globalSettingsCacheTime = 0;
+  permResultCache.clear();
+};
+
+const invalidateUserPermissionCache = (userId) => {
+  if (!userId) return;
+  const uKey = String(userId);
+  for (const k of permResultCache.keys()) {
+    if (k.startsWith(`${uKey}:`)) {
+      permResultCache.delete(k);
+    }
+  }
+};
+
+const invalidateOrgPermissionCache = () => {
+  permResultCache.clear();
+};
+
+const invalidateGlobalPermissionCache = () => {
+  globalSettingsCache = null;
+  globalSettingsCacheTime = 0;
+  permResultCache.clear();
 };
 
 /**
@@ -117,6 +145,15 @@ const calculateEffectivePermission = async (user, permissionKey, options = {}) =
       lockReason: null,
       reason: "Allowed by Root Admin authority.",
     };
+  }
+
+  const uId = extractId(user);
+  const cacheKey = uId ? `${uId}:${permissionKey}` : null;
+  if (cacheKey && !options.skipCache) {
+    const cachedEntry = permResultCache.get(cacheKey);
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < PERM_RESULT_TTL_MS) {
+      return cachedEntry.result;
+    }
   }
 
   // STEP 2: Account Status Check
@@ -333,22 +370,7 @@ const calculateEffectivePermission = async (user, permissionKey, options = {}) =
   };
 };
 
-/**
- * No-op cache invalidation helpers (Redis permission caching removed).
- */
-const invalidateUserPermissionCache = async (userId) => {
-  return;
-};
 
-const invalidateOrgPermissionCache = async (orgId) => {
-  return;
-};
-
-const invalidateGlobalPermissionCache = async () => {
-  globalSettingsCache = null;
-  globalSettingsCacheTime = 0;
-  return;
-};
 
 /**
  * Atomically updates assignedPermissions array on User document in MongoDB.

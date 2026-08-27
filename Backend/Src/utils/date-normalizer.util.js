@@ -6,12 +6,31 @@
 const WINDSOR_CONSTANTS = require("../config/meta-constants.config");
 
 /**
+ * Formats a Date object to YYYY-MM-DD string in a specific target timezone.
+ * Defaults to "Asia/Kolkata" for organization local time context.
+ *
+ * @param {Date} [dateObj=new Date()] - Date object to format
+ * @param {string} [timeZone="Asia/Kolkata"] - IANA Timezone string
+ * @returns {string} Formatted YYYY-MM-DD date string
+ */
+const getLocalDateString = (dateObj = new Date(), timeZone = "Asia/Kolkata") => {
+  try {
+    const tz = timeZone || "Asia/Kolkata";
+    const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
+    return formatter.format(dateObj);
+  } catch (err) {
+    return dateObj.toISOString().split("T")[0];
+  }
+};
+
+/**
  * Formats an ISO string or date input to YYYY-MM-DD format strictly.
  *
  * @param {string} dateStr - Raw date string input
+ * @param {string} [timeZone="Asia/Kolkata"] - Target timezone
  * @returns {string|null} Canonical YYYY-MM-DD date string or null if invalid
  */
-const formatCanonicalDate = (dateStr) => {
+const formatCanonicalDate = (dateStr, timeZone = "Asia/Kolkata") => {
   if (!dateStr || typeof dateStr !== "string") {
     return null;
   }
@@ -31,29 +50,30 @@ const formatCanonicalDate = (dateStr) => {
     return trimmed;
   }
 
-  return parsed.toISOString().split("T")[0];
+  return getLocalDateString(parsed, timeZone);
 };
 
 /**
  * Normalizes date parameters to generate deterministic cache key components.
  *
- * @param {Object} params - Object containing optional datePreset, dateFrom, dateTo
+ * @param {Object} params - Object containing optional datePreset, dateFrom, dateTo, timezone
  * @returns {Object} { dateRangeKey, datePreset, dateFrom, dateTo }
  */
-const normalizeDateParams = ({ datePreset, dateFrom, dateTo } = {}) => {
+const normalizeDateParams = ({ datePreset, dateFrom, dateTo, timezone } = {}) => {
   const normPreset = datePreset && typeof datePreset === "string" ? datePreset.trim() : null;
-  let normFrom = formatCanonicalDate(dateFrom);
-  let normTo = formatCanonicalDate(dateTo);
+  const timeZone = timezone || "Asia/Kolkata";
+  let normFrom = formatCanonicalDate(dateFrom, timeZone);
+  let normTo = formatCanonicalDate(dateTo, timeZone);
 
-  // If datePreset is "today" or "yesterday", compute explicit YYYY-MM-DD bounds to prevent Windsor API 400 errors
+  // If datePreset is "today" or "yesterday", compute explicit YYYY-MM-DD bounds
   if (normPreset === "today") {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getLocalDateString(new Date(), timeZone);
     normFrom = todayStr;
     normTo = todayStr;
   } else if (normPreset === "yesterday") {
     const yest = new Date();
     yest.setDate(yest.getDate() - 1);
-    const yestStr = yest.toISOString().split("T")[0];
+    const yestStr = getLocalDateString(yest, timeZone);
     normFrom = yestStr;
     normTo = yestStr;
   }
@@ -73,10 +93,12 @@ const normalizeDateParams = ({ datePreset, dateFrom, dateTo } = {}) => {
     datePreset: normPreset || (normFrom && normTo ? null : WINDSOR_CONSTANTS.DEFAULT_DATE_PRESET),
     dateFrom: normFrom,
     dateTo: normTo,
+    timezone: timeZone,
   };
 };
 
 module.exports = {
+  getLocalDateString,
   formatCanonicalDate,
   normalizeDateParams,
 };

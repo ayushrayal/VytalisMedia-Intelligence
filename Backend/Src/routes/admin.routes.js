@@ -38,10 +38,11 @@ router.patch("/users/:userId/role", requireRootAdmin, adminController.updateUser
 router.delete("/users/:userId", requireEffectivePermission("user_management.members"), adminController.deleteUser);
 
 /**
- * Global System Restrictions Routes
+ * Global System Restrictions & Metric Registry Routes
  */
 router.get("/global-settings", adminController.getGlobalSettings);
 router.patch("/global-settings", requireRootAdmin, adminController.updateGlobalSettings);
+router.get("/metric-registry", adminController.getMetricRegistry);
 
 /**
  * Admin Organization Assignment Routes

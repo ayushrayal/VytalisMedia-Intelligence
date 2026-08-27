@@ -80,29 +80,39 @@ const executeTokenRefresh = async () => {
   return refreshPromise;
 };
 
+// Module-level single-flight request deduplication map for GET requests
+const inFlightFrontendRequests = new Map();
+
 const request = async (endpoint, options = {}) => {
-  const requestId = options.requestId || `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const method = (options.method || "GET").toUpperCase();
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
   const url = `${BASE_URL}${cleanEndpoint}`;
 
-  const headers = {
-    "Content-Type": "application/json",
-    "X-Request-ID": requestId,
-    ...options.headers,
-  };
-
-  const config = {
-    method: options.method || "GET",
-    headers,
-    credentials: CREDENTIALS_MODE,
-    ...options,
-  };
-
-  if (options.body && typeof options.body === "object" && !(options.body instanceof FormData)) {
-    config.body = JSON.stringify(options.body);
+  // Only deduplicate idempotent GET requests
+  const dedupKey = method === "GET" && !options.skipDedup ? `${method}:${url}` : null;
+  if (dedupKey && inFlightFrontendRequests.has(dedupKey)) {
+    return inFlightFrontendRequests.get(dedupKey);
   }
 
-  try {
+  const executeRequest = async () => {
+    const requestId = options.requestId || `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Request-ID": requestId,
+      ...options.headers,
+    };
+
+    const config = {
+      method: options.method || "GET",
+      headers,
+      credentials: CREDENTIALS_MODE,
+      ...options,
+    };
+
+    if (options.body && typeof options.body === "object" && !(options.body instanceof FormData)) {
+      config.body = JSON.stringify(options.body);
+    }
+
     const response = await fetch(url, config);
     const contentType = response.headers.get("content-type");
     const rateLimit = parseRateLimitHeaders(response.headers);
@@ -172,14 +182,20 @@ const request = async (endpoint, options = {}) => {
       rateLimit: rateLimit,
       requestId: requestId,
       endpoint: cleanEndpoint,
-      timestamp: new Date().toISOString(),
     };
-  } catch (error) {
-    if (!error.status) {
-      error.status = 500;
+  };
+
+  const promise = executeRequest().finally(() => {
+    if (dedupKey) {
+      inFlightFrontendRequests.delete(dedupKey);
     }
-    throw error;
+  });
+
+  if (dedupKey) {
+    inFlightFrontendRequests.set(dedupKey, promise);
   }
+
+  return promise;
 };
 
 export const http = {

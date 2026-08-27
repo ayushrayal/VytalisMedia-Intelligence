@@ -3,6 +3,7 @@ const { verifyAccessToken } = require("../utils/jwt.util");
 const { sendError } = require("../utils/api-response.util");
 const logger = require("../utils/logger.util");
 const { calculateEffectivePermission } = require("../utils/permission-calculator.util");
+const { getCachedUser, setCachedUser } = require("../utils/user-cache.util");
 
 /**
  * Express middleware to protect routes using JWT authentication.
@@ -32,7 +33,13 @@ const protect = async (req, res, next) => {
 
   try {
     const decoded = verifyAccessToken(token);
-    const user = await User.findById(decoded.id);
+    let user = getCachedUser(decoded.id);
+    if (!user) {
+      user = await User.findById(decoded.id);
+      if (user) {
+        setCachedUser(decoded.id, user);
+      }
+    }
 
     if (!user) {
       logger.warn(`Authentication failed: User no longer exists for ID ${decoded.id}`);

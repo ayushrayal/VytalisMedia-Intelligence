@@ -4,6 +4,8 @@
  * standardized 7-status evaluation, derived metrics, and automated insights.
  */
 
+const { executeFormula } = require("../config/formula-registry.config");
+
 /**
  * Normalizes date parameters so dateFrom <= dateTo.
  * Reversible date orders (e.g. 2026-08-20 -> 2026-08-15) are automatically swapped.
@@ -225,7 +227,21 @@ const METRIC_DIRECTIONS = {
 const computeMetricComparison = ({ metricKey, label, valueA, valueB, formatType = "number", currency = "INR" }) => {
   const directionCategory = METRIC_DIRECTIONS[metricKey] || "CONTEXTUAL";
 
-  // Check Case 3: Missing/Null Previous Data
+  // Check Case 3A: Missing/Null Current Data
+  if (valueA === null || valueA === undefined) {
+    return {
+      metricKey,
+      label,
+      valueA: null,
+      valueB,
+      change: null,
+      percentageChange: null,
+      performance: "No Current Data",
+      directionCategory,
+    };
+  }
+
+  // Check Case 3B: Missing/Null Previous Data
   if (valueB === null || valueB === undefined) {
     return {
       metricKey,
@@ -239,8 +255,8 @@ const computeMetricComparison = ({ metricKey, label, valueA, valueB, formatType 
     };
   }
 
-  const numA = Number(valueA) || 0;
-  const numB = Number(valueB) || 0;
+  const numA = Number(valueA);
+  const numB = Number(valueB);
   const change = numA - numB;
 
   // Check Case 1: Zero Previous Value & Positive Current Value -> "New"
@@ -297,15 +313,16 @@ const computeMetricComparison = ({ metricKey, label, valueA, valueB, formatType 
   };
 };
 
-/**
- * Computes derived Shopify metrics (Cancellation Rate, COD Share, Prepaid Share).
- */
 const computeShopifyDerivedMetrics = (totals, breakdown) => {
   const totalOrders = totals.orders || 0;
 
-  const cancellationRate = totalOrders > 0 ? Number(((breakdown.cancelledCount / totalOrders) * 100).toFixed(1)) : null;
-  const codShare = totalOrders > 0 ? Number(((breakdown.codCount / totalOrders) * 100).toFixed(1)) : null;
-  const prepaidShare = totalOrders > 0 ? Number(((breakdown.prepaidCount / totalOrders) * 100).toFixed(1)) : null;
+  const cancelRes = executeFormula("formula.shopify.cancellation_rate", { cancelled_orders: breakdown.cancelledCount, orders_count: totalOrders });
+  const codShareRes = executeFormula("formula.shopify.share_of_sales", { entity_sales: breakdown.codCount, total_sales: totalOrders });
+  const prepaidShareRes = executeFormula("formula.shopify.share_of_sales", { entity_sales: breakdown.prepaidCount, total_sales: totalOrders });
+
+  const cancellationRate = cancelRes.value !== null ? Number(cancelRes.value.toFixed(1)) : null;
+  const codShare = codShareRes.value !== null ? Number(codShareRes.value.toFixed(1)) : null;
+  const prepaidShare = prepaidShareRes.value !== null ? Number(prepaidShareRes.value.toFixed(1)) : null;
 
   return {
     cancellationRate,

@@ -1,3 +1,5 @@
+const { executeFormula } = require("../config/formula-registry.config");
+
 /**
  * Shopify Customer Cohort Calculator Utility for Vytalis Intelligence.
  * Pure mathematical aggregation module for Customer Cohort Analysis & Retention Matrix (P1G).
@@ -355,30 +357,19 @@ const calculateShopifyCohorts = ({ ordersData = [], periodType = "monthly", rete
       // W1 to W_max (Weekly Periods)
       for (let p = 1; p <= maxWeeklyPeriod; p++) {
         const isWeeklyMature = observationEndDateMs >= maxTFirstMs + (p * 7 * 86400 * 1000);
+        const count = isWeeklyMature ? weeklyRetainedSets[p].size : null;
+        const rateRes = executeFormula("formula.cohort.retention_rate", { isMature: isWeeklyMature, cohort_size: cohortSize, retained_customers: count });
+        const revRes = executeFormula("formula.cohort.revenue", { isMature: isWeeklyMature, revenue: weeklyRevenue[p] });
 
-        if (isWeeklyMature) {
-          const count = weeklyRetainedSets[p].size;
-          const rate = cohortSize > 0 ? Number(((count / cohortSize) * 100).toFixed(1)) : 0;
-          periods.push({
-            periodIndex: p,
-            periodLabel: `W${p}`,
-            retainedCustomers: count,
-            retentionRate: rate,
-            revenue: weeklyRevenue[p],
-            isMature: true,
-            status: "mature",
-          });
-        } else {
-          periods.push({
-            periodIndex: p,
-            periodLabel: `W${p}`,
-            retainedCustomers: null,
-            retentionRate: null,
-            revenue: null,
-            isMature: false,
-            status: "immature",
-          });
-        }
+        periods.push({
+          periodIndex: p,
+          periodLabel: `W${p}`,
+          retainedCustomers: count,
+          retentionRate: rateRes.value !== null ? Number(rateRes.value.toFixed(1)) : null,
+          revenue: revRes.value,
+          isMature: isWeeklyMature,
+          status: isWeeklyMature ? "mature" : "immature",
+        });
       }
     } else {
       // MONTHLY MATRIX: Day 0, 0-30 Days (P1), 31-60 Days (P2), 61-90 Days (P3), Cumulative 90 Days

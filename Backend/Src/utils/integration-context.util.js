@@ -2,6 +2,7 @@ const User = require("../models/user.model");
 const Organization = require("../models/organization.model");
 const AdminAssignment = require("../models/admin-assignment.model");
 const logger = require("./logger.util");
+const { getCachedContext, setCachedContext } = require("./user-cache.util");
 
 /**
  * Centralized Integration Context Resolver for Vytalis Intelligence.
@@ -31,6 +32,12 @@ const getEffectiveIntegrationContext = async (user, explicitOrgId = null) => {
     return { integrationUser: null, organization: null };
   }
 
+  const userId = String(userObj._id);
+  const cached = getCachedContext(userId, explicitOrgId);
+  if (cached) {
+    return cached;
+  }
+
   // 1. Client: Returns self and own Organization
   if (userObj.role === "client") {
     let org = null;
@@ -41,7 +48,9 @@ const getEffectiveIntegrationContext = async (user, explicitOrgId = null) => {
     if (!org) {
       org = await Organization.findOne({ ownerId: userObj._id }).lean();
     }
-    return { integrationUser: userObj, organization: org };
+    const result = { integrationUser: userObj, organization: org };
+    setCachedContext(userId, explicitOrgId, result);
+    return result;
   }
 
   // 2. Member: Resolves parent Client strictly via assignedClientId or organizationId (ignores caller explicitOrgId if cross-tenant)

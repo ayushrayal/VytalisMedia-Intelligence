@@ -13,6 +13,7 @@ const { calculateJitteredTtl } = require("../config/cache.config");
 const logger = require("../utils/logger.util");
 
 const { getEffectiveIntegrationContext } = require("../utils/integration-context.util");
+const { executeSingleFlight } = require("../utils/request-dedup.util");
 
 /**
  * Fetches Shopify analytics data for a specific endpoint with Redis caching.
@@ -113,50 +114,82 @@ const getShopifyData = async ({ user, endpoint, query = {} }) => {
     logger.warn(`[Redis ERROR] Cache lookup failed for key ${cacheKey}: ${cacheErr.message}`);
   }
 
-  // 6. Cache MISS: Invoke Shopify Adapter
-  const adapterMethodName = endpointConfig.adapterMethod;
-  if (typeof shopifyAdapter[adapterMethodName] !== "function") {
-    const error = new Error(`Adapter method '${adapterMethodName}' is not defined on Shopify Adapter`);
-    error.statusCode = 500;
-    throw error;
-  }
+  // 6. Cache MISS: Invoke Shopify Adapter with Distributed Lock & Double-Check
+  return executeSingleFlight(cacheKey, async () => {
+    const lockKey = `lock:${cacheKey}`;
+    const token = `lock_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const lockAcquired = await cacheUtil.acquireLock(lockKey, token, 10);
 
-  const rawData = await shopifyAdapter[adapterMethodName]({
-    activeShopifyAccount,
-    datePreset,
-    dateFrom,
-    dateTo,
+    const fetchAndCacheData = async () => {
+      const adapterMethodName = endpointConfig.adapterMethod;
+      if (typeof shopifyAdapter[adapterMethodName] !== "function") {
+        const error = new Error(`Adapter method '${adapterMethodName}' is not defined on Shopify Adapter`);
+        error.statusCode = 500;
+        throw error;
+      }
+
+      const rawData = await shopifyAdapter[adapterMethodName]({
+        activeShopifyAccount,
+        datePreset,
+        dateFrom,
+        dateTo,
+      });
+
+      // 7. Calculate jittered TTL & metadata timestamps
+      const baseTtl = endpointConfig.baseTtl || 300;
+      const jitteredTtl = calculateJitteredTtl(baseTtl);
+
+      const now = new Date();
+      const cachedAt = now.toISOString();
+      const expiresAt = new Date(now.getTime() + jitteredTtl * 1000).toISOString();
+
+      const cachePayload = {
+        data: rawData,
+        cachedAt,
+        expiresAt,
+        source: "windsor",
+        dateRange: dateRangeMeta,
+      };
+
+      // 8. Store in Redis (never caching errors)
+      await cacheUtil.set(cacheKey, cachePayload, jitteredTtl);
+
+      // 9. Return fresh data response
+      return {
+        data: rawData,
+        meta: {
+          cachedAt,
+          expiresAt,
+          source: "windsor",
+          dateRange: dateRangeMeta,
+        },
+      };
+    };
+
+    if (lockAcquired) {
+      try {
+        // MANDATORY DOUBLE-CHECK AFTER LOCK ACQUISITION
+        const doubleCheck = await cacheUtil.get(cacheKey);
+        if (doubleCheck && doubleCheck.data) {
+          return {
+            data: doubleCheck.data,
+            meta: {
+              cachedAt: doubleCheck.cachedAt,
+              expiresAt: doubleCheck.expiresAt,
+              source: "redis",
+              dateRange: doubleCheck.dateRange || dateRangeMeta,
+            },
+          };
+        }
+        return await fetchAndCacheData();
+      } finally {
+        await cacheUtil.releaseLock(lockKey, token);
+      }
+    }
+
+    // Fallback if lock not acquired or Redis disconnected
+    return fetchAndCacheData();
   });
-
-  // 7. Calculate jittered TTL & metadata timestamps
-  const baseTtl = endpointConfig.baseTtl || 300;
-  const jitteredTtl = calculateJitteredTtl(baseTtl);
-
-  const now = new Date();
-  const cachedAt = now.toISOString();
-  const expiresAt = new Date(now.getTime() + jitteredTtl * 1000).toISOString();
-
-  const cachePayload = {
-    data: rawData,
-    cachedAt,
-    expiresAt,
-    source: "windsor",
-    dateRange: dateRangeMeta,
-  };
-
-  // 8. Store in Redis (never caching errors)
-  await cacheUtil.set(cacheKey, cachePayload, jitteredTtl);
-
-  // 9. Return fresh data response
-  return {
-    data: rawData,
-    meta: {
-      cachedAt,
-      expiresAt,
-      source: "windsor",
-      dateRange: dateRangeMeta,
-    },
-  };
 };
 
 /**

@@ -11,9 +11,11 @@ const cacheUtil = require("../utils/cache.util");
 const { normalizeDateParams } = require("../utils/date-normalizer.util");
 const { META_ENDPOINTS } = require("../config/meta-endpoints.config");
 const { calculateJitteredTtl } = require("../config/cache.config");
+const { executeFormula } = require("../config/formula-registry.config");
 const logger = require("../utils/logger.util");
 
 const { getEffectiveIntegrationContext } = require("../utils/integration-context.util");
+const { executeSingleFlight } = require("../utils/request-dedup.util");
 
 /**
  * Fetches Meta analytics data for a specific endpoint with Redis caching.
@@ -75,48 +77,79 @@ const getAnalyticsData = async ({ user, endpoint, query = {} }) => {
     logger.warn(`[Redis ERROR] Cache lookup failed for key ${cacheKey}: ${cacheErr.message}`);
   }
 
-  // 6. Cache MISS: Invoke Facebook Adapter
-  const adapterMethodName = endpointConfig.adapterMethod;
-  if (typeof facebookAdapter[adapterMethodName] !== "function") {
-    const error = new Error(`Adapter method '${adapterMethodName}' is not defined on Facebook Adapter`);
-    error.statusCode = 500;
-    throw error;
-  }
+  // 6. Cache MISS: Invoke Facebook Adapter with Distributed Lock & Double-Check
+  return executeSingleFlight(cacheKey, async () => {
+    const lockKey = `lock:${cacheKey}`;
+    const token = `lock_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const lockAcquired = await cacheUtil.acquireLock(lockKey, token, 10);
 
-  const rawData = await facebookAdapter[adapterMethodName]({
-    activeMetaAccount,
-    datePreset,
-    dateFrom,
-    dateTo,
+    const fetchAndCacheData = async () => {
+      const adapterMethodName = endpointConfig.adapterMethod;
+      if (typeof facebookAdapter[adapterMethodName] !== "function") {
+        const error = new Error(`Adapter method '${adapterMethodName}' is not defined on Facebook Adapter`);
+        error.statusCode = 500;
+        throw error;
+      }
+
+      const rawData = await facebookAdapter[adapterMethodName]({
+        activeMetaAccount,
+        datePreset,
+        dateFrom,
+        dateTo,
+      });
+
+      // 7. Calculate jittered TTL & metadata timestamps
+      const baseTtl = endpointConfig.baseTtl || 300;
+      const jitteredTtl = calculateJitteredTtl(baseTtl);
+
+      const now = new Date();
+      const cachedAt = now.toISOString();
+      const expiresAt = new Date(now.getTime() + jitteredTtl * 1000).toISOString();
+
+      const cachePayload = {
+        data: rawData,
+        cachedAt,
+        expiresAt,
+        source: "windsor",
+      };
+
+      // 8. Store in Redis
+      await cacheUtil.set(cacheKey, cachePayload, jitteredTtl);
+
+      // 9. Return fresh data response
+      return {
+        data: rawData,
+        meta: {
+          cachedAt,
+          expiresAt,
+          source: "windsor",
+        },
+      };
+    };
+
+    if (lockAcquired) {
+      try {
+        // MANDATORY DOUBLE-CHECK AFTER LOCK ACQUISITION
+        const doubleCheck = await cacheUtil.get(cacheKey);
+        if (doubleCheck && doubleCheck.data) {
+          return {
+            data: doubleCheck.data,
+            meta: {
+              cachedAt: doubleCheck.cachedAt,
+              expiresAt: doubleCheck.expiresAt,
+              source: "redis",
+            },
+          };
+        }
+        return await fetchAndCacheData();
+      } finally {
+        await cacheUtil.releaseLock(lockKey, token);
+      }
+    }
+
+    // Fallback if lock not acquired or Redis disconnected
+    return fetchAndCacheData();
   });
-
-  // 7. Calculate jittered TTL & metadata timestamps
-  const baseTtl = endpointConfig.baseTtl || 300;
-  const jitteredTtl = calculateJitteredTtl(baseTtl);
-
-  const now = new Date();
-  const cachedAt = now.toISOString();
-  const expiresAt = new Date(now.getTime() + jitteredTtl * 1000).toISOString();
-
-  const cachePayload = {
-    data: rawData,
-    cachedAt,
-    expiresAt,
-    source: "windsor",
-  };
-
-  // 8. Store in Redis
-  await cacheUtil.set(cacheKey, cachePayload, jitteredTtl);
-
-  // 9. Return fresh data response
-  return {
-    data: rawData,
-    meta: {
-      cachedAt,
-      expiresAt,
-      source: "windsor",
-    },
-  };
 };
 
 /**
@@ -282,16 +315,12 @@ const getMetaComparison = async ({ user, query = {} }) => {
     );
 
     const effectiveReach = singleRowReach;
-    const roas = sums.spend > 0 ? sums.purchaseValue / sums.spend : 0;
-    const cpa = sums.purchases > 0 ? sums.spend / sums.purchases : 0;
-
-    // CTR: Clicks / Impressions * 100 when impressions > 0; 0 when impressions === 0; null if impressions missing
-    const ctr = sums.impressions !== null ? (sums.impressions > 0 ? (sums.clicks / sums.impressions) * 100 : 0) : null;
-    const cpc = sums.clicks > 0 ? sums.spend / sums.clicks : 0;
-    const cpm = rawCpm !== null ? rawCpm : sums.impressions > 0 ? (sums.spend / sums.impressions) * 1000 : 0;
-
-    // Frequency: impressions / reach when validReach > 0 and impressions !== null; null otherwise (NEVER default to 1 or 0)
-    const frequency = effectiveReach !== null && effectiveReach > 0 && sums.impressions !== null ? sums.impressions / effectiveReach : null;
+    const roasRes = executeFormula("formula.meta.roas", { purchase_value: sums.purchaseValue, spend: sums.spend });
+    const cpaRes = executeFormula("formula.meta.cpa", { spend: sums.spend, purchases: sums.purchases });
+    const ctrRes = executeFormula("formula.meta.ctr", { clicks: sums.clicks, impressions: sums.impressions });
+    const cpcRes = executeFormula("formula.meta.cpc", { spend: sums.spend, clicks: sums.clicks });
+    const cpmRes = rawCpm !== null ? { value: rawCpm } : executeFormula("formula.meta.cpm", { spend: sums.spend, impressions: sums.impressions });
+    const freqRes = executeFormula("formula.meta.frequency", { impressions: sums.impressions, reach: effectiveReach });
 
     return {
       spend: sums.spend,
@@ -300,14 +329,14 @@ const getMetaComparison = async ({ user, query = {} }) => {
       clicks: sums.clicks,
       purchases: sums.purchases,
       purchaseValue: sums.purchaseValue,
-      roas,
-      cpa,
-      ctr,
-      cpc,
-      cpm,
+      roas: roasRes.value,
+      cpa: cpaRes.value,
+      ctr: ctrRes.value,
+      cpc: cpcRes.value,
+      cpm: cpmRes.value,
       addToCart: sums.addToCart,
       checkoutInitiated: sums.checkoutInitiated,
-      frequency,
+      frequency: freqRes.value,
       currency,
     };
   };

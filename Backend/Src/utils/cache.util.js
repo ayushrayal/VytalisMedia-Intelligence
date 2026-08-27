@@ -282,6 +282,54 @@ const keys = async (pattern) => {
   }
 };
 
+/**
+ * Attempts to acquire an atomic distributed lock in Redis.
+ *
+ * @param {string} lockKey - Unique lock key
+ * @param {string} token - Unique ownership token for the caller
+ * @param {number} [ttlSeconds=10] - Lock expiration in seconds
+ * @returns {Promise<boolean>} True if lock acquired successfully
+ */
+const acquireLock = async (lockKey, token, ttlSeconds = 10) => {
+  if (!client || !isConnected) {
+    return false;
+  }
+  try {
+    const res = await client.set(lockKey, token, { NX: true, EX: ttlSeconds });
+    return res === "OK";
+  } catch (error) {
+    logger.error(`Error acquiring Redis lock for ${lockKey}:`, error.message);
+    return false;
+  }
+};
+
+/**
+ * Releases an atomic distributed lock in Redis only if ownership token matches.
+ *
+ * @param {string} lockKey - Unique lock key
+ * @param {string} token - Ownership token of the caller
+ * @returns {Promise<boolean>} True if lock released
+ */
+const releaseLock = async (lockKey, token) => {
+  if (!client || !isConnected) {
+    return false;
+  }
+  try {
+    const luaScript = `
+      if redis.call('GET', KEYS[1]) == ARGV[1] then
+        return redis.call('DEL', KEYS[1])
+      else
+        return 0
+      end
+    `;
+    const res = await client.eval(luaScript, { keys: [lockKey], arguments: [token] });
+    return res === 1;
+  } catch (error) {
+    logger.error(`Error releasing Redis lock for ${lockKey}:`, error.message);
+    return false;
+  }
+};
+
 module.exports = {
   connect,
   disconnect,
@@ -295,5 +343,7 @@ module.exports = {
   keys,
   getDel,
   incrWithTtl,
+  acquireLock,
+  releaseLock,
 };
 

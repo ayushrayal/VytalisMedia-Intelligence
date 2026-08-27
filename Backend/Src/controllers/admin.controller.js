@@ -1149,6 +1149,40 @@ const updateUserRole = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /api/admin/metric-registry
+ * Exposes Metric Registry metadata.
+ */
+const getMetricRegistry = async (req, res, next) => {
+  try {
+    const { METRIC_REGISTRY } = require("../config/metric-registry.config");
+    const { platform, category, type } = req.query || {};
+    let metricsList = Object.values(METRIC_REGISTRY);
+
+    if (platform) {
+      const cleanPlatform = String(platform).toLowerCase().trim();
+      metricsList = metricsList.filter((m) => m.platform === cleanPlatform);
+    }
+
+    if (category) {
+      const cleanCategory = String(category).toLowerCase().trim();
+      metricsList = metricsList.filter((m) => m.category === cleanCategory);
+    }
+
+    if (type) {
+      const cleanType = String(type).toLowerCase().trim();
+      metricsList = metricsList.filter((m) => m.type === cleanType);
+    }
+
+    return sendSuccess(res, 200, "Metric Registry retrieved successfully", {
+      total: metricsList.length,
+      metrics: metricsList,
+      metricsMap: METRIC_REGISTRY,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 module.exports = {
   getUserCounts,
@@ -1166,5 +1200,7 @@ module.exports = {
   unassignAdminFromOrganization,
   deleteUser,
   updateUserRole,
+  getMetricRegistry,
 };
+
 

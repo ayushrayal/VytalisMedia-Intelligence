@@ -10,6 +10,8 @@ const attributionRoutes = require("./routes/attribution.routes");
 const profileRoutes = require("./routes/profile.routes");
 const adminRoutes = require("./routes/admin.routes");
 const clientTeamRoutes = require("./routes/client-team.routes");
+const metricsRoutes = require("./routes/metrics.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
 const errorHandler = require("./middleware/error.middleware");
 const { apiRateLimiter } = require("./middleware/rate-limit.middleware");
 const { sendSuccess } = require("./utils/api-response.util");
@@ -111,6 +113,8 @@ app.use("/api/attribution", apiRateLimiter, attributionRoutes);
 app.use("/api/profile", apiRateLimiter, profileRoutes);
 app.use("/api/admin", apiRateLimiter, adminRoutes);
 app.use("/api/client", apiRateLimiter, clientTeamRoutes);
+app.use("/api/metrics", apiRateLimiter, metricsRoutes);
+app.use("/api/dashboard", apiRateLimiter, dashboardRoutes);
 
 
 // ==========================================
