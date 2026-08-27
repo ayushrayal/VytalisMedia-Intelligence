@@ -48,6 +48,9 @@ export const getShopifyInventory = (params = {}) => {
 
 export const getShopifyCohorts = (params = {}) => {
   const query = new URLSearchParams();
+  if (params.retentionWindow || params.retention_window) {
+    query.append("retentionWindow", params.retentionWindow || params.retention_window);
+  }
   if (params.periodType || params.period_type) {
     query.append("periodType", params.periodType || params.period_type);
   }

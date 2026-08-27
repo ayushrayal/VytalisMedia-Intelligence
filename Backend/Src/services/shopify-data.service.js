@@ -337,15 +337,16 @@ const getShopifyCohorts = async ({ user, query = {} }) => {
 
   const userId = targetUser._id ? targetUser._id.toString() : "anonymous";
   const periodType = (query.periodType || query.period_type || "monthly").toLowerCase() === "weekly" ? "weekly" : "monthly";
+  const retentionWindow = (query.retentionWindow || query.retention_window || "30d").toLowerCase() === "90d" ? "90d" : "30d";
 
   // Normalize date range key for cache
   const rawPreset = (query.datePreset || query.date_preset || "").trim();
   const rawFrom = (query.dateFrom || query.date_from || "").trim();
   const rawTo = (query.dateTo || query.date_to || "").trim();
-  const dateRangeKey = rawPreset ? rawPreset : (rawFrom && rawTo ? `${rawFrom}_${rawTo}` : "last_90d");
+  const sourceRange = rawFrom && rawTo ? `${rawFrom}_${rawTo}` : (retentionWindow === "90d" ? "last_year" : "last_90d");
 
-  // Format: shopify:{userId}:{activeShopifyAccount}:cohorts:{periodType}:{dateRangeKey}
-  const cacheKey = `shopify:${userId}:${activeShopifyAccount}:cohorts:${periodType}:${dateRangeKey}`;
+  // Format: shopify:{userId}:{activeShopifyAccount}:cohorts:{retentionWindow}:{periodType}:{sourceRange}
+  const cacheKey = `shopify:${userId}:${activeShopifyAccount}:cohorts:${retentionWindow}:${periodType}:${sourceRange}`;
 
   try {
     const cached = await cacheUtil.get(cacheKey);
@@ -363,13 +364,20 @@ const getShopifyCohorts = async ({ user, query = {} }) => {
     logger.warn(`[Redis ERROR] Cohort cache lookup failed for key ${cacheKey}: ${cacheErr.message}`);
   }
 
-  // Fetch 90-day order headers from Windsor
-  const rawOrders = await shopifyAdapter.fetchCohorts({ activeShopifyAccount });
+  // Fetch cohort order headers from Windsor matching target retention window & date parameters
+  const rawOrders = await shopifyAdapter.fetchCohorts({
+    activeShopifyAccount,
+    retentionWindow,
+    datePreset: rawPreset,
+    dateFrom: rawFrom,
+    dateTo: rawTo,
+  });
 
   // Calculate aggregated cohort retention matrix and revenue
   const cohortPayload = cohortCalc.calculateShopifyCohorts({
     ordersData: rawOrders,
     periodType,
+    retentionWindow,
   });
 
   const baseTtl = 300;

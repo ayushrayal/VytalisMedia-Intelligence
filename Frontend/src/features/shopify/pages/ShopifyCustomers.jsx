@@ -74,8 +74,9 @@ export const ShopifyCustomers = () => {
   const [pageSize, setPageSize] = useState(20);
 
   // ----------------------------------------------------
-  // COHORTS VIEW STATE (P1G)
+  // COHORTS VIEW STATE (P1G - Simplified Exact Elapsed Days)
   // ----------------------------------------------------
+  const [retentionWindow, setRetentionWindow] = useState("30d"); // "30d" | "90d"
   const [periodType, setPeriodType] = useState("monthly"); // "monthly" | "weekly"
   const [cohortPayload, setCohortPayload] = useState(null);
   const [cohortsLoading, setCohortsLoading] = useState(false);
@@ -109,13 +110,13 @@ export const ShopifyCustomers = () => {
     }
   }, [dateParams, isLocked]);
 
-  // Fetch Backend Aggregated Cohorts Data
+  // Fetch Backend Aggregated Cohorts Data (Independent from generic page date filter)
   const fetchCohortsData = useCallback(async () => {
     if (isLocked) return;
     try {
       setCohortsLoading(true);
       setCohortsError(null);
-      const res = await getShopifyCohorts({ periodType, ...dateParams });
+      const res = await getShopifyCohorts({ retentionWindow, periodType });
       if (res.data) {
         setCohortPayload(res.data);
       } else {
@@ -126,7 +127,7 @@ export const ShopifyCustomers = () => {
     } finally {
       setCohortsLoading(false);
     }
-  }, [dateParams, periodType, isLocked]);
+  }, [retentionWindow, periodType, isLocked]);
 
   useEffect(() => {
     if (viewMode === "directory") {
@@ -199,7 +200,7 @@ export const ShopifyCustomers = () => {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-          <DateFilter onChange={(params) => setDateParams(params)} />
+          {viewMode === "directory" && <DateFilter onChange={(params) => setDateParams(params)} />}
           <ShopifyAccountSwitcher onAccountChanged={handleAccountChanged} onAccountsLoaded={handleAccountsLoaded} />
         </div>
       </div>
@@ -482,53 +483,98 @@ export const ShopifyCustomers = () => {
       )}
 
       {/* ==================================================================== */}
-      {/* VIEW 2: CUSTOMER COHORT ANALYSIS (P1G) */}
+      {/* VIEW 2: CUSTOMER COHORT ANALYSIS (Simplified 30-Day / 90-Day Retention) */}
       {/* ==================================================================== */}
       {viewMode === "cohorts" && (
         <>
-          {/* Controls: Period Selector & Historical Limitation Banner */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-            <div style={{ display: "inline-flex", backgroundColor: "#F1F5F9", padding: "4px", borderRadius: "10px" }}>
-              <button
-                type="button"
-                onClick={() => setPeriodType("monthly")}
-                style={{
-                  padding: "6px 16px",
-                  borderRadius: "8px",
-                  border: "none",
-                  backgroundColor: periodType === "monthly" ? "#FFFFFF" : "transparent",
-                  color: periodType === "monthly" ? "#0F172A" : "#64748B",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  boxShadow: periodType === "monthly" ? "0 1px 3px rgba(15,23,42,0.08)" : "none",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                Monthly Cohorts
-              </button>
-              <button
-                type="button"
-                onClick={() => setPeriodType("weekly")}
-                style={{
-                  padding: "6px 16px",
-                  borderRadius: "8px",
-                  border: "none",
-                  backgroundColor: periodType === "weekly" ? "#FFFFFF" : "transparent",
-                  color: periodType === "weekly" ? "#0F172A" : "#64748B",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  boxShadow: periodType === "weekly" ? "0 1px 3px rgba(15,23,42,0.08)" : "none",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                Weekly Cohorts
-              </button>
+          {/* Controls: Retention Window (30d vs 90d) & Granularity (Monthly vs Weekly) */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <span style={{ fontSize: "13px", fontWeight: "600", color: "#475569" }}>Retention Window:</span>
+              <div style={{ display: "inline-flex", backgroundColor: "#F1F5F9", padding: "4px", borderRadius: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setRetentionWindow("30d")}
+                  style={{
+                    padding: "6px 16px",
+                    borderRadius: "8px",
+                    border: "none",
+                    backgroundColor: retentionWindow === "30d" ? "#FFFFFF" : "transparent",
+                    color: retentionWindow === "30d" ? "#0F172A" : "#64748B",
+                    fontSize: "13px",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    boxShadow: retentionWindow === "30d" ? "0 1px 3px rgba(15,23,42,0.08)" : "none",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  30 Days
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRetentionWindow("90d")}
+                  style={{
+                    padding: "6px 16px",
+                    borderRadius: "8px",
+                    border: "none",
+                    backgroundColor: retentionWindow === "90d" ? "#FFFFFF" : "transparent",
+                    color: retentionWindow === "90d" ? "#0F172A" : "#64748B",
+                    fontSize: "13px",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    boxShadow: retentionWindow === "90d" ? "0 1px 3px rgba(15,23,42,0.08)" : "none",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  90 Days
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <span style={{ fontSize: "13px", fontWeight: "600", color: "#475569" }}>Granularity:</span>
+              <div style={{ display: "inline-flex", backgroundColor: "#F1F5F9", padding: "4px", borderRadius: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => setPeriodType("monthly")}
+                  style={{
+                    padding: "6px 16px",
+                    borderRadius: "8px",
+                    border: "none",
+                    backgroundColor: periodType === "monthly" ? "#FFFFFF" : "transparent",
+                    color: periodType === "monthly" ? "#0F172A" : "#64748B",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    boxShadow: periodType === "monthly" ? "0 1px 3px rgba(15,23,42,0.08)" : "none",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPeriodType("weekly")}
+                  style={{
+                    padding: "6px 16px",
+                    borderRadius: "8px",
+                    border: "none",
+                    backgroundColor: periodType === "weekly" ? "#FFFFFF" : "transparent",
+                    color: periodType === "weekly" ? "#0F172A" : "#64748B",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    boxShadow: periodType === "weekly" ? "0 1px 3px rgba(15,23,42,0.08)" : "none",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Weekly
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Historical Data Limitation Notice Banner */}
+          {/* Historical Methodology & Retention Window Banner */}
           <div
             style={{
               display: "flex",
@@ -545,8 +591,8 @@ export const ShopifyCustomers = () => {
           >
             <AlertCircle size={18} color="#0A84FF" style={{ flexShrink: 0, marginTop: "2px" }} />
             <div>
-              <strong style={{ color: "#0F172A", fontWeight: "600" }}>Based on available Shopify history:</strong>{" "}
-              Historical order data is available for approximately 90 days (~3 months / 12 weeks). Cohorts are grouped by earliest observed purchase date. Cohort periods that have not yet matured within the observation window display <em>Insufficient Historical Data</em>.
+              <strong style={{ color: "#0F172A", fontWeight: "600" }}>Earliest Observed Purchase Cohorts:</strong>{" "}
+              Retention is measured over exact {retentionWindow === "90d" ? "90-day" : "30-day"} elapsed observation windows following a customer's earliest observed purchase in Shopify history. Cohort periods that have not yet fully elapsed observation time display <span style={{ backgroundColor: "#E2E8F0", padding: "2px 6px", borderRadius: "4px", fontWeight: "600", color: "#475569" }}>Not Mature</span>.
             </div>
           </div>
 
@@ -554,7 +600,6 @@ export const ShopifyCustomers = () => {
             <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
               <ContextualLoader isLoading={cohortsLoading} onComplete={handleCohortsComplete} section="shopify-cohorts" minHeight="auto" />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
-                <Skeleton height="100px" />
                 <Skeleton height="100px" />
                 <Skeleton height="100px" />
                 <Skeleton height="100px" />
@@ -567,11 +612,11 @@ export const ShopifyCustomers = () => {
           ) : !cohortPayload || !cohortPayload.cohorts || cohortPayload.cohorts.length === 0 ? (
             <EmptyState
               title="No Cohort Data Found"
-              description="No historical customer cohorts could be formed from available order records."
+              description="No customer cohorts could be formed from available order history."
             />
           ) : (
             <>
-              {/* Summary Metric Cards */}
+              {/* Summary Metric Cards (Mode-Dependent) */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px" }}>
                 <MetricCard
                   title="Total Cohorts"
@@ -581,30 +626,32 @@ export const ShopifyCustomers = () => {
                   accentColor="#0F172A"
                 />
                 <MetricCard
-                  title={`Avg ${periodType === "monthly" ? "Month 1" : "Week 1"} Retention`}
-                  value={cohortPayload.summary.avgM1Retention !== null ? `${cohortPayload.summary.avgM1Retention}%` : "Insufficient Historical Data"}
-                  subtitle="Mature Period 1 average"
+                  title={periodType === "weekly" ? "Avg Week 1 Retention" : "Avg 30-Day Retention"}
+                  value={cohortPayload.summary.avg30DayRetention !== null && cohortPayload.summary.avg30DayRetention !== undefined ? `${cohortPayload.summary.avg30DayRetention}%` : "Not Mature"}
+                  subtitle={periodType === "weekly" ? "Week 1 repeat rate" : "30 elapsed days repeat rate"}
                   icon={Repeat}
                   accentColor="#16A34A"
                 />
-                <MetricCard
-                  title={`Avg ${periodType === "monthly" ? "Month 3" : "Week 3"} Retention`}
-                  value={cohortPayload.summary.avgM3Retention !== null ? `${cohortPayload.summary.avgM3Retention}%` : "Insufficient Historical Data"}
-                  subtitle="Mature Period 3 average"
-                  icon={TrendingUp}
-                  accentColor="#0A84FF"
-                />
+                {retentionWindow === "90d" && (
+                  <MetricCard
+                    title={periodType === "weekly" ? "Avg Week 12 Cumulative Retention" : "Avg 90-Day Cumulative Retention"}
+                    value={cohortPayload.summary.avg90DayRetention !== null && cohortPayload.summary.avg90DayRetention !== undefined ? `${cohortPayload.summary.avg90DayRetention}%` : "Not Mature"}
+                    subtitle={periodType === "weekly" ? "Week 12 repeat rate" : "90 elapsed days repeat rate"}
+                    icon={TrendingUp}
+                    accentColor="#0A84FF"
+                  />
+                )}
                 <MetricCard
                   title="Top Retaining Cohort"
-                  value={cohortPayload.summary.bestRetainingCohort || "Insufficient Historical Data"}
-                  subtitle="Highest Period 1 retention"
+                  value={cohortPayload.summary.bestRetainingCohort || "Not Mature"}
+                  subtitle={`Highest ${retentionWindow === "90d" ? "90-day" : "30-day"} retention`}
                   icon={Crown}
                   accentColor="#8B5CF6"
                 />
                 <MetricCard
                   title="Largest Cohort"
                   value={cohortPayload.summary.largestCohort || "—"}
-                  subtitle="Most new buyers"
+                  subtitle="Most initial buyers"
                   icon={Users}
                   accentColor="#0F172A"
                 />
@@ -628,10 +675,10 @@ export const ShopifyCustomers = () => {
                   <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "center", fontSize: "13px" }}>
                     <thead>
                       <tr style={{ borderBottom: "1px solid #E2E8F0", backgroundColor: "#F8FAFC", color: "#64748B", fontSize: "11px", textTransform: "uppercase" }}>
-                        <th style={{ padding: "12px 16px", textAlign: "left", width: "160px" }}>Cohort</th>
-                        <th style={{ padding: "12px 16px", width: "100px" }}>Buyers</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", minWidth: "160px", whiteSpace: "nowrap" }}>Cohort</th>
+                        <th style={{ padding: "12px 16px", width: "100px", whiteSpace: "nowrap" }}>Buyers</th>
                         {cohortPayload.cohorts[0]?.periods.map((p) => (
-                          <th key={p.periodIndex} style={{ padding: "12px 16px" }}>
+                          <th key={p.periodIndex} style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                             {p.periodLabel}
                           </th>
                         ))}
@@ -640,10 +687,10 @@ export const ShopifyCustomers = () => {
                     <tbody>
                       {cohortPayload.cohorts.map((cohort) => (
                         <tr key={cohort.cohortKey} style={{ borderBottom: "1px solid #F1F5F9" }}>
-                          <td style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#0F172A" }}>
+                          <td style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#0F172A", whiteSpace: "nowrap" }}>
                             {cohort.cohortLabel}
                           </td>
-                          <td style={{ padding: "12px 16px", fontWeight: "600", color: "#475569" }}>
+                          <td style={{ padding: "12px 16px", fontWeight: "600", color: "#475569", whiteSpace: "nowrap" }}>
                             {formatNumber(cohort.cohortSize)}
                           </td>
                           {cohort.periods.map((p) => {
@@ -660,8 +707,11 @@ export const ShopifyCustomers = () => {
                             if (!p.isMature) {
                               return (
                                 <td key={p.periodIndex} style={{ padding: "8px" }}>
-                                  <span style={{ fontSize: "11px", color: "#94A3B8", fontStyle: "italic" }} title="Cohort period has not yet matured within the observation window">
-                                    Insufficient Historical Data
+                                  <span
+                                    style={{ fontSize: "11px", color: "#64748B", backgroundColor: "#F1F5F9", padding: "4px 8px", borderRadius: "6px", fontWeight: "600", whiteSpace: "nowrap", display: "inline-block" }}
+                                    title="Not enough observation time has elapsed for this cohort period"
+                                  >
+                                    Not Mature
                                   </span>
                                 </td>
                               );
@@ -722,9 +772,9 @@ export const ShopifyCustomers = () => {
                   <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "right", fontSize: "13px" }}>
                     <thead>
                       <tr style={{ borderBottom: "1px solid #E2E8F0", backgroundColor: "#F8FAFC", color: "#64748B", fontSize: "11px", textTransform: "uppercase" }}>
-                        <th style={{ padding: "12px 16px", textAlign: "left", width: "160px" }}>Cohort</th>
+                        <th style={{ padding: "12px 16px", textAlign: "left", minWidth: "160px", whiteSpace: "nowrap" }}>Cohort</th>
                         {cohortPayload.cohorts[0]?.periods.map((p) => (
-                          <th key={p.periodIndex} style={{ padding: "12px 16px" }}>
+                          <th key={p.periodIndex} style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
                             {p.periodLabel} Net Sales
                           </th>
                         ))}
@@ -733,19 +783,24 @@ export const ShopifyCustomers = () => {
                     <tbody>
                       {cohortPayload.cohorts.map((cohort) => (
                         <tr key={cohort.cohortKey} style={{ borderBottom: "1px solid #F1F5F9" }}>
-                          <td style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#0F172A" }}>
+                          <td style={{ padding: "12px 16px", textAlign: "left", fontWeight: "600", color: "#0F172A", whiteSpace: "nowrap" }}>
                             {cohort.cohortLabel}
                           </td>
                           {cohort.periods.map((p) => {
                             if (!p.isMature) {
                               return (
-                                <td key={p.periodIndex} style={{ padding: "12px 16px", color: "#94A3B8", fontStyle: "italic", fontSize: "11px" }}>
-                                  Insufficient Historical Data
+                                <td key={p.periodIndex} style={{ padding: "12px 16px", textAlign: "center" }}>
+                                  <span
+                                    style={{ fontSize: "11px", color: "#64748B", backgroundColor: "#F1F5F9", padding: "4px 8px", borderRadius: "6px", fontWeight: "600", whiteSpace: "nowrap", display: "inline-block" }}
+                                    title="Not enough observation time has elapsed for this cohort period"
+                                  >
+                                    Not Mature
+                                  </span>
                                 </td>
                               );
                             }
                             return (
-                              <td key={p.periodIndex} style={{ padding: "12px 16px", fontWeight: p.revenue > 0 ? "600" : "400", color: p.revenue > 0 ? "#0F172A" : "#94A3B8" }}>
+                              <td key={p.periodIndex} style={{ padding: "12px 16px", fontWeight: p.revenue > 0 ? "600" : "400", color: p.revenue > 0 ? "#0F172A" : "#64748B" }}>
                                 {formatCurrencyINR(p.revenue)}
                               </td>
                             );

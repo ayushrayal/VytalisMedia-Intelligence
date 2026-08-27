@@ -252,11 +252,16 @@ const getMetaComparison = async ({ user, query = {} }) => {
     let rawCpm = null;
     let currency = "INR";
 
+    // Reach across overlapping breakdown rows is non-additive and cannot be summed or Math.max'd.
+    // If a single row exists, use its reach; if multiple breakdown rows exist, reach is set to null (unavailable).
+    const singleRowReach = rows.length === 1 && rows[0].reach !== undefined && rows[0].reach !== null
+      ? Number(rows[0].reach)
+      : null;
+
     const sums = rows.reduce(
       (acc, row) => {
         acc.spend += Number(row.spend || 0);
         acc.impressions += Number(row.impressions || 0);
-        acc.reach += Number(row.reach || 0);
         acc.clicks += Number(row.clicks || 0);
         acc.purchases += Number(row.purchases ?? row.actions_omni_purchase ?? 0);
         acc.purchaseValue += Number(row.purchase_conversion_value ?? row.action_values_omni_purchase ?? 0);
@@ -273,20 +278,25 @@ const getMetaComparison = async ({ user, query = {} }) => {
         if (row.currency) currency = row.currency;
         return acc;
       },
-      { spend: 0, impressions: 0, reach: 0, clicks: 0, purchases: 0, purchaseValue: 0, addToCart: 0, checkoutInitiated: 0 }
+      { spend: 0, impressions: 0, clicks: 0, purchases: 0, purchaseValue: 0, addToCart: 0, checkoutInitiated: 0 }
     );
 
+    const effectiveReach = singleRowReach;
     const roas = sums.spend > 0 ? sums.purchaseValue / sums.spend : 0;
     const cpa = sums.purchases > 0 ? sums.spend / sums.purchases : 0;
-    const ctr = sums.impressions > 0 ? (sums.clicks / sums.impressions) * 100 : 0;
+
+    // CTR: Clicks / Impressions * 100 when impressions > 0; 0 when impressions === 0; null if impressions missing
+    const ctr = sums.impressions !== null ? (sums.impressions > 0 ? (sums.clicks / sums.impressions) * 100 : 0) : null;
     const cpc = sums.clicks > 0 ? sums.spend / sums.clicks : 0;
     const cpm = rawCpm !== null ? rawCpm : sums.impressions > 0 ? (sums.spend / sums.impressions) * 1000 : 0;
-    const frequency = sums.reach > 0 ? sums.impressions / sums.reach : 1;
+
+    // Frequency: impressions / reach when validReach > 0 and impressions !== null; null otherwise (NEVER default to 1 or 0)
+    const frequency = effectiveReach !== null && effectiveReach > 0 && sums.impressions !== null ? sums.impressions / effectiveReach : null;
 
     return {
       spend: sums.spend,
       impressions: sums.impressions,
-      reach: sums.reach,
+      reach: effectiveReach,
       clicks: sums.clicks,
       purchases: sums.purchases,
       purchaseValue: sums.purchaseValue,

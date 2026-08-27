@@ -1,5 +1,6 @@
 const User = require("../models/user.model");
 const Organization = require("../models/organization.model");
+const AdminAssignment = require("../models/admin-assignment.model");
 const logger = require("./logger.util");
 
 /**
@@ -7,14 +8,14 @@ const logger = require("./logger.util");
  * Resolves effective integration owner (Client or target Organization owner) for any authenticated user role.
  *
  * Rules:
- * - Client: returns own user document (self)
- * - Member: finds user.organizationId -> Organization -> ownerId -> Client User
- * - Admin: if explicitOrgId provided, validates Organization -> ownerId -> Client User; else returns self.
- * - Root Admin: if explicitOrgId provided, finds Organization -> ownerId -> Client User; else returns self.
+ * - Client: returns own user document (self) and own Organization
+ * - Member: strictly resolves assigned Client (via assignedClientId or organizationId); ignores cross-tenant explicitOrgId
+ * - Admin: requires explicit organization context (explicitOrgId or user.organizationId) AND verified AdminAssignment/ownership; returns null if missing/unassigned. NO firstConnectedClient fallback!
+ * - Root Admin: resolves explicit target Organization owner if explicitOrgId/organizationId provided; else returns null context. NO arbitrary client fallback!
  *
  * @param {Object} user - Authenticated user document (req.user)
  * @param {string|null} [explicitOrgId] - Optional explicit target organizationId
- * @returns {Promise<{ integrationUser: Object, organization: Object|null }>}
+ * @returns {Promise<{ integrationUser: Object|null, organization: Object|null, error?: string }>}
  */
 const getEffectiveIntegrationContext = async (user, explicitOrgId = null) => {
   if (!user) {
@@ -43,7 +44,7 @@ const getEffectiveIntegrationContext = async (user, explicitOrgId = null) => {
     return { integrationUser: userObj, organization: org };
   }
 
-  // 2. Member: Resolves parent Client via assignedClientId or organizationId
+  // 2. Member: Resolves parent Client strictly via assignedClientId or organizationId (ignores caller explicitOrgId if cross-tenant)
   if (userObj.role === "member") {
     let clientUser = null;
     let org = null;
@@ -75,40 +76,55 @@ const getEffectiveIntegrationContext = async (user, explicitOrgId = null) => {
     };
   }
 
-  // 3. Admin & Root Admin with explicit target organizationId or fallback to connected Client
-  const targetOrgId = explicitOrgId || (user.organizationId ? user.organizationId.toString() : null);
-  if (targetOrgId) {
+  // 3. Admin & Root Admin Resolution
+  const targetOrgId = explicitOrgId || (userObj.organizationId ? userObj.organizationId.toString() : null);
+
+  if (userObj.role === "admin") {
+    if (!targetOrgId) {
+      logger.warn(`Integration context denied: Admin ${userObj._id} requested integration context without explicit organizationId.`);
+      return { integrationUser: null, organization: null, error: "Explicit organization context required for Admin." };
+    }
+
     const org = await Organization.findById(targetOrgId).lean();
-    if (org && org.ownerId) {
-      const clientUser = await User.findById(org.ownerId);
-      if (clientUser) {
-        return { integrationUser: clientUser, organization: org };
-      }
+    if (!org) {
+      return { integrationUser: null, organization: null, error: "Target organization not found." };
     }
+
+    const isOwner = org.ownerId && org.ownerId.toString() === userObj._id.toString();
+    let assignment = null;
+    if (!isOwner) {
+      assignment = await AdminAssignment.findOne({
+        adminId: userObj._id,
+        organizationId: targetOrgId,
+        status: "active",
+      }).lean();
+    }
+
+    if (!isOwner && !assignment) {
+      logger.warn(`Integration context denied: Admin ${userObj._id} is not assigned to Org ${targetOrgId}`);
+      return { integrationUser: null, organization: null, error: "Access denied. You are not assigned to manage this organization." };
+    }
+
+    const clientUser = await User.findById(org.ownerId);
+    return { integrationUser: clientUser || userObj, organization: org };
   }
 
-  const hasMeta = Boolean(user.integrations?.meta?.length);
-  const hasShopify = Boolean(user.integrations?.shopify?.length);
-
-  if (!hasMeta && !hasShopify && (user.role === "admin" || user.role === "root_admin" || user.isRootAdmin)) {
-    const firstConnectedClient = await User.findOne({
-      role: "client",
-      $or: [
-        { "integrations.meta.0": { $exists: true } },
-        { "integrations.shopify.0": { $exists: true } },
-      ],
-    });
-    if (firstConnectedClient) {
-      let org = null;
-      if (firstConnectedClient.organizationId) {
-        org = await Organization.findById(firstConnectedClient.organizationId).lean();
+  if (userObj.role === "root_admin" || userObj.isRootAdmin) {
+    if (targetOrgId) {
+      const org = await Organization.findById(targetOrgId).lean();
+      if (org && org.ownerId) {
+        const clientUser = await User.findById(org.ownerId);
+        if (clientUser) {
+          return { integrationUser: clientUser, organization: org };
+        }
       }
-      return { integrationUser: firstConnectedClient, organization: org };
+      return { integrationUser: userObj, organization: org || null };
     }
+    return { integrationUser: null, organization: null };
   }
 
-  // Fallback: Return self
-  return { integrationUser: user, organization: null };
+  // Fallback: Return self if valid
+  return { integrationUser: userObj, organization: null };
 };
 
 module.exports = {

@@ -115,13 +115,18 @@ const fetchRefunds = async ({ activeShopifyAccount, datePreset, dateFrom, dateTo
 };
 
 /**
- * Fetches Shopify Cohorts historical order data from Windsor (last_90d lookback).
+ * Fetches Shopify Cohorts historical order data from Windsor (with retentionWindow source range support).
  */
-const fetchCohorts = async ({ activeShopifyAccount }) => {
+const fetchCohorts = async ({ activeShopifyAccount, retentionWindow = "30d", datePreset, dateFrom, dateTo }) => {
+  const normWindow = (retentionWindow || "30d").toLowerCase() === "90d" ? "90d" : "30d";
+  const sourcePreset = dateFrom && dateTo ? undefined : (normWindow === "90d" ? "last_year" : (datePreset || "last_90d"));
+
   return await windsorProvider.fetchData({
     connector: "shopify",
     fields: SHOPIFY_ENDPOINTS.cohorts.fields,
-    datePreset: "last_90d",
+    datePreset: sourcePreset,
+    dateFrom,
+    dateTo,
     filters: buildAccountFilter(activeShopifyAccount),
   });
 };

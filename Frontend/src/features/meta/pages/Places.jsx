@@ -152,6 +152,8 @@ export const Places = () => {
   }, [aggregatedRegions]);
 
   // 1. Dynamic Threshold Calculation (Median Spend across all regions)
+  // NOTE: Business rule ambiguity: Code defines High Spend as spend >= median spend, while requirement says highest spend.
+  // Exact intended population is not mathematically defined in available source; preserving median threshold to prevent UI layout shifts.
   const threshold = useMemo(() => {
     if (aggregatedRegions.length === 0) return 0;
     const spendValues = aggregatedRegions
@@ -213,15 +215,17 @@ export const Places = () => {
     return [...highSpendRegions].sort((a, b) => (b.ctr || 0) - (a.ctr || 0)).slice(0, 3);
   }, [highSpendRegions]);
 
-  // 7. Needs Attention Regions (High Spend regions with CTR below high-spend average)
+  // 7. Needs Attention Regions (High Spend regions with CTR below weighted high-spend average)
   const needsAttentionList = useMemo(() => {
     if (highSpendRegions.length === 0) return [];
 
-    const avgHighSpendCtr =
-      highSpendRegions.reduce((sum, r) => sum + r.ctr, 0) / highSpendRegions.length;
+    // Strictly weighted CTR for High Spend population: sum(clicks) / sum(impressions) * 100
+    const highSpendClicks = highSpendRegions.reduce((sum, r) => sum + Number(r.clicks || 0), 0);
+    const highSpendImpressions = highSpendRegions.reduce((sum, r) => sum + Number(r.impressions || 0), 0);
+    const weightedHighSpendCtr = highSpendImpressions > 0 ? (highSpendClicks / highSpendImpressions) * 100 : 0;
 
-    const targetCtr = overallCtr > 0 ? Math.min(avgHighSpendCtr, overallCtr) : avgHighSpendCtr;
-    let candidates = highSpendRegions.filter((r) => r.ctr < avgHighSpendCtr || r.ctr < targetCtr);
+    const targetCtr = overallCtr > 0 ? Math.min(weightedHighSpendCtr, overallCtr) : weightedHighSpendCtr;
+    let candidates = highSpendRegions.filter((r) => r.ctr < weightedHighSpendCtr || r.ctr < targetCtr);
 
     if (candidates.length === 0 && highSpendRegions.length > 1) {
       const maxCtr = Math.max(...highSpendRegions.map((r) => r.ctr));

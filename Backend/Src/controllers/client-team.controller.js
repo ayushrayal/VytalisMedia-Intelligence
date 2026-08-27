@@ -14,6 +14,7 @@ const { logAuditEvent } = require("../utils/audit-logger.util");
 const { sendSuccess, sendError } = require("../utils/api-response.util");
 const { createTimer } = require("../utils/performance-timer.util");
 const logger = require("../utils/logger.util");
+const { acquireLock } = require("../utils/async-mutex.util");
 
 /**
  * GET /api/client/team
@@ -113,36 +114,44 @@ const createClientTeamMember = async (req, res, next) => {
       return sendError(res, 400, "Client organization context not found.");
     }
 
-    // Atomic Quota Check
-    const activeCount = await User.countDocuments({
-      organizationId: targetOrg._id,
-      role: "member",
-      status: "active",
-    });
+    // Acquire In-Process Keyed Mutex Lock per organizationId
+    // SCOPE LIMITATION: Single-Process Concurrency Safety ONLY.
+    // Multi-instance horizontally scaled deployments require a distributed lock (e.g., Redis Redlock / DB transaction).
+    const releaseLock = await acquireLock(targetOrg._id.toString());
+    let newMember;
+    try {
+      const activeCount = await User.countDocuments({
+        organizationId: targetOrg._id,
+        role: "member",
+        status: "active",
+      });
 
-    const limit = targetOrg.memberLimit || 5;
-    if (activeCount >= limit) {
-      logger.warn(`Client member creation blocked for Org ${targetOrg._id}: activeCount=${activeCount}, limit=${limit}`);
-      return sendError(res, 400, `Maximum limit of ${limit} active members reached.`);
+      const limit = targetOrg.memberLimit || 5;
+      if (activeCount >= limit) {
+        logger.warn(`Client member creation blocked for Org ${targetOrg._id}: activeCount=${activeCount}, limit=${limit}`);
+        return sendError(res, 400, `Maximum limit of ${limit} active members reached.`);
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      const existing = await User.findOne({ email: cleanEmail });
+      if (existing) return sendError(res, 409, "A user with this email address already exists.");
+
+      const defaultPerms = getDefaultPermissions("member");
+
+      // Server-side forced attributes (IGNORE any role or clientId from req.body)
+      newMember = await User.create({
+        name: name.trim(),
+        email: cleanEmail,
+        password: password,
+        role: "member",
+        status: "active",
+        organizationId: targetOrg._id,
+        assignedClientId: req.user._id,
+        assignedPermissions: formatPermissionsArray(defaultPerms),
+      });
+    } finally {
+      releaseLock();
     }
-
-    const cleanEmail = email.trim().toLowerCase();
-    const existing = await User.findOne({ email: cleanEmail });
-    if (existing) return sendError(res, 409, "A user with this email address already exists.");
-
-    const defaultPerms = getDefaultPermissions("member");
-
-    // Server-side forced attributes (IGNORE any role or clientId from req.body)
-    const newMember = await User.create({
-      name: name.trim(),
-      email: cleanEmail,
-      password: password,
-      role: "member",
-      status: "active",
-      organizationId: targetOrg._id,
-      assignedClientId: req.user._id,
-      assignedPermissions: formatPermissionsArray(defaultPerms),
-    });
 
     await logAuditEvent({
       actorId: req.user._id,
