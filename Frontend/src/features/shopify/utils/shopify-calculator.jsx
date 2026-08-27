@@ -17,6 +17,15 @@ const RupeeIcon = ({ size = 18 }) => (
   <img src={rupeeImg} alt="Rupee" style={{ width: `${size}px`, height: `${size}px`, objectFit: "contain" }} />
 );
 
+import {
+  calculateShopifyAov,
+  calculateShopifyCancellationRate,
+  calculateShopifyCodCancellationRate,
+  calculateShopifyFulfillmentRate as formulaFulfillmentRate,
+  calculateRepeatPurchaseRate,
+  calculateShareOfSales,
+} from "../../../config/formulaRegistry.js";
+
 /**
  * Calculates canonical Shopify Totals from overview or orders rows.
  * Authoritative source for Net Sales, Gross Sales, Discounts, Orders Count, and AOV.
@@ -45,7 +54,8 @@ export const calculateShopifyTotals = (dataRows = []) => {
 
   // For orders array where each element is a single order row
   const actualOrdersCount = dataRows[0]?.order_count !== undefined ? totals.orders : dataRows.length;
-  const aov = actualOrdersCount > 0 ? totals.netSales / actualOrdersCount : 0;
+  const aovRes = calculateShopifyAov({ net_sales: totals.netSales, orders_count: actualOrdersCount });
+  const aov = aovRes.value !== null ? aovRes.value : 0;
 
   return {
     ...totals,
@@ -97,10 +107,15 @@ export const calculateShopifyOrderBreakdown = (ordersData = [], totalOrdersCount
     }
   });
 
-  const cancelledPct = countDenominator > 0 ? ((cancelledCount / countDenominator) * 100).toFixed(1) : "0.0";
-  const prepaidPct = countDenominator > 0 ? ((prepaidCount / countDenominator) * 100).toFixed(1) : "0.0";
-  const codPct = countDenominator > 0 ? ((codCount / countDenominator) * 100).toFixed(1) : "0.0";
-  const codCancellationRate = codCount > 0 ? ((codCancelledCount / codCount) * 100).toFixed(1) : null;
+  const cancelRes = calculateShopifyCancellationRate({ cancelled_orders: cancelledCount, orders_count: countDenominator });
+  const prepaidShareRes = calculateShareOfSales({ entity_sales: prepaidCount, total_sales: countDenominator });
+  const codShareRes = calculateShareOfSales({ entity_sales: codCount, total_sales: countDenominator });
+  const codCancelRes = calculateShopifyCodCancellationRate({ cod_cancelled_orders: codCancelledCount, cod_orders: codCount });
+
+  const cancelledPct = cancelRes.value !== null ? cancelRes.value.toFixed(1) : "0.0";
+  const prepaidPct = prepaidShareRes.value !== null ? prepaidShareRes.value.toFixed(1) : "0.0";
+  const codPct = codShareRes.value !== null ? codShareRes.value.toFixed(1) : "0.0";
+  const codCancellationRate = codCancelRes.value !== null ? codCancelRes.value.toFixed(1) : null;
 
   return {
     prepaidCount,
@@ -145,7 +160,8 @@ export const calculateShopifyFulfillmentRate = (ordersData = []) => {
     }
   });
 
-  const rate = nonCancelledCount > 0 ? Number(((fulfilledCount / nonCancelledCount) * 100).toFixed(1)) : 0;
+  const fulRes = formulaFulfillmentRate({ fulfilled_orders: fulfilledCount, non_cancelled_orders: nonCancelledCount });
+  const rate = fulRes.value !== null ? Number(fulRes.value.toFixed(1)) : null;
   return { nonCancelledCount, fulfilledCount, rate };
 };
 
@@ -163,7 +179,7 @@ export const calculateShopifyCustomerMetrics = (customersData = []) => {
       totalCustomers: 0,
       singleOrderCustomers: 0,
       repeatCustomers: 0,
-      repeatPurchaseRate: 0,
+      repeatPurchaseRate: null,
       returningRevenue: 0,
       highValueThreshold: 0,
       highValueCount: 0,
@@ -190,7 +206,8 @@ export const calculateShopifyCustomerMetrics = (customersData = []) => {
   });
 
   const totalCustomers = validCustomers.length;
-  const repeatPurchaseRate = totalCustomers > 0 ? Number(((repeatCount / totalCustomers) * 100).toFixed(1)) : 0;
+  const repeatRateRes = calculateRepeatPurchaseRate({ repeat_customers: repeatCount, total_customers: totalCustomers });
+  const repeatPurchaseRate = repeatRateRes.value !== null ? Number(repeatRateRes.value.toFixed(1)) : null;
 
   // High-Value Threshold: Top 10% of positive spend customers sorted by Total Spent
   const positiveSpendCustomers = validCustomers.filter((c) => c.totalSpent > 0).sort((a, b) => b.totalSpent - a.totalSpent);
@@ -266,7 +283,8 @@ export const calculateShopifyProductMetrics = (productsData = []) => {
   const maxQty = Math.max(0, ...rawList.map((p) => p.quantity));
 
   const list = rawList.map((p) => {
-    const shareOfSales = totalValue > 0 ? Number(((p.value / totalValue) * 100).toFixed(1)) : 0;
+    const shareRes = calculateShareOfSales({ entity_sales: p.value, total_sales: totalValue });
+    const shareOfSales = shareRes.value !== null ? Number(shareRes.value.toFixed(1)) : 0;
     const avgUnitPrice = p.quantity > 0 ? p.value / p.quantity : 0;
     const badges = [];
 

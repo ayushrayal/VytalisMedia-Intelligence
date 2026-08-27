@@ -8,7 +8,7 @@
  */
 export const formatCurrency = (amount, currencyCode = "INR") => {
   if (amount === null || amount === undefined || isNaN(Number(amount))) {
-    return "₹0.00";
+    return "-";
   }
 
   const numericValue = Number(amount);
