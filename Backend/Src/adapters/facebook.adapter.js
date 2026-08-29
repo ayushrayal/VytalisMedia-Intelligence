@@ -408,38 +408,64 @@ const normalizeAndAggregateAdSets = (rawAdSets, targetCampaignId, defaultCurrenc
 
     const currency = rows.find((r) => r.currency)?.currency || defaultCurrency || "INR";
 
-    // 1. Sum additive count and currency metrics
-    const spend = helperSum(rows, (r) => getNumericOrNull(r.spend));
-    const impressions = helperSum(rows, (r) => getNumericOrNull(r.impressions));
-    const clicks = helperSum(rows, (r) => getNumericOrNull(r.clicks));
-    const link_clicks = helperSum(rows, (r) => getNumericOrNull(r.link_clicks));
-    const purchases = helperSum(rows, (r) => getNumericOrNull(r.purchases ?? r.actions_omni_purchase));
-    const purchase_conversion_value = helperSum(
-      rows,
-      (r) => getNumericOrNull(r.purchase_conversion_value ?? r.action_values_omni_purchase)
-    );
-    const actions_add_to_cart = helperSum(
-      rows,
-      (r) => getNumericOrNull(r.actions_add_to_cart ?? r.add_to_cart)
-    );
-    const actions_initiate_checkout = helperSum(
-      rows,
-      (r) => getNumericOrNull(r.actions_initiate_checkout ?? r.initiate_checkout)
-    );
+    // 1. Single-pass accumulator for additive count and currency metrics
+    let hasSpend = false, spendSum = 0;
+    let hasImpressions = false, impressionsSum = 0;
+    let hasClicks = false, clicksSum = 0;
+    let hasLinkClicks = false, linkClicksSum = 0;
+    let hasPurchases = false, purchasesSum = 0;
+    let hasPurchaseValue = false, purchaseValueSum = 0;
+    let hasAddToCart = false, addToCartSum = 0;
+    let hasInitiateCheckout = false, initiateCheckoutSum = 0;
 
-    // Rate / CTR metrics - not additive
-    const unique_outbound_clicks_ctr_outbound_click =
-      rows
-        .map((r) =>
-          getNumericOrNull(
-            r.unique_outbound_clicks_ctr_outbound_click ?? r.unique_outbound_clicks_ctr
-          )
-        )
-        .find((v) => v !== null) ?? null;
+    let unique_outbound_clicks_ctr_outbound_click = null;
+    const reachVals = [];
+
+    for (const r of rows) {
+      const vSpend = getNumericOrNull(r.spend);
+      if (vSpend !== null) { hasSpend = true; spendSum += vSpend; }
+
+      const vImp = getNumericOrNull(r.impressions);
+      if (vImp !== null) { hasImpressions = true; impressionsSum += vImp; }
+
+      const vClk = getNumericOrNull(r.clicks);
+      if (vClk !== null) { hasClicks = true; clicksSum += vClk; }
+
+      const vLnk = getNumericOrNull(r.link_clicks);
+      if (vLnk !== null) { hasLinkClicks = true; linkClicksSum += vLnk; }
+
+      const vPur = getNumericOrNull(r.purchases ?? r.actions_omni_purchase);
+      if (vPur !== null) { hasPurchases = true; purchasesSum += vPur; }
+
+      const vVal = getNumericOrNull(r.purchase_conversion_value ?? r.action_values_omni_purchase);
+      if (vVal !== null) { hasPurchaseValue = true; purchaseValueSum += vVal; }
+
+      const vCart = getNumericOrNull(r.actions_add_to_cart ?? r.add_to_cart);
+      if (vCart !== null) { hasAddToCart = true; addToCartSum += vCart; }
+
+      const vChk = getNumericOrNull(r.actions_initiate_checkout ?? r.initiate_checkout);
+      if (vChk !== null) { hasInitiateCheckout = true; initiateCheckoutSum += vChk; }
+
+      if (unique_outbound_clicks_ctr_outbound_click === null) {
+        const uCtr = getNumericOrNull(r.unique_outbound_clicks_ctr_outbound_click ?? r.unique_outbound_clicks_ctr);
+        if (uCtr !== null) unique_outbound_clicks_ctr_outbound_click = uCtr;
+      }
+
+      const rReach = getNumericOrNull(r.reach);
+      if (rReach !== null) reachVals.push(rReach);
+    }
+
+    const spend = hasSpend ? spendSum : null;
+    const impressions = hasImpressions ? impressionsSum : null;
+    const clicks = hasClicks ? clicksSum : null;
+    const link_clicks = hasLinkClicks ? linkClicksSum : null;
+    const purchases = hasPurchases ? purchasesSum : null;
+    const purchase_conversion_value = hasPurchaseValue ? purchaseValueSum : null;
+    const actions_add_to_cart = hasAddToCart ? addToCartSum : null;
+    const actions_initiate_checkout = hasInitiateCheckout ? initiateCheckoutSum : null;
 
     // Reach is non-additive across breakdown/date records.
     // MAX(reach) is used as a fallback estimate without claiming to be an exact aggregate across disjoint breakdown segments.
-    const reachVals = rows.map((r) => getNumericOrNull(r.reach)).filter((v) => v !== null);
     const reach = reachVals.length > 0 ? Math.max(...reachVals) : null;
 
     // 2. Recalculate derived metrics
@@ -920,36 +946,38 @@ const normalizeAndAggregateBreakdowns = (rawData, breakdown) => {
     groupedMap.get(label).push(row);
   }
 
-  const helperSum = (rows, extractor) => {
-    let hasVal = false;
-    let total = 0;
-    for (const r of rows) {
-      const v = extractor(r);
-      if (v !== null && v !== undefined && !isNaN(Number(v))) {
-        hasVal = true;
-        total += Number(v);
-      }
-    }
-    return hasVal ? total : null;
-  };
-
   const results = [];
 
   for (const [label, rows] of groupedMap.entries()) {
-    const spend = helperSum(rows, (r) => getNumericOrNull(r.spend));
-    const impressions = helperSum(rows, (r) => getNumericOrNull(r.impressions));
-    const purchases = helperSum(rows, (r) =>
-      getNumericOrNull(r.actions_omni_purchase ?? r.actions_purchase ?? r.purchases)
-    );
-    const purchaseValue = helperSum(rows, (r) =>
-      getNumericOrNull(r.action_values_omni_purchase ?? r.action_values_purchase ?? r.purchase_conversion_value)
-    );
+    let hasSpend = false, spendSum = 0;
+    let hasImpressions = false, impressionsSum = 0;
+    let hasPurchases = false, purchasesSum = 0;
+    let hasPurchaseValue = false, purchaseValueSum = 0;
+    const reachVals = [];
+
+    for (const r of rows) {
+      const vSpend = getNumericOrNull(r.spend);
+      if (vSpend !== null) { hasSpend = true; spendSum += vSpend; }
+
+      const vImp = getNumericOrNull(r.impressions);
+      if (vImp !== null) { hasImpressions = true; impressionsSum += vImp; }
+
+      const vPur = getNumericOrNull(r.actions_omni_purchase ?? r.actions_purchase ?? r.purchases);
+      if (vPur !== null) { hasPurchases = true; purchasesSum += vPur; }
+
+      const vVal = getNumericOrNull(r.action_values_omni_purchase ?? r.action_values_purchase ?? r.purchase_conversion_value);
+      if (vVal !== null) { hasPurchaseValue = true; purchaseValueSum += vVal; }
+
+      const vReach = getNumericOrNull(r.reach);
+      if (vReach !== null && !isNaN(vReach)) reachVals.push(vReach);
+    }
+
+    const spend = hasSpend ? spendSum : null;
+    const impressions = hasImpressions ? impressionsSum : null;
+    const purchases = hasPurchases ? purchasesSum : null;
+    const purchaseValue = hasPurchaseValue ? purchaseValueSum : null;
 
     // Reach: Non-additive. NEVER fabricate or estimate. Return null if not provided by source.
-    const reachVals = rows
-      .map((r) => getNumericOrNull(r.reach))
-      .filter((v) => v !== null && v !== undefined && !isNaN(v));
-
     const reach = reachVals.length > 0 ? Math.max(...reachVals) : null;
 
     // ROAS: Must NEVER be summed. Always calculated from aggregated totals: purchaseValue / spend.

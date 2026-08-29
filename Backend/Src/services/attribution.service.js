@@ -191,16 +191,8 @@ const getAttributionOverview = async ({ user, query = {} }) => {
 
   // A. Overall Totals
   const totalOrders = orders.length;
-  let grossRevenue = 0;
-  let netRevenue = 0;
-
-  for (const o of orders) {
-    grossRevenue += o.grossRevenue;
-    netRevenue += o.netRevenue;
-  }
-
-  grossRevenue = Number(grossRevenue.toFixed(2));
-  netRevenue = Number(netRevenue.toFixed(2));
+  let rawGrossRevenue = 0;
+  let rawNetRevenue = 0;
 
   // B. Top-level Groups Totals (meta, google, not_attribution)
   const groupStats = {
@@ -225,6 +217,9 @@ const getAttributionOverview = async ({ user, query = {} }) => {
   const dailyMap = {};
 
   for (const o of orders) {
+    rawGrossRevenue += o.grossRevenue;
+    rawNetRevenue += o.netRevenue;
+
     // Accumulate Groups
     const groupKey = o.topLevelGroup || ATTRIBUTION_CONSTANTS.GROUPS.NOT_ATTRIBUTION;
     if (groupStats[groupKey]) {
@@ -266,6 +261,9 @@ const getAttributionOverview = async ({ user, query = {} }) => {
       dailyMap[dateStr].channels[chName].netRevenue += o.netRevenue;
     }
   }
+
+  const grossRevenue = Number(rawGrossRevenue.toFixed(2));
+  const netRevenue = Number(rawNetRevenue.toFixed(2));
 
   // Format Top-Level Groups with Percentages
   const formattedGroups = {};
@@ -409,35 +407,22 @@ const getAttributionOrders = async ({ user, query = {} }) => {
     dateTo,
   });
 
-  // Apply filters
-  let filtered = orders;
-
-  if (channelFilter) {
-    filtered = filtered.filter(
-      (o) => o.channel.toLowerCase() === channelFilter.toLowerCase()
-    );
-  }
-
-  if (groupFilter) {
-    filtered = filtered.filter(
-      (o) => o.topLevelGroup.toLowerCase() === groupFilter.toLowerCase()
-    );
-  }
-
-  if (financialStatusFilter) {
-    filtered = filtered.filter(
-      (o) => o.paymentStatus.toLowerCase() === financialStatusFilter
-    );
-  }
-
-  if (searchFilter) {
-    filtered = filtered.filter((o) => {
-      const matchId = o.orderId.toLowerCase().includes(searchFilter);
-      const matchSource = (o.utmSource || "").toLowerCase().includes(searchFilter);
-      const matchCampaign = (o.utmCampaign || "").toLowerCase().includes(searchFilter);
-      return matchId || matchSource || matchCampaign;
-    });
-  }
+  // Apply combined filters in a single pass if any filter is present
+  const hasFilter = channelFilter || groupFilter || financialStatusFilter || searchFilter;
+  const filtered = hasFilter
+    ? orders.filter((o) => {
+        if (channelFilter && o.channel.toLowerCase() !== channelFilter.toLowerCase()) return false;
+        if (groupFilter && o.topLevelGroup.toLowerCase() !== groupFilter.toLowerCase()) return false;
+        if (financialStatusFilter && o.paymentStatus.toLowerCase() !== financialStatusFilter) return false;
+        if (searchFilter) {
+          const matchId = o.orderId.toLowerCase().includes(searchFilter);
+          const matchSource = (o.utmSource || "").toLowerCase().includes(searchFilter);
+          const matchCampaign = (o.utmCampaign || "").toLowerCase().includes(searchFilter);
+          if (!matchId && !matchSource && !matchCampaign) return false;
+        }
+        return true;
+      })
+    : orders;
 
   const totalItems = filtered.length;
   const totalPages = Math.ceil(totalItems / limit) || 1;
