@@ -1,5 +1,6 @@
 const User = require("../models/user.model");
 const logger = require("../utils/logger.util");
+const { invalidateUserCache } = require("../utils/user-cache.util");
 
 // ====================================================
 // PRIVATE SERVICE HELPER FUNCTIONS (UNEXPORTED)
@@ -105,6 +106,8 @@ const addMetaAccount = async (userOrId, { accountId, accountName }) => {
   }
 
   await targetUser.save();
+  invalidateUserCache(targetUser._id);
+  if (user._id && String(user._id) !== String(targetUser._id)) invalidateUserCache(user._id);
 
   const addedAccount = targetUser.integrations.meta[targetUser.integrations.meta.length - 1];
   return addedAccount;
@@ -230,6 +233,8 @@ const updateMetaAccount = async (userOrId, accountIdParam, { accountId: newAccou
   }
 
   await targetUser.save();
+  invalidateUserCache(targetUser._id);
+  if (user._id && String(user._id) !== String(targetUser._id)) invalidateUserCache(user._id);
 
   return account;
 };
@@ -278,6 +283,8 @@ const deleteMetaAccount = async (userOrId, accountId) => {
   }
 
   await targetUser.save();
+  invalidateUserCache(targetUser._id);
+  if (user._id && String(user._id) !== String(targetUser._id)) invalidateUserCache(user._id);
 
   return deletedAccount;
 };
@@ -306,6 +313,8 @@ const deleteAllMetaAccounts = async (userOrId) => {
   if (targetUser.preferences) targetUser.preferences.activeMetaAccount = null;
 
   await targetUser.save();
+  invalidateUserCache(targetUser._id);
+  if (user._id && String(user._id) !== String(targetUser._id)) invalidateUserCache(user._id);
 
   return { deletedCount };
 };
@@ -349,6 +358,8 @@ const setActiveMetaAccount = async (userOrId, accountId) => {
   if (!targetUser.preferences) targetUser.preferences = {};
   targetUser.preferences.activeMetaAccount = cleanAccountId;
   await targetUser.save();
+  invalidateUserCache(targetUser._id);
+  if (user._id && String(user._id) !== String(targetUser._id)) invalidateUserCache(user._id);
 
   return {
     activeMetaAccount: cleanAccountId,
@@ -426,6 +437,8 @@ const updateCreativeCardPreferences = async (userOrId, { primaryMetrics, videoMe
   };
 
   await targetUser.save();
+  invalidateUserCache(targetUser._id);
+  if (user._id && String(user._id) !== String(targetUser._id)) invalidateUserCache(user._id);
 
   return targetUser.preferences.creativeCardPreferences;
 };

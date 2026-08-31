@@ -21,6 +21,9 @@ const extractValidOrgId = (val) => {
   return mongoose.Types.ObjectId.isValid(str) ? str : null;
 };
 
+const { getEffectiveIntegrationContext } = require("../utils/integration-context.util");
+const { invalidateUserCache } = require("../utils/user-cache.util");
+
 /**
  * Middleware enforcing multi-tenant organization data isolation.
  * Safe for Root Admins, Admins, Clients, Members, and Legacy Users.
@@ -37,24 +40,19 @@ const requireOrganizationAccess = async (req, res, next) => {
       return sendError(res, 401, "Not authorized, token missing or user not authenticated.");
     }
 
-    // 1. ROOT ADMIN: Unrestricted global authority. Never blocked by organizationId.
-    if (user.role === "root_admin" || user.isRootAdmin === true) {
-      const explicitOrgId =
-        extractValidOrgId(req.params?.organizationId) ||
-        extractValidOrgId(req.query?.organizationId) ||
-        extractValidOrgId(req.body?.organizationId);
-      if (explicitOrgId) {
-        const org = await Organization.findById(explicitOrgId).lean();
-        if (org) req.organization = org;
-      }
-      return next();
-    }
-
-    // Extract explicit target organizationId from request (params, query, or body)
     const explicitOrgId =
       extractValidOrgId(req.params?.organizationId) ||
       extractValidOrgId(req.query?.organizationId) ||
       extractValidOrgId(req.body?.organizationId);
+
+    // 1. ROOT ADMIN: Unrestricted global authority. Never blocked by organizationId.
+    if (user.role === "root_admin" || user.isRootAdmin === true) {
+      if (explicitOrgId) {
+        const context = await getEffectiveIntegrationContext(user, explicitOrgId);
+        if (context.organization) req.organization = context.organization;
+      }
+      return next();
+    }
 
     // 2. ADMIN / FOUNDER: Manages assigned organizations
     if (user.role === "admin") {
@@ -62,104 +60,63 @@ const requireOrganizationAccess = async (req, res, next) => {
         return next();
       }
 
-      const org = await Organization.findById(explicitOrgId).lean();
-      if (!org) {
-        return sendError(res, 404, "Target organization not found.");
+      const context = await getEffectiveIntegrationContext(user, explicitOrgId);
+      if (context.error) {
+        return sendError(res, context.error.includes("not found") ? 404 : 403, context.error);
       }
-      if (org.status === "disabled") {
-        return sendError(res, 403, "Access denied. Target organization has been disabled.");
+      if (context.organization) {
+        if (context.organization.status === "disabled") {
+          return sendError(res, 403, "Access denied. Target organization has been disabled.");
+        }
+        req.organization = context.organization;
       }
-
-      const isOwner = org.ownerId && org.ownerId.toString() === user._id.toString();
-      let assignment = null;
-      if (!isOwner) {
-        assignment = await AdminAssignment.findOne({
-          adminId: user._id,
-          organizationId: explicitOrgId,
-          status: "active",
-        }).lean();
-      }
-
-      if (!isOwner && !assignment) {
-        logger.warn(`Admin scoping blocked: Admin ${user._id} attempted access to unassigned Org ${explicitOrgId}`);
-        return sendError(res, 403, "Access denied. You are not assigned to manage this organization.");
-      }
-
-      req.organization = org;
       return next();
     }
 
-    // 3. MEMBER: Resolves organization via assignedClientId -> Client -> Organization
-    let resolvedOrgId = null;
-    let resolvedClientId = null;
-    let parentClient = null;
+    // 3. CLIENT & MEMBER: Resolves organization via getEffectiveIntegrationContext
+    let context = await getEffectiveIntegrationContext(user, explicitOrgId);
 
-    if (user.role === "member") {
-      if (user.assignedClientId) {
-        const cleanClientId = extractValidOrgId(user.assignedClientId);
-        if (cleanClientId) {
-          parentClient = await User.findById(cleanClientId).lean();
-          if (parentClient) {
-            resolvedClientId = parentClient._id.toString();
-            resolvedOrgId = extractValidOrgId(parentClient.organizationId);
-          }
-        }
+    // Auto-create missing organization for legacy Client if needed
+    if (user.role === "client" && !context.organization) {
+      let org = await Organization.findOne({ ownerId: user._id });
+      if (!org) {
+        org = await Organization.create({
+          name: `${user.name || "Client"}'s Organization`,
+          ownerId: user._id,
+          memberLimit: 5,
+          status: "active",
+        });
+        logger.info(`Auto-created missing Organization ${org._id} for legacy Client ${user._id}`);
       }
-
-      if (!resolvedOrgId && user.organizationId) {
-        resolvedOrgId = extractValidOrgId(user.organizationId);
-      }
-    }
-    // 4. CLIENT: Resolves organization via user.organizationId
-    else if (user.role === "client") {
-      resolvedOrgId = extractValidOrgId(user.organizationId);
-
-      if (!resolvedOrgId) {
-        let org = await Organization.findOne({ ownerId: user._id });
-        if (!org) {
-          org = await Organization.create({
-            name: `${user.name || "Client"}'s Organization`,
-            ownerId: user._id,
-            memberLimit: 5,
-            status: "active",
-          });
-          logger.info(`Auto-created missing Organization ${org._id} for legacy Client ${user._id}`);
-        }
-        user.organizationId = org._id;
-        await user.save().catch((e) => logger.warn(`Failed saving user.organizationId: ${e.message}`));
-        resolvedOrgId = org._id.toString();
-      }
-      resolvedClientId = user._id.toString();
+      user.organizationId = org._id;
+      await user.save().catch((e) => logger.warn(`Failed saving user.organizationId: ${e.message}`));
+      invalidateUserCache(user._id);
+      context = await getEffectiveIntegrationContext(user, explicitOrgId);
     }
 
-    if (!resolvedOrgId) {
+    if (!context.organization) {
       logger.warn(
         `Organization access denied: User ${user._id} (role: ${user.role}, assignedClientId: ${user.assignedClientId}) has no valid organization context.`
       );
       return sendError(res, 403, "Access denied. No active organization context found.");
     }
 
-    // Target organization is explicitOrgId if supplied, or user's resolvedOrgId
-    const targetOrgId = explicitOrgId || resolvedOrgId;
+    const resolvedOrgId = String(context.organization._id);
 
     // Strict Cross-Tenant Protection: Client / Member can only access their own organization
-    if (targetOrgId !== resolvedOrgId) {
+    if (explicitOrgId && explicitOrgId !== resolvedOrgId) {
       logger.warn(
-        `Cross-tenant access blocked: User ${user._id} (Org ${resolvedOrgId}) attempted access to Org ${targetOrgId}`
+        `Cross-tenant access blocked: User ${user._id} (Org ${resolvedOrgId}) attempted access to Org ${explicitOrgId}`
       );
       return sendError(res, 403, "Access denied. You do not have permission to access this organization's resources.");
     }
 
-    const org = await Organization.findById(targetOrgId).lean();
-    if (!org) {
-      return sendError(res, 404, "Organization not found.");
-    }
-    if (org.status === "disabled") {
+    if (context.organization.status === "disabled") {
       return sendError(res, 403, "Access denied. Your Client Organization has been disabled.");
     }
 
-    req.organization = org;
-    req.resolvedClientId = resolvedClientId;
+    req.organization = context.organization;
+    req.resolvedClientId = context.integrationUser ? String(context.integrationUser._id) : null;
     req.resolvedOrganizationId = resolvedOrgId;
     return next();
   } catch (error) {

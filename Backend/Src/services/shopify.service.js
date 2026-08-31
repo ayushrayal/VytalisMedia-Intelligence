@@ -1,5 +1,6 @@
 const User = require("../models/user.model");
 const logger = require("../utils/logger.util");
+const { invalidateUserCache } = require("../utils/user-cache.util");
 
 // ====================================================
 // PRIVATE SERVICE HELPER FUNCTIONS (UNEXPORTED)
@@ -106,6 +107,8 @@ const addShopifyAccount = async (userOrId, { shopName, accountName }) => {
   }
 
   await targetUser.save();
+  invalidateUserCache(targetUser._id);
+  if (user._id && String(user._id) !== String(targetUser._id)) invalidateUserCache(user._id);
 
   const addedAccount = targetUser.integrations.shopify[targetUser.integrations.shopify.length - 1];
   return addedAccount;
@@ -235,6 +238,8 @@ const updateShopifyAccount = async (
   }
 
   await targetUser.save();
+  invalidateUserCache(targetUser._id);
+  if (user._id && String(user._id) !== String(targetUser._id)) invalidateUserCache(user._id);
 
   return account;
 };
@@ -283,6 +288,8 @@ const deleteShopifyAccount = async (userOrId, accountName) => {
   }
 
   await targetUser.save();
+  invalidateUserCache(targetUser._id);
+  if (user._id && String(user._id) !== String(targetUser._id)) invalidateUserCache(user._id);
 
   return deletedAccount;
 };
@@ -326,6 +333,8 @@ const setActiveShopifyAccount = async (userOrId, accountName) => {
   if (!targetUser.preferences) targetUser.preferences = {};
   targetUser.preferences.activeShopifyAccount = cleanAccountName;
   await targetUser.save();
+  invalidateUserCache(targetUser._id);
+  if (user._id && String(user._id) !== String(targetUser._id)) invalidateUserCache(user._id);
 
   return {
     activeShopifyAccount: cleanAccountName,

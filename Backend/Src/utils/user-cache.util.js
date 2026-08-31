@@ -71,18 +71,16 @@ function setCachedContext(userId, explicitOrgId, context) {
 }
 
 /**
- * Invalidates all cache entries for a specific userId.
+ * Invalidates all cache entries for a specific userId and flushes context cache.
  */
 function invalidateUserCache(userId) {
-  if (!userId) return;
+  if (!userId) {
+    contextCache.clear();
+    return;
+  }
   const userKey = String(userId);
   userCache.delete(userKey);
-
-  for (const k of contextCache.keys()) {
-    if (k.startsWith(`${userKey}:`)) {
-      contextCache.delete(k);
-    }
-  }
+  contextCache.clear();
 }
 
 /**

@@ -79,10 +79,12 @@ const getEffectiveIntegrationContext = async (user, explicitOrgId = null) => {
       org = await Organization.findById(clientUser.organizationId).lean();
     }
 
-    return {
+    const result = {
       integrationUser: clientUser || userObj,
       organization: org,
     };
+    setCachedContext(userId, explicitOrgId, result);
+    return result;
   }
 
   // 3. Admin & Root Admin Resolution
@@ -115,7 +117,9 @@ const getEffectiveIntegrationContext = async (user, explicitOrgId = null) => {
     }
 
     const clientUser = await User.findById(org.ownerId);
-    return { integrationUser: clientUser || userObj, organization: org };
+    const result = { integrationUser: clientUser || userObj, organization: org };
+    setCachedContext(userId, explicitOrgId, result);
+    return result;
   }
 
   if (userObj.role === "root_admin" || userObj.isRootAdmin) {
@@ -124,16 +128,22 @@ const getEffectiveIntegrationContext = async (user, explicitOrgId = null) => {
       if (org && org.ownerId) {
         const clientUser = await User.findById(org.ownerId);
         if (clientUser) {
-          return { integrationUser: clientUser, organization: org };
+          const result = { integrationUser: clientUser, organization: org };
+          setCachedContext(userId, explicitOrgId, result);
+          return result;
         }
       }
-      return { integrationUser: userObj, organization: org || null };
+      const result = { integrationUser: userObj, organization: org || null };
+      setCachedContext(userId, explicitOrgId, result);
+      return result;
     }
     return { integrationUser: null, organization: null };
   }
 
   // Fallback: Return self if valid
-  return { integrationUser: userObj, organization: null };
+  const fallbackResult = { integrationUser: userObj, organization: null };
+  setCachedContext(userId, explicitOrgId, fallbackResult);
+  return fallbackResult;
 };
 
 module.exports = {
