@@ -2,27 +2,31 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Surfaces & Backgrounds */
-  --color-background: #F8FAFC;
-  --color-surface: #FFFFFF;
+  /* Canonical Design System Tokens (Task #26) */
+  --color-background: #FFFFFF;
+  --color-surface: #F7F9FC;
+  --color-border: #E8EAED;
+  --color-accent: #0A84FF;
+  --color-accent-hover: #0060DF;
+  --color-positive: #16A34A;
+  --color-negative: #E5484D;
+  --color-warning: #F59E0B;
+  --color-gradient: linear-gradient(#F2F8FF, #EAF3FF);
+
+  /* Design Tokens & Aliases */
   --color-surface-subtle: #F1F5F9;
   --color-surface-hover: #F8FAFC;
-  --color-border: #E8ECF2;
   --color-border-subtle: #F1F5F9;
-
-  /* Brand Accents */
   --color-primary: #0A84FF;
   --color-primary-hover: #0060DF;
   --color-primary-light: rgba(10, 132, 255, 0.08);
 
-  /* Status Colors */
   --color-success: #16A34A;
   --color-success-light: rgba(22, 163, 74, 0.08);
 
-  --color-error: #DC2626;
-  --color-error-light: rgba(220, 38, 38, 0.08);
+  --color-error: #E5484D;
+  --color-error-light: rgba(229, 72, 77, 0.08);
 
-  --color-warning: #F59E0B;
   --color-warning-light: rgba(245, 158, 11, 0.08);
 
   /* Text Contrast Hierarchy */
@@ -37,13 +41,30 @@
 
   /* Border Radii */
   --radius-pill: 999px;
-  --radius-card: 10px;
+  --radius-card: 16px;
   --radius-input: 8px;
   --radius-button: 8px;
   --radius-nav: 6px;
 
-  /* Font Family */
+  /* Font Family & Typography Tokens (Task #27) */
   --font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-size-h1: 26px;
+  --font-weight-h1: 700;
+  --letter-spacing-h1: -0.4px;
+  --font-size-h2: 20px;
+  --font-weight-h2: 700;
+  --letter-spacing-h2: -0.3px;
+  --font-size-h3: 16px;
+  --font-weight-h3: 650;
+  --letter-spacing-h3: -0.2px;
+  --font-size-h4: 14px;
+  --font-weight-h4: 650;
+  --font-size-body: 14px;
+  --font-size-body-secondary: 13px;
+  --font-size-caption: 11px;
+  --font-size-metric-lg: 28px;
+  --font-size-metric-md: 24px;
+  --font-size-metric-sm: 18px;
 }
 
 * {
