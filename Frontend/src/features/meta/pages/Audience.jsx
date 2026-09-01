@@ -255,11 +255,51 @@ export const Audience = () => {
       });
   }, [filteredData]);
 
-  // Top Performing Segment (highest CTR)
+  // Top Performing Segment (highest Spend across age + gender segments)
   const topSegment = useMemo(() => {
     if (matrixData.length === 0) return null;
-    const sorted = [...matrixData].sort((a, b) => (b.ctr || 0) - (a.ctr || 0));
-    return sorted[0] || null;
+
+    // Group by age + gender segment to calculate total segment metrics
+    const segmentMap = new Map();
+
+    matrixData.forEach((r) => {
+      const key = `${r.age}__${r.gender}`;
+      if (!segmentMap.has(key)) {
+        segmentMap.set(key, {
+          age: r.age,
+          gender: r.gender,
+          spend: 0,
+          revenue: 0,
+          clicks: 0,
+          reach: 0,
+          purchases: 0,
+          impressions: 0,
+          firstIndex: segmentMap.size,
+        });
+      }
+      const item = segmentMap.get(key);
+      item.spend += Number(r.spend || 0);
+      item.revenue += Number(r.revenue || 0);
+      item.clicks += Number(r.clicks || 0);
+      item.reach += Number(r.reach || 0);
+      item.purchases += Number(r.purchases || 0);
+      item.impressions += Number(r.impressions || 0);
+    });
+
+    const segments = Array.from(segmentMap.values()).map((s) => ({
+      ...s,
+      roas: calculateAggregatedRoas(s.revenue, s.spend),
+      ctr: s.impressions > 0 ? (s.clicks / s.impressions) * 100 : 0,
+    }));
+
+    // Stable sort by Spend descending. If spend is tied, use existing data ordering as tie-breaker.
+    segments.sort((a, b) => {
+      const diff = b.spend - a.spend;
+      if (diff !== 0) return diff;
+      return a.firstIndex - b.firstIndex;
+    });
+
+    return segments[0] || null;
   }, [matrixData]);
 
   // Dynamic Insights

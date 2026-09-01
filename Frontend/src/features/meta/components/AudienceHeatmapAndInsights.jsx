@@ -245,7 +245,7 @@ export const AudienceHeatmapAndInsights = ({
               <Sparkles size={15} /> Top Performing Segment
             </span>
             <span style={{ fontSize: "0.75rem", backgroundColor: "rgba(10, 132, 255, 0.08)", color: "#0A84FF", padding: "2px 8px", borderRadius: "999px", fontWeight: "600" }}>
-              Highest CTR
+              Highest Spend
             </span>
           </div>
 
@@ -257,12 +257,12 @@ export const AudienceHeatmapAndInsights = ({
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "4px", backgroundColor: "var(--color-surface-subtle, #F1F5F9)", padding: "12px", borderRadius: "8px", border: "1px solid var(--color-border, #E5E7EB)" }}>
                 <div>
-                  <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>CTR</span>
-                  <strong style={{ fontSize: "1rem", color: "#0A84FF", fontWeight: "700" }}>{formatPercentage(topSegment.ctr)}</strong>
+                  <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Spend</span>
+                  <strong style={{ fontSize: "1rem", color: "#0A84FF", fontWeight: "700" }}>{formatCurrency(topSegment.spend, currency)}</strong>
                 </div>
                 <div>
-                  <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Spend</span>
-                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #0F172A)" }}>{formatCurrency(topSegment.spend, currency)}</strong>
+                  <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>ROAS</span>
+                  <strong style={{ fontSize: "0.95rem", color: "var(--color-text-primary, #0F172A)" }}>{formatAudienceMetricValue(topSegment.roas, "roas", currency)}</strong>
                 </div>
                 <div>
                   <span style={{ fontSize: "0.72rem", color: "var(--color-text-muted, #94A3B8)", display: "block" }}>Clicks</span>
