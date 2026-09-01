@@ -1,8 +1,9 @@
 import React from "react";
+import viLogo from "../../assets/vilogo.png";
 
 /**
  * Shared AppLogo component.
- * Black rounded icon with white "V", strong Vytalis Intelligence typography with spacious tracking.
+ * Uses the provided V logo asset (assets/vilogo.png) consistently in place of the former blue rounded-square icon.
  */
 export const AppLogo = ({ size = "md" }) => {
   const iconDim = size === "sm" ? "28px" : size === "lg" ? "40px" : "34px";
@@ -10,25 +11,18 @@ export const AppLogo = ({ size = "md" }) => {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-      {/* Black Icon Container with White V */}
-      <div
+      {/* V Logo Asset */}
+      <img
+        src={viLogo}
+        alt="Vytalis Logo"
         style={{
           width: iconDim,
           height: iconDim,
-          borderRadius: "10px",
-          backgroundColor: "#0A92FF",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#FFFFFF",
-          fontWeight: "800",
-          fontSize: size === "sm" ? "0.85rem" : size === "lg" ? "1.25rem" : "1.05rem",
-          boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)",
+          objectFit: "contain",
+          borderRadius: "6px",
           flexShrink: 0,
         }}
-      >
-        V
-      </div>
+      />
 
       {/* Typography with Spacing between Vytalis and INTELLIGENCE */}
       <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
