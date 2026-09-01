@@ -40,6 +40,7 @@ if (process.env.TRUST_PROXY !== undefined) {
 // Strict credentialed CORS handling (never wildcard '*')
 const defaultOrigins = [
   "https://vytalismedia-intelligence.onrender.com",
+  "https://vytalismedia.com",
   "http://localhost:5173",
   "http://localhost:5000",
 ];
