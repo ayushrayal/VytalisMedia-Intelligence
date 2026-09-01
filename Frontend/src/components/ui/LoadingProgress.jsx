@@ -95,43 +95,41 @@ export const LoadingProgress = ({
   minHeight = "auto",
 }) => {
   const resolvedLabel = label || SECTION_LABELS[section || page] || "Loading Performance Data";
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(1);
 
   useEffect(() => {
     let timerId;
 
     if (isLoading) {
+      setProgress((prev) => (prev >= 100 ? 1 : prev === 0 ? 1 : prev));
+
       const updateProgress = () => {
         setProgress((prev) => {
-          if (prev >= 95) return 95; // Hard cap at 95% while API is still fetching
+          if (prev >= 99) return 99; // Cap at 99% while API is still fetching
 
-          let delta = 1;
-          if (prev < 30) delta = Math.floor(Math.random() * 5) + 4; // +4..8
-          else if (prev < 60) delta = Math.floor(Math.random() * 3) + 2; // +2..4
-          else if (prev < 80) delta = Math.floor(Math.random() * 2) + 1; // +1..2
-          else delta = 1; // +1
+          const nextVal = prev + 1; // Smooth step-by-step increment (1, 2, 3, 4, 5...)
 
-          const nextVal = Math.min(prev + delta, 95);
-
-          let nextDelay = 70;
-          if (nextVal >= 80) nextDelay = 280;
-          else if (nextVal >= 50) nextDelay = 140;
+          let nextDelay = 50; // 1% - 39%
+          if (nextVal >= 95) nextDelay = 1000; // 95% - 99%: continuous slow advance toward 99%
+          else if (nextVal >= 85) nextDelay = 500; // 85% - 94%
+          else if (nextVal >= 70) nextDelay = 250; // 70% - 84%
+          else if (nextVal >= 40) nextDelay = 100; // 40% - 69%
 
           timerId = setTimeout(updateProgress, nextDelay);
           return nextVal;
         });
       };
 
-      timerId = setTimeout(updateProgress, 40);
+      timerId = setTimeout(updateProgress, 30);
     } else {
-      // API finished (isLoading is false): animate quickly to 100%
+      // API finished (isLoading is false): animate smoothly to 100%
       const finishProgress = () => {
         setProgress((prev) => {
           if (prev < 100) {
-            const step = Math.max(Math.ceil((100 - prev) / 2), 2);
+            const step = Math.max(Math.ceil((100 - prev) / 3), 2);
             const nextVal = Math.min(prev + step, 100);
             if (nextVal < 100) {
-              timerId = setTimeout(finishProgress, 25);
+              timerId = setTimeout(finishProgress, 20);
             } else {
               timerId = setTimeout(() => {
                 if (onComplete) onComplete();

@@ -13,6 +13,7 @@ export const MetricCard = ({
   trendPositive = true,
   icon: IconComponent,
   accentColor = "#0A84FF",
+  fontSize,
   onClick,
 }) => {
   const displayTitle = title || label || "Metric";
@@ -20,7 +21,7 @@ export const MetricCard = ({
   const isReactElement = React.isValidElement(value);
   const valueStr = isReactElement ? "" : (value !== null && value !== undefined ? String(value) : "—");
   const valueLen = valueStr.length;
-  const computedFontSize = isReactElement ? undefined : (valueLen > 14 ? "17px" : valueLen > 11 ? "19px" : valueLen > 8 ? "21px" : "24px");
+  const computedFontSize = fontSize || (isReactElement ? undefined : valueLen > 15 ? "18px" : "22px");
 
   return (
     <div
