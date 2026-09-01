@@ -16,8 +16,10 @@ import {
   setActiveMetaAccount,
 } from "../services/meta.api.js";
 import { getErrorMessage } from "../../../utils/error.js";
+import { useAccount } from "../../../context/AccountContext.jsx";
 
 export const MetaAccounts = () => {
+  const { refetchAccounts } = useAccount();
   const [accounts, setAccounts] = useState([]);
   const [activeMetaAccount, setActiveMetaAccountState] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,13 +47,14 @@ export const MetaAccounts = () => {
       if (res.data) {
         setAccounts(res.data.accounts || []);
         setActiveMetaAccountState(res.data.activeMetaAccount || null);
+        refetchAccounts();
       }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refetchAccounts]);
 
   useEffect(() => {
     fetchAccounts();

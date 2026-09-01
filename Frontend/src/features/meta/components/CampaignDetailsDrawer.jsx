@@ -11,6 +11,7 @@ import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
 import { getErrorMessage } from "../../../utils/error.js";
+import { checkIsSingleDay, aggregateCreativesData } from "../utils/creativeAggregator.js";
 
 /**
  * Metric Formatter displaying '—' for unavailable (null/undefined) metrics.
@@ -131,9 +132,19 @@ export const CampaignDetailsDrawer = ({
 
   const campaign = data?.campaign || {};
   const adSets = data?.adSets || [];
-  const creatives = data?.creatives || [];
+  const rawCreatives = data?.creatives || [];
   const performance = data?.performance || {};
   const currency = campaign.currency || performance.currency || "INR";
+
+  // 1. Determine if single day range
+  const isSingleDay = useMemo(() => {
+    return checkIsSingleDay(dateParams, rawCreatives);
+  }, [dateParams, rawCreatives]);
+
+  // 2. Aggregate raw creatives multi-day dataset using unique creative identity hierarchy
+  const creatives = useMemo(() => {
+    return aggregateCreativesData(rawCreatives, isSingleDay);
+  }, [rawCreatives, isSingleDay]);
 
   // Filtered creatives list based on selected status filter
   const filteredCreatives = useMemo(() => {

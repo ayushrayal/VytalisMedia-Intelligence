@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { getMetaAccounts, setActiveMetaAccount } from "../services/meta.api.js";
+import { useAccount } from "../../../context/AccountContext.jsx";
 import { getErrorMessage } from "../../../utils/error.js";
 import { Link2, RefreshCw, ChevronDown } from "lucide-react";
 import metaLogoImg from "../../../assets/mobile.png";
@@ -15,49 +15,26 @@ export const AccountSwitcher = ({ onAccountSwitched }) => {
   const outletContext = useOutletContext() || {};
   const isMember = outletContext.user?.role === "member";
 
-  const [accounts, setAccounts] = useState([]);
-  const [activeAccount, setActiveAccount] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [switching, setSwitching] = useState(false);
-  const [error, setError] = useState(null);
-
-  const fetchAccounts = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await getMetaAccounts();
-      if (res.data) {
-        setAccounts(res.data.accounts || []);
-        setActiveAccount(res.data.activeMetaAccount || null);
-      }
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAccounts();
-  }, []);
+  const {
+    metaAccounts: accounts,
+    activeMetaAccount: activeAccount,
+    metaLoading: loading,
+    metaError: error,
+    switchingMeta: switching,
+    switchMetaAccount,
+  } = useAccount();
 
   const handleSelectAccount = async (e) => {
     const targetAccountId = e.target.value;
     if (!targetAccountId || targetAccountId === activeAccount) return;
 
     try {
-      setSwitching(true);
-      const res = await setActiveMetaAccount(targetAccountId);
-      if (res.data) {
-        setActiveAccount(res.data.activeMetaAccount);
-        if (onAccountSwitched) {
-          onAccountSwitched(res.data.activeMetaAccount);
-        }
+      const newActive = await switchMetaAccount(targetAccountId);
+      if (onAccountSwitched && newActive) {
+        onAccountSwitched(newActive);
       }
     } catch (err) {
       alert(`Account switch failed: ${getErrorMessage(err)}`);
-    } finally {
-      setSwitching(false);
     }
   };
 

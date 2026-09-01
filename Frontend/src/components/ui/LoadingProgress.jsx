@@ -101,35 +101,30 @@ export const LoadingProgress = ({
     let timerId;
 
     if (isLoading) {
-      setProgress((prev) => (prev >= 100 ? 1 : prev === 0 ? 1 : prev));
+      const startTime = Date.now();
 
       const updateProgress = () => {
-        setProgress((prev) => {
-          if (prev >= 99) return 99; // Cap at 99% while API is still fetching
+        const elapsed = Date.now() - startTime;
+        // Map elapsed time (0 -> 15,000ms) smoothly to progress percentage (1% -> 99%)
+        const calculatedProgress = Math.min(Math.floor(1 + (elapsed / 15000) * 98), 99);
+        
+        setProgress(calculatedProgress);
 
-          const nextVal = prev + 1; // Smooth step-by-step increment (1, 2, 3, 4, 5...)
-
-          let nextDelay = 50; // 1% - 39%
-          if (nextVal >= 95) nextDelay = 1000; // 95% - 99%: continuous slow advance toward 99%
-          else if (nextVal >= 85) nextDelay = 500; // 85% - 94%
-          else if (nextVal >= 70) nextDelay = 250; // 70% - 84%
-          else if (nextVal >= 40) nextDelay = 100; // 40% - 69%
-
-          timerId = setTimeout(updateProgress, nextDelay);
-          return nextVal;
-        });
+        if (elapsed < 15000) {
+          timerId = setTimeout(updateProgress, 50);
+        }
       };
 
-      timerId = setTimeout(updateProgress, 30);
+      updateProgress();
     } else {
-      // API finished (isLoading is false): animate smoothly to 100%
+      // Real API request completed or failed (isLoading becomes false): animate smoothly to 100%
       const finishProgress = () => {
         setProgress((prev) => {
           if (prev < 100) {
-            const step = Math.max(Math.ceil((100 - prev) / 3), 2);
+            const step = Math.max(Math.ceil((100 - prev) / 3), 3);
             const nextVal = Math.min(prev + step, 100);
             if (nextVal < 100) {
-              timerId = setTimeout(finishProgress, 20);
+              timerId = setTimeout(finishProgress, 18);
             } else {
               timerId = setTimeout(() => {
                 if (onComplete) onComplete();

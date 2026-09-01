@@ -9,8 +9,10 @@ import ErrorState from "../../../components/ui/ErrorState.jsx";
 import Input from "../../../components/ui/Input.jsx";
 import Modal from "../../../components/ui/Modal.jsx";
 import { Trash2, X } from "lucide-react";
+import { useAccount } from "../../../context/AccountContext.jsx";
 
 export const ShopifyAccounts = () => {
+  const { refetchAccounts } = useAccount();
   const [accounts, setAccounts] = useState([]);
   const [activeAccount, setActiveAccount] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,13 +43,14 @@ export const ShopifyAccounts = () => {
       if (res.data) {
         setAccounts(res.data.accounts || []);
         setActiveAccount(res.data.activeShopifyAccount || null);
+        refetchAccounts();
       }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refetchAccounts]);
 
   useEffect(() => {
     fetchAccounts();

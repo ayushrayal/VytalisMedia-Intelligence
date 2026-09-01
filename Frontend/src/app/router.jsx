@@ -284,6 +284,8 @@ const WelcomeRoute = ({ user, authLoading, restoreSession }) => {
   );
 };
 
+import { AccountProvider } from "../context/AccountContext.jsx";
+
 const ProtectedRoute = ({ user, setUser, authLoading }) => {
   if (authLoading) return <LoadingScreen />;
 
@@ -295,7 +297,11 @@ const ProtectedRoute = ({ user, setUser, authLoading }) => {
     return <Navigate to="/welcome" replace />;
   }
 
-  return <DashboardLayout user={user} setUser={setUser} />;
+  return (
+    <AccountProvider user={user}>
+      <DashboardLayout user={user} setUser={setUser} />
+    </AccountProvider>
+  );
 };
 
 const AdminRouteGuard = ({ user: directUser }) => {

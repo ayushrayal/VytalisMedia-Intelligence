@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { http } from "../../../lib/http.js";
+import React, { useEffect } from "react";
+import { useAccount } from "../../../context/AccountContext.jsx";
 import { getErrorMessage } from "../../../utils/error.js";
 import { ChevronDown } from "lucide-react";
 import shopifyLogoImg from "../../../assets/shopify.png";
@@ -9,56 +9,31 @@ import shopifyLogoImg from "../../../assets/shopify.png";
  * Handles store selection, active account preference switching, and locked state signaling.
  */
 export const ShopifyAccountSwitcher = ({ onAccountChanged, onAccountsLoaded }) => {
-  const [accounts, setAccounts] = useState([]);
-  const [activeAccount, setActiveAccount] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [switching, setSwitching] = useState(false);
-
-  const fetchAccounts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await http.get("/shopify/accounts");
-      if (res.data) {
-        const accList = res.data.accounts || [];
-        const active = res.data.activeShopifyAccount || (accList.length > 0 ? accList[0].accountName : "");
-
-        setAccounts(accList);
-        setActiveAccount(active);
-
-        if (onAccountsLoaded) {
-          onAccountsLoaded({ accounts: accList, activeAccount: active });
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load Shopify accounts:", err);
-      if (onAccountsLoaded) {
-        onAccountsLoaded({ accounts: [], activeAccount: "" });
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [onAccountsLoaded]);
+  const {
+    shopifyAccounts: accounts,
+    activeShopifyAccount: activeAccount,
+    shopifyLoading: loading,
+    switchingShopify: switching,
+    switchShopifyAccount,
+  } = useAccount();
 
   useEffect(() => {
-    fetchAccounts();
-  }, [fetchAccounts]);
+    if (!loading && onAccountsLoaded) {
+      onAccountsLoaded({ accounts, activeAccount });
+    }
+  }, [loading, accounts, activeAccount, onAccountsLoaded]);
 
   const handleSelectChange = async (e) => {
     const selectedDomain = e.target.value;
     if (!selectedDomain || selectedDomain === activeAccount) return;
 
     try {
-      setSwitching(true);
-      await http.patch("/shopify/accounts/active", { accountName: selectedDomain });
-      setActiveAccount(selectedDomain);
-
-      if (onAccountChanged) {
-        onAccountChanged(selectedDomain);
+      const newActive = await switchShopifyAccount(selectedDomain);
+      if (onAccountChanged && newActive) {
+        onAccountChanged(newActive);
       }
     } catch (err) {
       alert(`Failed to switch active Shopify store: ${getErrorMessage(err)}`);
-    } finally {
-      setSwitching(false);
     }
   };
 

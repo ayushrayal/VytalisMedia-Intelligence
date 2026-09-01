@@ -101,27 +101,6 @@ const getPresetRanges = (presetKey) => {
     };
   }
 
-  if (presetKey === "this_month") {
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const currentDay = now.getDate();
-
-    const pAStart = new Date(currentYear, currentMonth, 1);
-    const pAEnd = new Date(currentYear, currentMonth, currentDay);
-    const dayCount = Math.round((pAEnd - pAStart) / (1000 * 60 * 60 * 24)) + 1;
-
-    const pBStart = new Date(currentYear, currentMonth - 1, 1);
-    const pBEnd = new Date(pBStart);
-    pBEnd.setDate(pBStart.getDate() + dayCount - 1);
-
-    return {
-      pAFrom: formatDate(pAStart),
-      pATo: formatDate(pAEnd),
-      pBFrom: formatDate(pBStart),
-      pBTo: formatDate(pBEnd),
-    };
-  }
-
   return getPresetRanges("last_7d");
 };
 
@@ -228,7 +207,6 @@ export const DateRangeCompareSelector = ({ onCompare, loading = false, initialPr
             { key: "last_7d", label: "Last 7 Days vs Previous 7 Days" },
             { key: "last_14d", label: "Last 14 Days vs Previous 14 Days" },
             { key: "last_30d", label: "Last 30 Days vs Previous 30 Days" },
-            { key: "this_month", label: "This Month vs Previous Month" },
           ].map((preset) => {
             const isSelected = activePreset === preset.key;
             return (

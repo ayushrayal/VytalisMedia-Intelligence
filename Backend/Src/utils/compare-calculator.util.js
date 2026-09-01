@@ -146,7 +146,7 @@ const buildPresetDateRanges = (preset) => {
 
     // Previous month start
     const pBStart = new Date(currentYear, currentMonth - 1, 1);
-    
+
     // Ensure exact equal day count matching Period A
     const pBEnd = new Date(pBStart);
     pBEnd.setDate(pBStart.getDate() + dayCount - 1);
