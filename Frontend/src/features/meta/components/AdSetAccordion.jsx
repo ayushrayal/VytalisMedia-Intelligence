@@ -1,7 +1,6 @@
 import React from "react";
 import { ChevronDown } from "lucide-react";
 import StatusBadge from "./StatusBadge.jsx";
-import AdSetBreakdowns from "./AdSetBreakdowns.jsx";
 import { formatCurrency } from "../../../utils/formatCurrency.js";
 import { formatNumber } from "../../../utils/formatNumber.js";
 import { formatPercentage } from "../../../utils/formatPercentage.js";
@@ -311,16 +310,6 @@ export const AdSetAccordion = ({
                 <strong style={valueStyle}>{formatMetric(adset.frequency, "decimal")}</strong>
               </div>
             </div>
-          </div>
-
-          {/* SECTION 4: PERFORMANCE BREAKDOWNS */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>
-            <AdSetBreakdowns
-              adSetId={adset.id || adset.adset_id}
-              dateParams={dateParams}
-              currency={currency}
-              titlePrefix={adset.name || "Ad Set"}
-            />
           </div>
         </div>
       )}
